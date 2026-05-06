@@ -31,6 +31,59 @@ model User {
   role      Role      @relation(fields: [roleId], references: [id])
 }
 
+model Category {
+  id         Int       @id @default(autoincrement())
+  businessId Int       @default(1)
+  name       String    @db.VarChar(100)
+  createdAt  DateTime  @default(now())
+  products   Product[]
+  @@unique([businessId, name])
+}
+
+model Product {
+  id          Int       @id @default(autoincrement())
+  productId   String    @unique @db.VarChar(20)
+  businessId  Int       @default(1)
+  name        String    @db.VarChar(255)
+  sku         String?   @db.VarChar(100)
+  categoryId  Int?
+  unit        String    @db.VarChar(50)
+  salePrice   Decimal   @db.Decimal(10, 2)
+  costPrice   Decimal   @db.Decimal(10, 2)
+  taxRate     Decimal   @default(0) @db.Decimal(5, 2)
+  description String?   @db.Text
+  imageUrl    String?   @db.VarChar(500)
+  status      String    @default("active") @db.VarChar(20)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  category    Category? @relation(fields: [categoryId], references: [id])
+}
+
+model DeleteRequest {
+  id          Int       @id @default(autoincrement())
+  businessId  Int       @default(1)
+  entityType  String    @db.VarChar(50)
+  entityId    Int
+  reason      String    @db.Text
+  status      String    @default("pending") @db.VarChar(20)
+  requestedBy Int
+  reviewedBy  Int?
+  reviewedAt  DateTime?
+  createdAt   DateTime  @default(now())
+}
+
+model ActivityLog {
+  id         Int      @id @default(autoincrement())
+  businessId Int      @default(1)
+  userId     Int
+  action     String   @db.VarChar(50)
+  entityType String   @db.VarChar(50)
+  entityId   Int?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+}
+
 model Setting {
   id            Int      @id @default(autoincrement())
   businessId    Int      @default(1)
