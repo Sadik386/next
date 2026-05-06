@@ -1,0 +1,56 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Role {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique @db.VarChar(50)
+  label       String   @db.VarChar(100)
+  description String?  @db.VarChar(255)
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  users       User[]
+}
+
+model User {
+  id        Int       @id @default(autoincrement())
+  name      String    @db.VarChar(100)
+  email     String    @unique @db.VarChar(150)
+  password  String    @db.VarChar(255)
+  roleId    Int
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  role      Role      @relation(fields: [roleId], references: [id])
+}
+
+model Setting {
+  id            Int      @id @default(autoincrement())
+  businessId    Int      @default(1)
+  businessName  String   @db.VarChar(150)
+  tagline       String?  @db.VarChar(255)
+  email         String?  @db.VarChar(150)
+  phone         String?  @db.VarChar(30)
+  website       String?  @db.VarChar(255)
+  taxId         String?  @db.VarChar(100)
+  address       String?  @db.Text
+  city          String?  @db.VarChar(100)
+  state         String?  @db.VarChar(100)
+  zipCode       String?  @db.VarChar(20)
+  country       String?  @db.VarChar(100)
+  logoUrl       String?  @db.VarChar(500)
+  printLogoUrl String?  @db.VarChar(500)
+  brandColor    String?  @db.VarChar(20)
+  invoiceFooter String?  @db.Text
+  currency      String   @default("BDT") @db.VarChar(10)
+  weekStartDay  Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
