@@ -2,10 +2,10 @@
 
 export default function GlobalError({
   error,
-  reset,
+  unstable_retry,
 }: {
   error: Error & { digest?: string };
-  reset: () => void;
+  unstable_retry: () => void;
 }) {
   return (
     <html lang="en">
@@ -29,7 +29,7 @@ export default function GlobalError({
             {error.message || "An unexpected error occurred."}
           </p>
           <button
-            onClick={() => reset()}
+            onClick={() => unstable_retry()}
             style={{
               padding: "8px 16px",
               backgroundColor: "#C4973A",

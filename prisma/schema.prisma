@@ -19,16 +19,17 @@ model Role {
 }
 
 model User {
-  id        Int       @id @default(autoincrement())
-  name      String    @db.VarChar(100)
-  email     String    @unique @db.VarChar(150)
-  password  String    @db.VarChar(255)
+  id        Int        @id @default(autoincrement())
+  name      String     @db.VarChar(100)
+  email     String     @unique @db.VarChar(150)
+  password  String     @db.VarChar(255)
   roleId    Int
-  isActive  Boolean   @default(true)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  isActive  Boolean    @default(true)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
   deletedAt DateTime?
-  role      Role      @relation(fields: [roleId], references: [id])
+  role      Role       @relation(fields: [roleId], references: [id])
+  stockLogs StockLog[]
 }
 
 model Category {
@@ -41,23 +42,54 @@ model Category {
 }
 
 model Product {
-  id          Int       @id @default(autoincrement())
-  productId   String    @unique @db.VarChar(20)
-  businessId  Int       @default(1)
-  name        String    @db.VarChar(255)
-  sku         String?   @db.VarChar(100)
+  id          Int        @id @default(autoincrement())
+  productId   String     @unique @db.VarChar(20)
+  businessId  Int        @default(1)
+  name        String     @db.VarChar(255)
+  sku         String?    @db.VarChar(100)
   categoryId  Int?
-  unit        String    @db.VarChar(50)
-  salePrice   Decimal   @db.Decimal(10, 2)
-  costPrice   Decimal   @db.Decimal(10, 2)
-  taxRate     Decimal   @default(0) @db.Decimal(5, 2)
-  description String?   @db.Text
-  imageUrl    String?   @db.VarChar(500)
-  status      String    @default("active") @db.VarChar(20)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  unit        String     @db.VarChar(50)
+  salePrice   Decimal    @db.Decimal(10, 2)
+  costPrice   Decimal    @db.Decimal(10, 2)
+  taxRate     Decimal    @default(0) @db.Decimal(5, 2)
+  description String?    @db.Text
+  imageUrl    String?    @db.VarChar(500)
+  status      String     @default("active") @db.VarChar(20)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
   deletedAt   DateTime?
-  category    Category? @relation(fields: [categoryId], references: [id])
+  category    Category?  @relation(fields: [categoryId], references: [id])
+  stock       Stock?
+  stockLogs   StockLog[]
+}
+
+model Stock {
+  id         Int        @id @default(autoincrement())
+  businessId Int        @default(1)
+  productId  Int        @unique
+  quantity   Int        @default(0)
+  threshold  Int        @default(10)
+  location   String?    @db.VarChar(255)
+  updatedAt  DateTime   @updatedAt
+  product    Product    @relation(fields: [productId], references: [id])
+  stockLogs  StockLog[]
+}
+
+model StockLog {
+  id            Int      @id @default(autoincrement())
+  businessId    Int      @default(1)
+  stockId       Int
+  productId     Int
+  type          String   @db.VarChar(20)
+  quantity      Int
+  reason        String?  @db.VarChar(255)
+  previousQty   Int
+  newQty        Int
+  createdBy     Int
+  createdAt     DateTime @default(now())
+  stock         Stock    @relation(fields: [stockId], references: [id])
+  product       Product  @relation(fields: [productId], references: [id])
+  createdByUser User     @relation(fields: [createdBy], references: [id])
 }
 
 model DeleteRequest {

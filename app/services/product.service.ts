@@ -90,6 +90,10 @@ export async function createProduct(data: ProductInput, userId: number) {
     include: { category: true },
   });
 
+  await prisma.stock.create({
+    data: { productId: product.id, quantity: 0, threshold: 10 },
+  });
+
   await prisma.activityLog.create({
     data: {
       userId,
