@@ -30,6 +30,7 @@ model User {
   deletedAt DateTime?
   role      Role       @relation(fields: [roleId], references: [id])
   stockLogs StockLog[]
+  orders    Order[]    @relation("OrderCreatedBy")
 }
 
 model Category {
@@ -61,6 +62,7 @@ model Product {
   category    Category?  @relation(fields: [categoryId], references: [id])
   stock       Stock?
   stockLogs   StockLog[]
+  orderItems  OrderItem[]
 }
 
 model Stock {
@@ -134,6 +136,7 @@ model Customer {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
   deletedAt       DateTime?
+  orders          Order[]
 }
 
 model Supplier {
@@ -185,4 +188,41 @@ model Setting {
   weekStartDay  Int      @default(0)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+}
+
+model Order {
+  id              Int         @id @default(autoincrement())
+  orderId         String      @unique @db.VarChar(20)
+  businessId      Int         @default(1)
+  customerId      Int
+  status          String      @default("pending") @db.VarChar(20)
+  paymentStatus   String      @default("unpaid") @db.VarChar(20)
+  paymentMethod   String?     @db.VarChar(50)
+  subtotal        Decimal     @db.Decimal(10, 2)
+  taxAmount       Decimal     @default(0) @db.Decimal(10, 2)
+  discountAmount  Decimal     @default(0) @db.Decimal(10, 2)
+  totalAmount     Decimal     @db.Decimal(10, 2)
+  paidAmount      Decimal     @default(0) @db.Decimal(10, 2)
+  shippingAddress String?     @db.Text
+  billingAddress  String?     @db.Text
+  notes           String?     @db.Text
+  createdBy       Int
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  deletedAt       DateTime?
+  customer        Customer    @relation(fields: [customerId], references: [id])
+  createdByUser   User        @relation("OrderCreatedBy", fields: [createdBy], references: [id])
+  items           OrderItem[]
+}
+
+model OrderItem {
+  id          Int      @id @default(autoincrement())
+  orderId     Int
+  productId   Int
+  productName String   @db.VarChar(255)
+  quantity    Int
+  unitPrice   Decimal  @db.Decimal(10, 2)
+  totalPrice  Decimal  @db.Decimal(10, 2)
+  order       Order    @relation(fields: [orderId], references: [id])
+  product     Product  @relation(fields: [productId], references: [id])
 }
