@@ -116,6 +116,53 @@ model ActivityLog {
   createdAt  DateTime @default(now())
 }
 
+model Customer {
+  id              Int       @id @default(autoincrement())
+  customerId      String    @unique @db.VarChar(20)
+  businessId      Int       @default(1)
+  name            String    @db.VarChar(150)
+  email           String?   @db.VarChar(150)
+  mobile          String    @db.VarChar(30)
+  country         String?   @db.VarChar(100)
+  state           String?   @db.VarChar(100)
+  zipCode         String?   @db.VarChar(20)
+  city            String?   @db.VarChar(100)
+  streetAddress   String?   @db.Text
+  billingAddress  String?   @db.Text
+  shippingAddress String?   @db.Text
+  status          String    @default("active") @db.VarChar(20)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+}
+
+model Supplier {
+  id              Int       @id @default(autoincrement())
+  supplierId      String    @unique @db.VarChar(20)
+  businessId      Int       @default(1)
+  companyName     String    @db.VarChar(255)
+  contactName     String    @db.VarChar(150)
+  email           String?   @db.VarChar(150)
+  mobile          String?   @db.VarChar(30)
+  website         String?   @db.VarChar(255)
+  taxId           String?   @db.VarChar(100)
+  paymentTerms    String?   @db.VarChar(100)
+  currency        String    @default("BDT") @db.VarChar(10)
+  bankName        String?   @db.VarChar(150)
+  bankAccount     String?   @db.VarChar(100)
+  category        String?   @db.VarChar(100)
+  deliveryMethod  String?   @db.VarChar(100)
+  streetAddress   String?   @db.Text
+  city            String?   @db.VarChar(100)
+  state           String?   @db.VarChar(100)
+  zipCode         String?   @db.VarChar(20)
+  country         String?   @db.VarChar(100)
+  status          String    @default("active") @db.VarChar(20)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+}
+
 model Setting {
   id            Int      @id @default(autoincrement())
   businessId    Int      @default(1)
