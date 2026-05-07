@@ -47,3 +47,9 @@
 body { background-color: var(--page-bg); color: var(--text-primary); }
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-thumb { background: var(--card-border); border-radius: 4px; }
+
+@media print {
+  nav, aside, header, .no-print { display: none !important; }
+  main { margin: 0 !important; padding: 0 !important; }
+  .print-only { display: block !important; }
+}
