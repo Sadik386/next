@@ -20,6 +20,7 @@ import {
   Import,
   Brain,
 } from "lucide-react";
+import { useSidebar } from "@/contexts/SidebarContext";
 
 const businessNav = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -48,18 +49,21 @@ const adminNav = [
 function NavItem({
   item,
   active,
+  collapsed,
 }: {
   item: { label: string; href: string; icon: React.ElementType };
   active: boolean;
+  collapsed: boolean;
 }) {
   const Icon = item.icon;
   return (
     <Link
       href={item.href}
+      title={collapsed ? item.label : undefined}
       style={{
         display: "flex",
         alignItems: "center",
-        justifyContent: "space-between",
+        justifyContent: collapsed ? "center" : "space-between",
         padding: "7px 10px",
         borderRadius: "8px",
         textDecoration: "none",
@@ -76,111 +80,145 @@ function NavItem({
     >
       <div style={{ display: "flex", alignItems: "center", gap: "9px" }}>
         <Icon size={15} strokeWidth={1.8} color={active ? "var(--brand)" : "var(--sidebar-text)"} />
-        <span
-          style={{
-            fontSize: "13px",
-            fontWeight: active ? 600 : 400,
-            color: active ? "var(--sidebar-text-active)" : "var(--sidebar-text)",
-          }}
-        >
-          {item.label}
-        </span>
+        {!collapsed && (
+          <span
+            style={{
+              fontSize: "13px",
+              fontWeight: active ? 600 : 400,
+              color: active ? "var(--sidebar-text-active)" : "var(--sidebar-text)",
+            }}
+          >
+            {item.label}
+          </span>
+        )}
       </div>
-      {active && <span style={{ fontSize: "11px", color: "var(--brand)" }}>›</span>}
+      {active && !collapsed && <span style={{ fontSize: "11px", color: "var(--brand)" }}>›</span>}
     </Link>
   );
 }
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const { isCollapsed, isMobileOpen, closeMobile } = useSidebar();
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
+
+  // On mobile the drawer always renders at full expanded width.
+  const drawerExpanded = isMobileOpen || !isCollapsed;
+  const sidebarWidth = drawerExpanded ? "220px" : "64px";
+
   return (
-    <aside
-      style={{
-        position: "fixed",
-        left: 0,
-        top: 0,
-        height: "100vh",
-        width: "220px",
-        backgroundColor: "var(--sidebar-bg)",
-        borderRight: "1px solid var(--sidebar-border)",
-        display: "flex",
-        flexDirection: "column",
-        zIndex: 40,
-      }}
-    >
-      <div style={{ padding: "18px 14px 14px", borderBottom: "1px solid var(--sidebar-border)" }}>
-        <p
+    <>
+      {isMobileOpen && <div className="sidebar-backdrop" onClick={closeMobile} />}
+      <aside
+        className="app-sidebar"
+        data-mobile-open={isMobileOpen}
+        style={{
+          position: "fixed",
+          left: 0,
+          top: 0,
+          height: "100vh",
+          width: sidebarWidth,
+          backgroundColor: "var(--sidebar-bg)",
+          borderRight: "1px solid var(--sidebar-border)",
+          display: "flex",
+          flexDirection: "column",
+          zIndex: 40,
+          transition: "width 0.2s ease",
+        }}
+      >
+        <div
           style={{
-            fontSize: "9px",
-            color: "var(--sidebar-text)",
-            fontWeight: 600,
-            letterSpacing: "0.1em",
-            textTransform: "uppercase",
-            marginBottom: "10px",
+            padding: drawerExpanded ? "18px 14px 14px" : "18px 8px 14px",
+            borderBottom: "1px solid var(--sidebar-border)",
           }}
         >
-          Workspace
-        </p>
-        <div style={{ display: "flex", alignItems: "center", gap: "9px" }}>
+          {drawerExpanded && (
+            <p
+              style={{
+                fontSize: "9px",
+                color: "var(--sidebar-text)",
+                fontWeight: 600,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                marginBottom: "10px",
+              }}
+            >
+              Workspace
+            </p>
+          )}
           <div
             style={{
-              width: "28px",
-              height: "28px",
-              borderRadius: "7px",
-              backgroundColor: "var(--brand)",
               display: "flex",
               alignItems: "center",
-              justifyContent: "center",
-              fontSize: "12px",
-              fontWeight: 700,
-              color: "white",
+              justifyContent: drawerExpanded ? "flex-start" : "center",
+              gap: "9px",
             }}
           >
-            A
+            <div
+              style={{
+                width: "28px",
+                height: "28px",
+                borderRadius: "7px",
+                backgroundColor: "var(--brand)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "12px",
+                fontWeight: 700,
+                color: "white",
+              }}
+            >
+              A
+            </div>
+            {drawerExpanded && (
+              <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--sidebar-text-active)" }}>
+                Accoraze
+              </span>
+            )}
           </div>
-          <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--sidebar-text-active)" }}>
-            Accoraze
-          </span>
         </div>
-      </div>
-      <nav style={{ flex: 1, overflowY: "auto", padding: "10px 8px" }}>
-        <p
-          style={{
-            fontSize: "9px",
-            color: "var(--sidebar-text)",
-            fontWeight: 600,
-            letterSpacing: "0.1em",
-            textTransform: "uppercase",
-            padding: "4px 10px 8px",
-          }}
-        >
-          Business
-        </p>
-        {businessNav.map((item) => (
-          <NavItem key={item.href} item={item} active={isActive(item.href)} />
-        ))}
-        <p
-          style={{
-            fontSize: "9px",
-            color: "var(--sidebar-text)",
-            fontWeight: 600,
-            letterSpacing: "0.1em",
-            textTransform: "uppercase",
-            padding: "14px 10px 8px",
-          }}
-        >
-          Admin
-        </p>
-        {adminNav.map((item) => (
-          <NavItem key={item.href} item={item} active={isActive(item.href)} />
-        ))}
-      </nav>
-      <div style={{ padding: "10px 14px", borderTop: "1px solid var(--sidebar-border)" }}>
-        <p style={{ fontSize: "11px", color: "var(--sidebar-text)", textAlign: "center" }}>
-          Accoraze v1.0.0
-        </p>
-      </div>
-    </aside>
+        <nav style={{ flex: 1, overflowY: "auto", padding: "10px 8px" }}>
+          {drawerExpanded && (
+            <p
+              style={{
+                fontSize: "9px",
+                color: "var(--sidebar-text)",
+                fontWeight: 600,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                padding: "4px 10px 8px",
+              }}
+            >
+              Business
+            </p>
+          )}
+          {businessNav.map((item) => (
+            <NavItem key={item.href} item={item} active={isActive(item.href)} collapsed={!drawerExpanded} />
+          ))}
+          {drawerExpanded && (
+            <p
+              style={{
+                fontSize: "9px",
+                color: "var(--sidebar-text)",
+                fontWeight: 600,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                padding: "14px 10px 8px",
+              }}
+            >
+              Admin
+            </p>
+          )}
+          {adminNav.map((item) => (
+            <NavItem key={item.href} item={item} active={isActive(item.href)} collapsed={!drawerExpanded} />
+          ))}
+        </nav>
+        <div style={{ padding: "10px 14px", borderTop: "1px solid var(--sidebar-border)" }}>
+          <p style={{ fontSize: "11px", color: "var(--sidebar-text)", textAlign: "center" }}>
+            {drawerExpanded ? "Accoraze v1.0.0" : "v1"}
+          </p>
+        </div>
+      </aside>
+    </>
   );
 }

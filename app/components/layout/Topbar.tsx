@@ -15,6 +15,7 @@ import {
   Trash2,
   XCircle,
 } from "lucide-react";
+import { useSidebar } from "@/contexts/SidebarContext";
 
 type Notification = {
   id: number;
@@ -48,6 +49,7 @@ function timeAgo(date: string) {
 export default function Topbar() {
   const router = useRouter();
   const pathname = usePathname();
+  const { toggleSidebar } = useSidebar();
   const [isDark, setIsDark] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [showNotif, setShowNotif] = useState(false);
@@ -135,7 +137,7 @@ export default function Topbar() {
       style={{
         position: "fixed",
         top: 0,
-        left: "220px",
+        left: "var(--sidebar-width)",
         right: 0,
         height: "48px",
         backgroundColor: "var(--topbar-bg)",
@@ -145,10 +147,13 @@ export default function Topbar() {
         justifyContent: "space-between",
         padding: "0 20px",
         zIndex: 30,
+        transition: "left 0.2s ease",
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
         <button
+          onClick={toggleSidebar}
+          aria-label="Toggle sidebar"
           style={{
             width: "28px",
             height: "28px",
