@@ -361,3 +361,69 @@ model Business {
   updatedAt DateTime @updatedAt
 }
 
+model ApiKey {
+  id          Int       @id @default(autoincrement())
+  businessId  Int
+  name        String
+  key         String    @unique
+  isActive    Boolean   @default(true)
+  permissions String    // JSON array: ["read:products", "write:orders"]
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+}
+
+model Webhook {
+  id          Int       @id @default(autoincrement())
+  businessId  Int
+  name        String
+  url         String
+  secret      String
+  events      String    // JSON: ["order.created", "stock.low"]
+  isActive    Boolean   @default(true)
+  lastFiredAt DateTime?
+  failCount   Int       @default(0)
+  createdAt   DateTime  @default(now())
+}
+
+model WebhookLog {
+  id          Int      @id @default(autoincrement())
+  webhookId   Int
+  event       String
+  payload     String   @db.Text
+  response    String?  @db.Text
+  statusCode  Int?
+  success     Boolean
+  firedAt     DateTime @default(now())
+}
+
+model PaymentTransaction {
+  id            Int      @id @default(autoincrement())
+  orderId       Int
+  businessId    Int
+  provider      String   // bkash, nagad, stripe, cash
+  amount        Decimal  @db.Decimal(10, 2)
+  currency      String   @default("BDT")
+  status        String   // pending, success, failed, refunded
+  transactionId String?
+  sessionId     String?
+  metadata      String?  @db.Text
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Shipment {
+  id           Int       @id @default(autoincrement())
+  orderId      Int
+  businessId   Int
+  provider     String    // pathao, steadfast, redx
+  trackingId   String?
+  status       String    // pending, dispatched, in_transit, delivered, returned
+  cost         Decimal?  @db.Decimal(10, 2)
+  metadata     String?   @db.Text
+  dispatchedAt DateTime?
+  deliveredAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
