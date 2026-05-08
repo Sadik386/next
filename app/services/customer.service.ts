@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { createLog } from "@/services/activity-log.service";
+import { notifyDeleteRequest } from "@/services/delete-request.service";
 
 export interface CustomerFilters {
   search?: string;
@@ -163,6 +164,8 @@ export async function requestDeleteCustomer(id: number, reason: string, userId: 
     description: `Requested deletion for customer: ${customer.name} (${customer.customerId})`,
     metadata: { customerId: customer.customerId, reason },
   });
+
+  await notifyDeleteRequest("customer", customer.name);
 
   return request;
 }

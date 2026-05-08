@@ -2,6 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { ensureStockForProduct, getStockStatus } from "@/services/inventory.service";
 import { createLog } from "@/services/activity-log.service";
+import { createNotification } from "@/services/notification.service";
+import { notifyDeleteRequest } from "@/services/delete-request.service";
 
 export interface OrderFilters {
   search?: string;
@@ -246,6 +248,13 @@ export async function createOrder(data: OrderInput, userId: number) {
     },
   });
 
+  await createNotification({
+    type: "new_order",
+    title: "New Order Received",
+    message: `New order ${order.orderId} received`,
+    link: `/orders/${order.id}`,
+  });
+
   return order;
 }
 
@@ -270,6 +279,15 @@ export async function updateOrderStatus(id: number, status: string, userId: numb
     description: status === "cancelled" ? `Cancelled order: ${order.orderId}` : `Updated status of order ${order.orderId} to ${status}`,
     metadata: { orderId: order.orderId, from: order.status, to: status },
   });
+
+  if (status === "cancelled" && order.status !== "cancelled") {
+    await createNotification({
+      type: "order_cancelled",
+      title: "Order Cancelled",
+      message: `Order ${order.orderId} was cancelled`,
+      link: `/orders/${id}`,
+    });
+  }
 
   return updated;
 }
@@ -348,6 +366,8 @@ export async function requestDeleteOrder(id: number, reason: string, userId: num
     description: `Requested deletion for order: ${order.orderId}`,
     metadata: { orderId: order.orderId, reason },
   });
+
+  await notifyDeleteRequest("order", order.orderId);
 
   return request;
 }

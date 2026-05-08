@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { createLog } from "@/services/activity-log.service";
+import { notifyDeleteRequest } from "@/services/delete-request.service";
 
 export interface SaleFilters {
   search?: string;
@@ -303,6 +304,8 @@ export async function requestDeleteSale(id: number, reason: string, userId: numb
     description: `Requested deletion of sale ${sale.saleId}`,
     metadata: { saleId: sale.saleId, reason },
   });
+
+  await notifyDeleteRequest("sale", sale.saleId);
 
   return request;
 }

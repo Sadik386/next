@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { createLog } from "@/services/activity-log.service";
+import { notifyDeleteRequest } from "@/services/delete-request.service";
 
 export interface SupplierFilters {
   search?: string;
@@ -184,6 +185,8 @@ export async function requestDeleteSupplier(id: number, reason: string, userId: 
     description: `Requested deletion of supplier ${supplier.supplierId}`,
     metadata: { supplierId: supplier.supplierId, reason },
   });
+
+  await notifyDeleteRequest("supplier", supplier.companyName);
 
   return request;
 }

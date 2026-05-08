@@ -1,6 +1,16 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { createLog } from "./activity-log.service";
+import { createNotification } from "./notification.service";
+
+export async function notifyDeleteRequest(entityType: string, entityName: string) {
+  await createNotification({
+    type: "delete_request",
+    title: "Delete Request Pending",
+    message: `Delete request for ${entityType} "${entityName}" pending approval`,
+    link: `/delete-requests`,
+  });
+}
 
 export interface DeleteRequestFilters {
   status?: string;

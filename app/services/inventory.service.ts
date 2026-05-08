@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { createLog } from "@/services/activity-log.service";
+import { createNotification } from "@/services/notification.service";
 
 export type StockStatus = "in_stock" | "low" | "out_of_stock";
 
@@ -164,6 +165,25 @@ export async function adjustStock(
       reason: input.reason ?? null,
     },
   });
+
+  const previousStatus = getStockStatus(previousQty, stock.threshold);
+  if (status !== previousStatus) {
+    if (status === "out_of_stock") {
+      await createNotification({
+        type: "out_of_stock",
+        title: "Out of Stock",
+        message: `Product ${product.name} is out of stock`,
+        link: `/inventory`,
+      });
+    } else if (status === "low") {
+      await createNotification({
+        type: "low_stock",
+        title: "Low Stock Alert",
+        message: `Product ${product.name} is running low (${newQty} units)`,
+        link: `/inventory`,
+      });
+    }
+  }
 
   return { stock: updated, status };
 }

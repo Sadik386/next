@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { createLog } from "@/services/activity-log.service";
+import { notifyDeleteRequest } from "@/services/delete-request.service";
 
 export interface ProductFilters {
   search?: string;
@@ -172,6 +173,8 @@ export async function requestDeleteProduct(id: number, reason: string, userId: n
     description: `Requested deletion for product: ${product.name} (${product.productId})`,
     metadata: { productId: product.productId, reason },
   });
+
+  await notifyDeleteRequest("product", product.name);
 
   return request;
 }

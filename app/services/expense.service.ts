@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { createLog } from "@/services/activity-log.service";
+import { notifyDeleteRequest } from "@/services/delete-request.service";
 
 export const EXPENSE_CATEGORIES = [
   "Utilities",
@@ -232,6 +233,8 @@ export async function requestDeleteExpense(id: number, reason: string, userId: n
     description: `Requested deletion for expense: ${expense.expenseId}`,
     metadata: { expenseId: expense.expenseId, reason },
   });
+
+  await notifyDeleteRequest("expense", expense.expenseId);
 
   return request;
 }

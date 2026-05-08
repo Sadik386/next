@@ -38,6 +38,20 @@ model User {
   activityLogs           ActivityLog[]
   posSessions            PosSession[]
   heldOrders             HeldOrder[]
+  notifications          Notification[]
+}
+
+model Notification {
+  id         Int      @id @default(autoincrement())
+  businessId Int      @default(1)
+  userId     Int?
+  type       String   @db.VarChar(50)
+  title      String   @db.VarChar(255)
+  message    String   @db.Text
+  isRead     Boolean  @default(false)
+  link       String?  @db.VarChar(500)
+  createdAt  DateTime @default(now())
+  user       User?    @relation(fields: [userId], references: [id])
 }
 
 model PosSession {

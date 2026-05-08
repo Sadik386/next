@@ -1,13 +1,59 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { Moon, Sun, Bell, Menu, LogOut, User, ChevronDown } from "lucide-react";
+import {
+  Moon,
+  Sun,
+  Bell,
+  Menu,
+  LogOut,
+  User,
+  ChevronDown,
+  ShoppingCart,
+  AlertTriangle,
+  PackageX,
+  Trash2,
+  XCircle,
+} from "lucide-react";
+
+type Notification = {
+  id: number;
+  type: string;
+  title: string;
+  message: string;
+  isRead: boolean;
+  link: string | null;
+  createdAt: string;
+};
+
+const TYPE_ICON: Record<string, React.ReactNode> = {
+  new_order: <ShoppingCart size={14} color="#2563eb" />,
+  low_stock: <AlertTriangle size={14} color="#d97706" />,
+  out_of_stock: <PackageX size={14} color="#dc2626" />,
+  delete_request: <Trash2 size={14} color="#7c3aed" />,
+  order_cancelled: <XCircle size={14} color="#dc2626" />,
+};
+
+function timeAgo(date: string) {
+  const diff = Date.now() - new Date(date).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  return `${d}d ago`;
+}
 
 export default function Topbar() {
   const router = useRouter();
   const pathname = usePathname();
   const [isDark, setIsDark] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [showNotif, setShowNotif] = useState(false);
+  const [unread, setUnread] = useState(0);
+  const [recent, setRecent] = useState<Notification[]>([]);
+  const pollRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const stored = localStorage.getItem("theme");
@@ -16,6 +62,34 @@ export default function Topbar() {
       setIsDark(true);
     }
   }, []);
+
+  const fetchCount = useCallback(async () => {
+    try {
+      const res = await fetch("/api/notifications/count");
+      if (res.ok) {
+        const data = await res.json();
+        setUnread(data.count ?? 0);
+      }
+    } catch {}
+  }, []);
+
+  const fetchRecent = useCallback(async () => {
+    try {
+      const res = await fetch("/api/notifications?recent=1&limit=5");
+      if (res.ok) {
+        const data = await res.json();
+        setRecent(data.items ?? []);
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    fetchCount();
+    pollRef.current = setInterval(fetchCount, 30000);
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [fetchCount]);
 
   const toggleTheme = () => {
     const newDark = !isDark;
@@ -32,6 +106,26 @@ export default function Topbar() {
   const handleLogout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
     router.push("/login");
+  };
+
+  const openNotif = async () => {
+    if (!showNotif) await fetchRecent();
+    setShowNotif((v) => !v);
+  };
+
+  const handleNotifClick = async (n: Notification) => {
+    if (!n.isRead) {
+      await fetch(`/api/notifications/${n.id}/read`, { method: "PUT" });
+    }
+    setShowNotif(false);
+    fetchCount();
+    if (n.link) router.push(n.link);
+  };
+
+  const handleMarkAllRead = async () => {
+    await fetch("/api/notifications/read-all", { method: "PUT" });
+    await fetchCount();
+    await fetchRecent();
   };
 
   const pathLabel = "/" + pathname.replace("/", "").toUpperCase();
@@ -108,34 +202,206 @@ export default function Topbar() {
         >
           {isDark ? <Sun size={14} /> : <Moon size={14} />}
         </button>
-        <button
-          style={{
-            width: "30px",
-            height: "30px",
-            borderRadius: "6px",
-            border: "none",
-            backgroundColor: "transparent",
-            cursor: "pointer",
-            color: "var(--text-secondary)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            position: "relative",
-          }}
-        >
-          <Bell size={14} />
-          <span
+        <div style={{ position: "relative" }}>
+          <button
+            onClick={openNotif}
             style={{
-              position: "absolute",
-              top: "6px",
-              right: "6px",
-              width: "5px",
-              height: "5px",
-              backgroundColor: "var(--brand)",
-              borderRadius: "50%",
+              width: "30px",
+              height: "30px",
+              borderRadius: "6px",
+              border: "none",
+              backgroundColor: "transparent",
+              cursor: "pointer",
+              color: "var(--text-secondary)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              position: "relative",
             }}
-          />
-        </button>
+          >
+            <Bell size={14} />
+            {unread > 0 && (
+              <span
+                style={{
+                  position: "absolute",
+                  top: "2px",
+                  right: "2px",
+                  minWidth: "14px",
+                  height: "14px",
+                  padding: "0 3px",
+                  backgroundColor: "#dc2626",
+                  borderRadius: "7px",
+                  fontSize: "9px",
+                  fontWeight: 700,
+                  color: "white",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  lineHeight: 1,
+                }}
+              >
+                {unread > 99 ? "99+" : unread}
+              </span>
+            )}
+          </button>
+          {showNotif && (
+            <>
+              <div
+                style={{ position: "fixed", inset: 0, zIndex: 90 }}
+                onClick={() => setShowNotif(false)}
+              />
+              <div
+                style={{
+                  position: "absolute",
+                  right: 0,
+                  top: "40px",
+                  width: "340px",
+                  maxHeight: "440px",
+                  backgroundColor: "var(--card-bg)",
+                  border: "1px solid var(--card-border)",
+                  borderRadius: "10px",
+                  boxShadow: "0 8px 30px rgba(0,0,0,0.12)",
+                  zIndex: 100,
+                  display: "flex",
+                  flexDirection: "column",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    padding: "12px 14px",
+                    borderBottom: "1px solid var(--card-border)",
+                  }}
+                >
+                  <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-primary)" }}>
+                    Notifications
+                  </span>
+                  <button
+                    onClick={handleMarkAllRead}
+                    style={{
+                      fontSize: "11px",
+                      color: "var(--brand)",
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      fontWeight: 500,
+                    }}
+                  >
+                    Mark all read
+                  </button>
+                </div>
+                <div style={{ overflowY: "auto", flex: 1 }}>
+                  {recent.length === 0 ? (
+                    <div
+                      style={{
+                        padding: "30px 14px",
+                        textAlign: "center",
+                        fontSize: "12px",
+                        color: "var(--text-muted)",
+                      }}
+                    >
+                      No notifications
+                    </div>
+                  ) : (
+                    recent.map((n) => (
+                      <div
+                        key={n.id}
+                        onClick={() => handleNotifClick(n)}
+                        style={{
+                          display: "flex",
+                          gap: "10px",
+                          padding: "10px 14px",
+                          borderBottom: "1px solid var(--card-border)",
+                          cursor: "pointer",
+                          backgroundColor: n.isRead ? "transparent" : "rgba(37,99,235,0.04)",
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: "26px",
+                            height: "26px",
+                            borderRadius: "6px",
+                            backgroundColor: "var(--input-bg)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            flexShrink: 0,
+                          }}
+                        >
+                          {TYPE_ICON[n.type] ?? <Bell size={14} color="var(--text-muted)" />}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div
+                            style={{
+                              fontSize: "12px",
+                              fontWeight: n.isRead ? 500 : 700,
+                              color: "var(--text-primary)",
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                            }}
+                          >
+                            {n.title}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: "11px",
+                              color: "var(--text-secondary)",
+                              marginTop: "1px",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              display: "-webkit-box",
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: "vertical",
+                            }}
+                          >
+                            {n.message}
+                          </div>
+                          <div style={{ fontSize: "10px", color: "var(--text-muted)", marginTop: "2px" }}>
+                            {timeAgo(n.createdAt)}
+                          </div>
+                        </div>
+                        {!n.isRead && (
+                          <div
+                            style={{
+                              width: "6px",
+                              height: "6px",
+                              borderRadius: "50%",
+                              backgroundColor: "var(--brand)",
+                              alignSelf: "center",
+                              flexShrink: 0,
+                            }}
+                          />
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+                <button
+                  onClick={() => {
+                    setShowNotif(false);
+                    router.push("/notifications");
+                  }}
+                  style={{
+                    padding: "10px",
+                    fontSize: "12px",
+                    fontWeight: 500,
+                    color: "var(--brand)",
+                    background: "none",
+                    border: "none",
+                    borderTop: "1px solid var(--card-border)",
+                    cursor: "pointer",
+                    textAlign: "center",
+                  }}
+                >
+                  View all →
+                </button>
+              </div>
+            </>
+          )}
+        </div>
         <div
           style={{
             width: "1px",
