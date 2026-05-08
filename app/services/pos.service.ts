@@ -207,6 +207,7 @@ export async function checkoutPos(data: PosCheckoutInput, userId: number) {
       createdBy: userId,
         items: {
           create: itemRows.map((r) => ({
+            businessId: getCurrentBusinessId(),
             productId: r.product.id,
             productName: r.product.name,
             quantity: r.qty,

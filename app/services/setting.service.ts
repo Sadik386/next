@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { createLog } from "@/services/activity-log.service";
+import { getCurrentBusinessId } from "@/lib/business";
 
 export const DEFAULT_BRAND_COLOR = "#C4973A";
 
@@ -25,11 +26,12 @@ export interface SettingInput {
 }
 
 export async function getSettings() {
-  let setting = await prisma.setting.findUnique({ where: { id: 1 } });
+  const businessId = getCurrentBusinessId();
+  let setting = await prisma.setting.findUnique({ where: { businessId } });
   if (!setting) {
     setting = await prisma.setting.create({
       data: {
-        id: 1,
+        businessId,
         businessName: "My Business",
         currency: "BDT",
         weekStartDay: 0,
@@ -41,6 +43,7 @@ export async function getSettings() {
 }
 
 export async function updateSettings(data: SettingInput, userId: number) {
+  const businessId = getCurrentBusinessId();
   const update: Prisma.SettingUncheckedUpdateInput = {};
   if (data.businessName !== undefined) update.businessName = data.businessName;
   if (data.tagline !== undefined) update.tagline = data.tagline;
@@ -61,10 +64,10 @@ export async function updateSettings(data: SettingInput, userId: number) {
   if (data.weekStartDay !== undefined) update.weekStartDay = data.weekStartDay;
 
   const setting = await prisma.setting.upsert({
-    where: { id: 1 },
+    where: { businessId },
     update,
     create: {
-      id: 1,
+      businessId,
       businessName: data.businessName ?? "My Business",
       tagline: data.tagline ?? null,
       email: data.email ?? null,
@@ -99,8 +102,9 @@ export async function updateSettings(data: SettingInput, userId: number) {
 }
 
 export async function getBrandColor(): Promise<string> {
+  const businessId = getCurrentBusinessId();
   const setting = await prisma.setting.findUnique({
-    where: { id: 1 },
+    where: { businessId },
     select: { brandColor: true },
   });
   const color = setting?.brandColor?.trim();

@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { getStockStatus, StockStatus } from "@/services/inventory.service";
 import { createNotification } from "@/services/notification.service";
+import { getCurrentBusinessId } from "@/lib/business";
 
 export interface ApplyStockDeltaResult {
   previousQty: number;
@@ -16,13 +17,14 @@ export async function applyStockDelta(
   reason: string,
   userId: number
 ): Promise<ApplyStockDeltaResult> {
+  const businessId = getCurrentBusinessId();
   const product = await tx.product.findUnique({ where: { id: productId } });
   if (!product) throw new Error(`Product ${productId} not found`);
 
   const existingStock = await tx.stock.findUnique({ where: { productId } });
   const stockRecord =
     existingStock ??
-    (await tx.stock.create({ data: { productId, quantity: 0, threshold: 10 } }));
+    (await tx.stock.create({ data: { businessId, productId, quantity: 0, threshold: 10 } }));
 
   const previousQty = stockRecord.quantity;
   const threshold = stockRecord.threshold;
@@ -36,6 +38,7 @@ export async function applyStockDelta(
 
   await tx.stockLog.create({
     data: {
+      businessId,
       stockId: stockRecord.id,
       productId,
       type: delta >= 0 ? "add" : "subtract",

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { createLog } from "@/services/activity-log.service";
 import { notifyDeleteRequest } from "@/services/delete-request.service";
+import { getCurrentBusinessId } from "@/lib/business";
 
 export interface SupplierFilters {
   search?: string;
@@ -32,7 +33,7 @@ export interface SupplierInput {
 }
 
 export async function generateSupplierId(): Promise<string> {
-  const count = await prisma.supplier.count();
+  const count = await prisma.supplier.count({ where: { businessId: getCurrentBusinessId() } });
   const next = count + 1;
   return `SUP-${String(next).padStart(3, "0")}`;
 }
@@ -42,7 +43,7 @@ export async function getSuppliers(filters: SupplierFilters = {}) {
   const pageSize = Math.min(100, Math.max(1, filters.pageSize ?? 20));
   const skip = (page - 1) * pageSize;
 
-  const where: Prisma.SupplierWhereInput = { deletedAt: null };
+  const where: Prisma.SupplierWhereInput = { deletedAt: null, businessId: getCurrentBusinessId() };
   if (filters.search) {
     where.OR = [
       { companyName: { contains: filters.search } },
@@ -75,7 +76,7 @@ export async function getSuppliers(filters: SupplierFilters = {}) {
 
 export async function getSupplierById(id: number) {
   return prisma.supplier.findFirst({
-    where: { id, deletedAt: null },
+    where: { id, deletedAt: null, businessId: getCurrentBusinessId() },
   });
 }
 
@@ -83,6 +84,7 @@ export async function createSupplier(data: SupplierInput, userId: number) {
   const supplierId = await generateSupplierId();
   const supplier = await prisma.supplier.create({
     data: {
+      businessId: getCurrentBusinessId(),
       supplierId,
       companyName: data.companyName,
       contactName: data.contactName,
@@ -158,16 +160,17 @@ export async function updateSupplier(id: number, data: Partial<SupplierInput>, u
 }
 
 export async function requestDeleteSupplier(id: number, reason: string, userId: number) {
-  const supplier = await prisma.supplier.findFirst({ where: { id, deletedAt: null } });
+  const supplier = await prisma.supplier.findFirst({ where: { id, deletedAt: null, businessId: getCurrentBusinessId() } });
   if (!supplier) return null;
 
   const existingRequest = await prisma.deleteRequest.findFirst({
-    where: { entityType: "supplier", entityId: String(id), status: "pending" },
+    where: { businessId: getCurrentBusinessId(), entityType: "supplier", entityId: String(id), status: "pending" },
   });
   if (existingRequest) return existingRequest;
 
   const request = await prisma.deleteRequest.create({
     data: {
+      businessId: getCurrentBusinessId(),
       entityType: "supplier",
       entityId: String(id),
       entityName: supplier.companyName,

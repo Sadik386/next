@@ -178,6 +178,7 @@ export async function createOrder(data: OrderInput, userId: number) {
         createdBy: userId,
         items: {
           create: itemRows.map((r) => ({
+            businessId: getCurrentBusinessId(),
             productId: r.productId,
             productName: r.productName,
             quantity: r.quantity,

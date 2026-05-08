@@ -6,6 +6,7 @@ import { ROLES, ROLE_HIERARCHY, RoleName } from "@/constants/roles";
 import { prisma } from "@/lib/prisma";
 import { generateProductId } from "@/services/product.service";
 import { getCellTrimmed, ImportResult, parseCsv } from "@/lib/csv";
+import { getCurrentBusinessId } from "@/lib/business";
 
 export async function POST(req: NextRequest) {
   const auth = await requirePermission(req, PERMISSIONS.CREATE_PRODUCT);
@@ -15,6 +16,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Forbidden — admin or higher required" }, { status: 403 });
   }
 
+  const businessId = getCurrentBusinessId();
   const form = await req.formData();
   const file = form.get("file");
   if (!(file instanceof File)) {
@@ -31,13 +33,13 @@ export async function POST(req: NextRequest) {
     const key = name.toLowerCase();
     if (categoryCache.has(key)) return categoryCache.get(key)!;
     const existing = await prisma.category.findFirst({
-      where: { businessId: 1, name },
+      where: { businessId, name },
     });
     if (existing) {
       categoryCache.set(key, existing.id);
       return existing.id;
     }
-    const created = await prisma.category.create({ data: { name } });
+    const created = await prisma.category.create({ data: { businessId, name } });
     categoryCache.set(key, created.id);
     return created.id;
   }
@@ -76,6 +78,7 @@ export async function POST(req: NextRequest) {
       const productId = await generateProductId();
       const product = await prisma.product.create({
         data: {
+          businessId,
           productId,
           name,
           sku,
@@ -89,7 +92,7 @@ export async function POST(req: NextRequest) {
       });
 
       await prisma.stock.create({
-        data: { productId: product.id, quantity: stockQty, threshold: 10 },
+        data: { businessId, productId: product.id, quantity: stockQty, threshold: 10 },
       });
 
       result.created++;
