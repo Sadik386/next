@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import { createLog } from "@/services/activity-log.service";
 
 export const EXPENSE_CATEGORIES = [
   "Utilities",
@@ -152,18 +153,18 @@ export async function createExpense(data: ExpenseInput, userId: number) {
     },
   });
 
-  await prisma.activityLog.create({
-    data: {
-      userId,
-      action: "create",
-      entityType: "expense",
-      entityId: expense.id,
-      metadata: {
-        expenseId: expense.expenseId,
-        vendor: expense.vendor,
-        amount: expense.amount.toString(),
-        category: expense.category,
-      },
+  await createLog({
+    userId,
+    action: "create",
+    module: "expense",
+    entityId: String(expense.id),
+    entityName: expense.expenseId,
+    description: `Created expense: ${expense.expenseId} (${expense.vendor} - ${expense.amount.toString()})`,
+    metadata: {
+      expenseId: expense.expenseId,
+      vendor: expense.vendor,
+      amount: expense.amount.toString(),
+      category: expense.category,
     },
   });
 
@@ -190,14 +191,14 @@ export async function updateExpense(id: number, data: Partial<ExpenseInput>, use
 
   const expense = await prisma.expense.update({ where: { id }, data: update });
 
-  await prisma.activityLog.create({
-    data: {
-      userId,
-      action: "update",
-      entityType: "expense",
-      entityId: id,
-      metadata: { expenseId: existing.expenseId, fields: Object.keys(update) },
-    },
+  await createLog({
+    userId,
+    action: "update",
+    module: "expense",
+    entityId: String(id),
+    entityName: expense.expenseId,
+    description: `Updated expense: ${expense.expenseId}`,
+    metadata: { expenseId: expense.expenseId, fields: Object.keys(update) },
   });
 
   return expense;
@@ -208,27 +209,28 @@ export async function requestDeleteExpense(id: number, reason: string, userId: n
   if (!expense) return null;
 
   const existing = await prisma.deleteRequest.findFirst({
-    where: { entityType: "expense", entityId: id, status: "pending" },
+    where: { entityType: "expense", entityId: String(id), status: "pending" },
   });
   if (existing) return existing;
 
   const request = await prisma.deleteRequest.create({
     data: {
       entityType: "expense",
-      entityId: id,
+      entityId: String(id),
+      entityName: expense.expenseId,
       reason,
       requestedBy: userId,
     },
   });
 
-  await prisma.activityLog.create({
-    data: {
-      userId,
-      action: "delete_request",
-      entityType: "expense",
-      entityId: id,
-      metadata: { expenseId: expense.expenseId, reason },
-    },
+  await createLog({
+    userId,
+    action: "delete_request",
+    module: "expense",
+    entityId: String(id),
+    entityName: expense.expenseId,
+    description: `Requested deletion for expense: ${expense.expenseId}`,
+    metadata: { expenseId: expense.expenseId, reason },
   });
 
   return request;

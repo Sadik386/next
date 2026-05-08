@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import { createLog } from "@/services/activity-log.service";
 
 export interface SupplierFilters {
   search?: string;
@@ -103,14 +104,14 @@ export async function createSupplier(data: SupplierInput, userId: number) {
     },
   });
 
-  await prisma.activityLog.create({
-    data: {
-      userId,
-      action: "create",
-      entityType: "supplier",
-      entityId: supplier.id,
-      metadata: { supplierId: supplier.supplierId, companyName: supplier.companyName },
-    },
+  await createLog({
+    userId,
+    action: "create",
+    module: "supplier",
+    entityId: String(supplier.id),
+    entityName: supplier.companyName,
+    description: `Created supplier ${supplier.supplierId}: ${supplier.companyName}`,
+    metadata: { supplierId: supplier.supplierId, companyName: supplier.companyName },
   });
 
   return supplier;
@@ -142,14 +143,14 @@ export async function updateSupplier(id: number, data: Partial<SupplierInput>, u
     data: update,
   });
 
-  await prisma.activityLog.create({
-    data: {
-      userId,
-      action: "update",
-      entityType: "supplier",
-      entityId: supplier.id,
-      metadata: { supplierId: supplier.supplierId, fields: Object.keys(update) },
-    },
+  await createLog({
+    userId,
+    action: "update",
+    module: "supplier",
+    entityId: String(supplier.id),
+    entityName: supplier.companyName,
+    description: `Updated supplier ${supplier.supplierId}: ${supplier.companyName}`,
+    metadata: { supplierId: supplier.supplierId, fields: Object.keys(update) },
   });
 
   return supplier;
@@ -159,28 +160,29 @@ export async function requestDeleteSupplier(id: number, reason: string, userId: 
   const supplier = await prisma.supplier.findFirst({ where: { id, deletedAt: null } });
   if (!supplier) return null;
 
-  const existing = await prisma.deleteRequest.findFirst({
-    where: { entityType: "supplier", entityId: id, status: "pending" },
+  const existingRequest = await prisma.deleteRequest.findFirst({
+    where: { entityType: "supplier", entityId: String(id), status: "pending" },
   });
-  if (existing) return existing;
+  if (existingRequest) return existingRequest;
 
   const request = await prisma.deleteRequest.create({
     data: {
       entityType: "supplier",
-      entityId: id,
+      entityId: String(id),
+      entityName: supplier.companyName,
       reason,
       requestedBy: userId,
     },
   });
 
-  await prisma.activityLog.create({
-    data: {
-      userId,
-      action: "delete_request",
-      entityType: "supplier",
-      entityId: id,
-      metadata: { supplierId: supplier.supplierId, reason },
-    },
+  await createLog({
+    userId,
+    action: "delete_request",
+    module: "supplier",
+    entityId: String(id),
+    entityName: supplier.companyName,
+    description: `Requested deletion of supplier ${supplier.supplierId}`,
+    metadata: { supplierId: supplier.supplierId, reason },
   });
 
   return request;

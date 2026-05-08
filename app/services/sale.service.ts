@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import { createLog } from "@/services/activity-log.service";
 
 export interface SaleFilters {
   search?: string;
@@ -173,18 +174,18 @@ export async function createSale(data: SaleInput, userId: number) {
     },
   });
 
-  await prisma.activityLog.create({
-    data: {
-      userId,
-      action: "create",
-      entityType: "sale",
-      entityId: sale.id,
-      metadata: {
-        saleId: sale.saleId,
-        customerId: customer.customerId,
-        productId: product.productId,
-        totalAmount: totalAmount.toString(),
-      },
+  await createLog({
+    userId,
+    action: "create",
+    module: "sale",
+    entityId: String(sale.id),
+    entityName: sale.saleId,
+    description: `Created sale ${sale.saleId} for ${product.name}`,
+    metadata: {
+      saleId: sale.saleId,
+      customerId: customer.customerId,
+      productId: product.productId,
+      totalAmount: totalAmount.toString(),
     },
   });
 
@@ -261,14 +262,14 @@ export async function updateSale(id: number, data: Partial<SaleInput>, userId: n
 
   const sale = await prisma.sale.update({ where: { id }, data: update });
 
-  await prisma.activityLog.create({
-    data: {
-      userId,
-      action: "update",
-      entityType: "sale",
-      entityId: id,
-      metadata: { saleId: existing.saleId, fields: Object.keys(update) },
-    },
+  await createLog({
+    userId,
+    action: "update",
+    module: "sale",
+    entityId: String(id),
+    entityName: existing.saleId,
+    description: `Updated sale ${existing.saleId}`,
+    metadata: { saleId: existing.saleId, fields: Object.keys(update) },
   });
 
   return sale;
@@ -278,28 +279,29 @@ export async function requestDeleteSale(id: number, reason: string, userId: numb
   const sale = await prisma.sale.findUnique({ where: { id } });
   if (!sale) return null;
 
-  const existing = await prisma.deleteRequest.findFirst({
-    where: { entityType: "sale", entityId: id, status: "pending" },
+  const existingRequest = await prisma.deleteRequest.findFirst({
+    where: { entityType: "sale", entityId: String(id), status: "pending" },
   });
-  if (existing) return existing;
+  if (existingRequest) return existingRequest;
 
   const request = await prisma.deleteRequest.create({
     data: {
       entityType: "sale",
-      entityId: id,
+      entityId: String(id),
+      entityName: sale.saleId,
       reason,
       requestedBy: userId,
     },
   });
 
-  await prisma.activityLog.create({
-    data: {
-      userId,
-      action: "delete_request",
-      entityType: "sale",
-      entityId: id,
-      metadata: { saleId: sale.saleId, reason },
-    },
+  await createLog({
+    userId,
+    action: "delete_request",
+    module: "sale",
+    entityId: String(id),
+    entityName: sale.saleId,
+    description: `Requested deletion of sale ${sale.saleId}`,
+    metadata: { saleId: sale.saleId, reason },
   });
 
   return request;

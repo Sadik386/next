@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import { createLog } from "@/services/activity-log.service";
 
 export interface CustomerFilters {
   search?: string;
@@ -89,14 +90,14 @@ export async function createCustomer(data: CustomerInput, userId: number) {
     },
   });
 
-  await prisma.activityLog.create({
-    data: {
-      userId,
-      action: "create",
-      entityType: "customer",
-      entityId: customer.id,
-      metadata: { customerId: customer.customerId, name: customer.name },
-    },
+  await createLog({
+    userId,
+    action: "create",
+    module: "customer",
+    entityId: String(customer.id),
+    entityName: customer.name,
+    description: `Created customer: ${customer.name} (${customer.customerId})`,
+    metadata: { customerId: customer.customerId, name: customer.name },
   });
 
   return customer;
@@ -121,14 +122,14 @@ export async function updateCustomer(id: number, data: Partial<CustomerInput>, u
     data: update,
   });
 
-  await prisma.activityLog.create({
-    data: {
-      userId,
-      action: "update",
-      entityType: "customer",
-      entityId: customer.id,
-      metadata: { customerId: customer.customerId, fields: Object.keys(update) },
-    },
+  await createLog({
+    userId,
+    action: "update",
+    module: "customer",
+    entityId: String(customer.id),
+    entityName: customer.name,
+    description: `Updated customer: ${customer.name} (${customer.customerId})`,
+    metadata: { customerId: customer.customerId, fields: Object.keys(update) },
   });
 
   return customer;
@@ -139,27 +140,28 @@ export async function requestDeleteCustomer(id: number, reason: string, userId: 
   if (!customer) return null;
 
   const existing = await prisma.deleteRequest.findFirst({
-    where: { entityType: "customer", entityId: id, status: "pending" },
+    where: { entityType: "customer", entityId: String(id), status: "pending" },
   });
   if (existing) return existing;
 
   const request = await prisma.deleteRequest.create({
     data: {
       entityType: "customer",
-      entityId: id,
+      entityId: String(id),
+      entityName: customer.name,
       reason,
       requestedBy: userId,
     },
   });
 
-  await prisma.activityLog.create({
-    data: {
-      userId,
-      action: "delete_request",
-      entityType: "customer",
-      entityId: id,
-      metadata: { customerId: customer.customerId, reason },
-    },
+  await createLog({
+    userId,
+    action: "delete_request",
+    module: "customer",
+    entityId: String(id),
+    entityName: customer.name,
+    description: `Requested deletion for customer: ${customer.name} (${customer.customerId})`,
+    metadata: { customerId: customer.customerId, reason },
   });
 
   return request;

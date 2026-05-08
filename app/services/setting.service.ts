@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import { createLog } from "@/services/activity-log.service";
 
 export const DEFAULT_BRAND_COLOR = "#C4973A";
 
@@ -84,14 +85,14 @@ export async function updateSettings(data: SettingInput, userId: number) {
     },
   });
 
-  await prisma.activityLog.create({
-    data: {
-      userId,
-      action: "update",
-      entityType: "setting",
-      entityId: setting.id,
-      metadata: { fields: Object.keys(update) },
-    },
+  await createLog({
+    userId,
+    action: "update",
+    module: "setting",
+    entityId: String(setting.id),
+    entityName: "Business Settings",
+    description: "Updated business settings",
+    metadata: { fields: Object.keys(update) },
   });
 
   return setting;

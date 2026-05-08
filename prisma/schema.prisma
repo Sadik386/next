@@ -33,6 +33,34 @@ model User {
   orders    Order[]    @relation("OrderCreatedBy")
   sales     Sale[]     @relation("SaleCreatedBy")
   expenses  Expense[]  @relation("ExpenseCreatedBy")
+  deleteRequestsMade     DeleteRequest[] @relation("DeleteRequestedBy")
+  deleteRequestsReviewed DeleteRequest[] @relation("DeleteReviewedBy")
+  activityLogs           ActivityLog[]
+  posSessions            PosSession[]
+  heldOrders             HeldOrder[]
+}
+
+model PosSession {
+  id            String   @id
+  businessId    Int      @default(1)
+  createdBy     Int
+  status        String   @default("active")
+  scans         String?  @db.Text
+  expiresAt     DateTime
+  createdAt     DateTime @default(now())
+  createdByUser User     @relation(fields: [createdBy], references: [id])
+}
+
+model HeldOrder {
+  id            Int      @id @default(autoincrement())
+  businessId    Int      @default(1)
+  createdBy     Int
+  items         String   @db.Text
+  customerData  String?  @db.Text
+  discount      Float    @default(0)
+  notes         String?
+  createdAt     DateTime @default(now())
+  createdByUser User     @relation(fields: [createdBy], references: [id])
 }
 
 model Category {
@@ -101,24 +129,30 @@ model DeleteRequest {
   id          Int       @id @default(autoincrement())
   businessId  Int       @default(1)
   entityType  String    @db.VarChar(50)
-  entityId    Int
+  entityId    String    @db.VarChar(50)
+  entityName  String    @db.VarChar(255)
   reason      String    @db.Text
   status      String    @default("pending") @db.VarChar(20)
   requestedBy Int
   reviewedBy  Int?
   reviewedAt  DateTime?
   createdAt   DateTime  @default(now())
+  requester   User      @relation("DeleteRequestedBy", fields: [requestedBy], references: [id])
+  reviewer    User?     @relation("DeleteReviewedBy", fields: [reviewedBy], references: [id])
 }
 
 model ActivityLog {
-  id         Int      @id @default(autoincrement())
-  businessId Int      @default(1)
-  userId     Int
-  action     String   @db.VarChar(50)
-  entityType String   @db.VarChar(50)
-  entityId   Int?
-  metadata   Json?
-  createdAt  DateTime @default(now())
+  id          Int      @id @default(autoincrement())
+  businessId  Int      @default(1)
+  userId      Int
+  action      String   @db.VarChar(50)
+  module      String   @db.VarChar(50)
+  entityId    String?  @db.VarChar(50)
+  entityName  String?  @db.VarChar(255)
+  description String   @db.Text
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id])
 }
 
 model Customer {
@@ -259,6 +293,7 @@ model Sale {
   createdBy       Int
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
   order           Order?    @relation(fields: [orderId], references: [id])
   customer        Customer? @relation(fields: [customerId], references: [id])
   product         Product?  @relation(fields: [productId], references: [id])
@@ -266,23 +301,24 @@ model Sale {
 }
 
 model Expense {
-  id            Int      @id @default(autoincrement())
-  expenseId     String   @unique @db.VarChar(20)
-  businessId    Int      @default(1)
-  date          DateTime @default(now())
-  amount        Decimal  @db.Decimal(10, 2)
-  currency      String   @default("BDT") @db.VarChar(10)
-  category      String   @db.VarChar(100)
-  paymentMethod String   @db.VarChar(50)
-  vendor        String   @db.VarChar(255)
-  receiptId     String?  @db.VarChar(100)
-  referenceNo   String?  @db.VarChar(100)
-  taxAmount     Decimal  @default(0) @db.Decimal(10, 2)
-  taxPercent    Decimal  @default(0) @db.Decimal(5, 2)
-  description   String?  @db.Text
-  notes         String?  @db.Text
+  id            Int       @id @default(autoincrement())
+  expenseId     String    @unique @db.VarChar(20)
+  businessId    Int       @default(1)
+  date          DateTime  @default(now())
+  amount        Decimal   @db.Decimal(10, 2)
+  currency      String    @default("BDT") @db.VarChar(10)
+  category      String    @db.VarChar(100)
+  paymentMethod String    @db.VarChar(50)
+  vendor        String    @db.VarChar(255)
+  receiptId     String?   @db.VarChar(100)
+  referenceNo   String?   @db.VarChar(100)
+  taxAmount     Decimal   @default(0) @db.Decimal(10, 2)
+  taxPercent    Decimal   @default(0) @db.Decimal(5, 2)
+  description   String?   @db.Text
+  notes         String?   @db.Text
   createdBy     Int
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  createdByUser User     @relation("ExpenseCreatedBy", fields: [createdBy], references: [id])
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+  createdByUser User      @relation("ExpenseCreatedBy", fields: [createdBy], references: [id])
 }

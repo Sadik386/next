@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { ensureStockForProduct, getStockStatus } from "@/services/inventory.service";
+import { createLog } from "@/services/activity-log.service";
 
 export interface OrderFilters {
   search?: string;
@@ -230,18 +231,18 @@ export async function createOrder(data: OrderInput, userId: number) {
     return created;
   });
 
-  await prisma.activityLog.create({
-    data: {
-      userId,
-      action: "create",
-      entityType: "order",
-      entityId: order.id,
-      metadata: {
-        orderId: order.orderId,
-        customerId: customer.customerId,
-        totalAmount: totalAmount.toString(),
-        itemCount: itemRows.length,
-      },
+  await createLog({
+    userId,
+    action: "create",
+    module: "order",
+    entityId: String(order.id),
+    entityName: order.orderId,
+    description: `Created order: ${order.orderId}`,
+    metadata: {
+      orderId: order.orderId,
+      customerId: customer.customerId,
+      totalAmount: totalAmount.toString(),
+      itemCount: itemRows.length,
     },
   });
 
@@ -260,14 +261,14 @@ export async function updateOrderStatus(id: number, status: string, userId: numb
     data: { status },
   });
 
-  await prisma.activityLog.create({
-    data: {
-      userId,
-      action: status === "cancelled" ? "cancel" : "update_status",
-      entityType: "order",
-      entityId: id,
-      metadata: { orderId: order.orderId, from: order.status, to: status },
-    },
+  await createLog({
+    userId,
+    action: status === "cancelled" ? "cancel" : "update_status",
+    module: "order",
+    entityId: String(id),
+    entityName: order.orderId,
+    description: status === "cancelled" ? `Cancelled order: ${order.orderId}` : `Updated status of order ${order.orderId} to ${status}`,
+    metadata: { orderId: order.orderId, from: order.status, to: status },
   });
 
   return updated;
@@ -301,18 +302,18 @@ export async function updatePaymentStatus(
     data: { paymentStatus, paidAmount: nextPaid },
   });
 
-  await prisma.activityLog.create({
-    data: {
-      userId,
-      action: "update_payment",
-      entityType: "order",
-      entityId: id,
-      metadata: {
-        orderId: order.orderId,
-        from: order.paymentStatus,
-        to: paymentStatus,
-        paidAmount: nextPaid.toString(),
-      },
+  await createLog({
+    userId,
+    action: "update_payment",
+    module: "order",
+    entityId: String(id),
+    entityName: order.orderId,
+    description: `Updated payment status of order ${order.orderId} to ${paymentStatus}`,
+    metadata: {
+      orderId: order.orderId,
+      from: order.paymentStatus,
+      to: paymentStatus,
+      paidAmount: nextPaid.toString(),
     },
   });
 
@@ -324,27 +325,28 @@ export async function requestDeleteOrder(id: number, reason: string, userId: num
   if (!order) return null;
 
   const existing = await prisma.deleteRequest.findFirst({
-    where: { entityType: "order", entityId: id, status: "pending" },
+    where: { entityType: "order", entityId: String(id), status: "pending" },
   });
   if (existing) return existing;
 
   const request = await prisma.deleteRequest.create({
     data: {
       entityType: "order",
-      entityId: id,
+      entityId: String(id),
+      entityName: order.orderId,
       reason,
       requestedBy: userId,
     },
   });
 
-  await prisma.activityLog.create({
-    data: {
-      userId,
-      action: "delete_request",
-      entityType: "order",
-      entityId: id,
-      metadata: { orderId: order.orderId, reason },
-    },
+  await createLog({
+    userId,
+    action: "delete_request",
+    module: "order",
+    entityId: String(id),
+    entityName: order.orderId,
+    description: `Requested deletion for order: ${order.orderId}`,
+    metadata: { orderId: order.orderId, reason },
   });
 
   return request;

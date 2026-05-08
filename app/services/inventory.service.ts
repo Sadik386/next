@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import { createLog } from "@/services/activity-log.service";
 
 export type StockStatus = "in_stock" | "low" | "out_of_stock";
 
@@ -147,20 +148,20 @@ export async function adjustStock(
     });
   }
 
-  await prisma.activityLog.create({
-    data: {
-      userId,
-      action: "adjust_stock",
-      entityType: "stock",
-      entityId: stock.id,
-      metadata: {
-        productId: product.productId,
-        type: input.type,
-        quantity: qty,
-        previousQty,
-        newQty,
-        reason: input.reason ?? null,
-      },
+  await createLog({
+    userId,
+    action: "adjust_stock",
+    module: "inventory",
+    entityId: String(stock.id),
+    entityName: product.name,
+    description: `Adjusted stock for ${product.name} (${input.type} ${qty}, new quantity: ${newQty})`,
+    metadata: {
+      productId: product.productId,
+      type: input.type,
+      quantity: qty,
+      previousQty,
+      newQty,
+      reason: input.reason ?? null,
     },
   });
 

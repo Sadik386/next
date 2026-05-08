@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
     if (!name || typeof name !== "string") {
       return NextResponse.json({ error: "Name is required" }, { status: 400 });
     }
-    const result = await createCategory(name);
+    const result = await createCategory(name, auth.user.id);
     if (result.error) return NextResponse.json({ error: result.error }, { status: 400 });
     return NextResponse.json({ category: result.category });
   } catch {

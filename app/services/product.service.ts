@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import { createLog } from "@/services/activity-log.service";
 
 export interface ProductFilters {
   search?: string;
@@ -94,14 +95,14 @@ export async function createProduct(data: ProductInput, userId: number) {
     data: { productId: product.id, quantity: 0, threshold: 10 },
   });
 
-  await prisma.activityLog.create({
-    data: {
-      userId,
-      action: "create",
-      entityType: "product",
-      entityId: product.id,
-      metadata: { productId: product.productId, name: product.name },
-    },
+  await createLog({
+    userId,
+    action: "create",
+    module: "product",
+    entityId: String(product.id),
+    entityName: product.name,
+    description: `Created product: ${product.name} (${product.productId})`,
+    metadata: { productId: product.productId, name: product.name },
   });
 
   return product;
@@ -130,14 +131,14 @@ export async function updateProduct(id: number, data: Partial<ProductInput>, use
     include: { category: true },
   });
 
-  await prisma.activityLog.create({
-    data: {
-      userId,
-      action: "update",
-      entityType: "product",
-      entityId: product.id,
-      metadata: { productId: product.productId, fields: Object.keys(update) },
-    },
+  await createLog({
+    userId,
+    action: "update",
+    module: "product",
+    entityId: String(product.id),
+    entityName: product.name,
+    description: `Updated product: ${product.name} (${product.productId})`,
+    metadata: { productId: product.productId, fields: Object.keys(update) },
   });
 
   return product;
@@ -148,27 +149,28 @@ export async function requestDeleteProduct(id: number, reason: string, userId: n
   if (!product) return null;
 
   const existing = await prisma.deleteRequest.findFirst({
-    where: { entityType: "product", entityId: id, status: "pending" },
+    where: { entityType: "product", entityId: String(id), status: "pending" },
   });
   if (existing) return existing;
 
   const request = await prisma.deleteRequest.create({
     data: {
       entityType: "product",
-      entityId: id,
+      entityId: String(id),
+      entityName: product.name,
       reason,
       requestedBy: userId,
     },
   });
 
-  await prisma.activityLog.create({
-    data: {
-      userId,
-      action: "delete_request",
-      entityType: "product",
-      entityId: id,
-      metadata: { productId: product.productId, reason },
-    },
+  await createLog({
+    userId,
+    action: "delete_request",
+    module: "product",
+    entityId: String(id),
+    entityName: product.name,
+    description: `Requested deletion for product: ${product.name} (${product.productId})`,
+    metadata: { productId: product.productId, reason },
   });
 
   return request;
