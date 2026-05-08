@@ -1,6 +1,7 @@
 "use client";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Pencil, Trash2, Plus, X, Search, Upload } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Pencil, Trash2, Plus, X, Search, Upload, ScanLine } from "lucide-react";
+import BarcodeDisplay from "@/components/ui/BarcodeDisplay";
 
 type Category = { id: number; name: string };
 type Product = {
@@ -50,6 +51,11 @@ export default function ProductsPage() {
   const [uploading, setUploading] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [creatingCategory, setCreatingCategory] = useState(false);
+  const [barcodeTarget, setBarcodeTarget] = useState<Product | null>(null);
+  const [scanQuery, setScanQuery] = useState("");
+  const [highlightId, setHighlightId] = useState<number | null>(null);
+  const scanInputRef = useRef<HTMLInputElement | null>(null);
+  const rowRefs = useRef<Map<number, HTMLTableRowElement>>(new Map());
 
   const loadProducts = useCallback(async () => {
     setLoading(true);
@@ -199,6 +205,29 @@ export default function ProductsPage() {
 
   const filtered = useMemo(() => products, [products]);
 
+  function handleScanSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const q = scanQuery.trim();
+    if (!q) return;
+    const match = products.find(
+      (p) =>
+        p.productId.toLowerCase() === q.toLowerCase() ||
+        (p.sku ?? "").toLowerCase() === q.toLowerCase() ||
+        p.name.toLowerCase() === q.toLowerCase()
+    );
+    if (match) {
+      setSearch(q);
+      setHighlightId(match.id);
+      const row = rowRefs.current.get(match.id);
+      if (row) row.scrollIntoView({ behavior: "smooth", block: "center" });
+      setTimeout(() => setHighlightId(null), 2000);
+    } else {
+      setSearch(q);
+    }
+    setScanQuery("");
+    scanInputRef.current?.focus();
+  }
+
   return (
     <div>
       <div
@@ -222,33 +251,66 @@ export default function ProductsPage() {
         </button>
       </div>
 
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "8px",
-          backgroundColor: "var(--card-bg)",
-          border: "1px solid var(--card-border)",
-          borderRadius: "8px",
-          padding: "8px 12px",
-          marginBottom: "12px",
-          maxWidth: "360px",
-        }}
-      >
-        <Search size={14} color="var(--text-muted)" />
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by name, ID, SKU"
+      <div style={{ display: "flex", gap: "8px", marginBottom: "12px", flexWrap: "wrap" }}>
+        <div
           style={{
-            border: "none",
-            outline: "none",
-            background: "transparent",
-            fontSize: "13px",
-            color: "var(--text-primary)",
-            flex: 1,
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            backgroundColor: "var(--card-bg)",
+            border: "1px solid var(--card-border)",
+            borderRadius: "8px",
+            padding: "8px 12px",
+            flex: "1 1 280px",
+            maxWidth: "360px",
           }}
-        />
+        >
+          <Search size={14} color="var(--text-muted)" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by name, ID, SKU"
+            style={{
+              border: "none",
+              outline: "none",
+              background: "transparent",
+              fontSize: "13px",
+              color: "var(--text-primary)",
+              flex: 1,
+            }}
+          />
+        </div>
+        <form
+          onSubmit={handleScanSubmit}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            backgroundColor: "var(--card-bg)",
+            border: "1px solid var(--card-border)",
+            borderRadius: "8px",
+            padding: "8px 12px",
+            flex: "1 1 240px",
+            maxWidth: "300px",
+          }}
+        >
+          <ScanLine size={14} color="var(--text-muted)" />
+          <input
+            ref={scanInputRef}
+            value={scanQuery}
+            onChange={(e) => setScanQuery(e.target.value)}
+            autoFocus
+            placeholder="Scan to find product"
+            style={{
+              border: "none",
+              outline: "none",
+              background: "transparent",
+              fontSize: "13px",
+              color: "var(--text-primary)",
+              flex: 1,
+            }}
+          />
+        </form>
       </div>
 
       <div
@@ -295,7 +357,18 @@ export default function ProductsPage() {
               </tr>
             ) : (
               filtered.map((p) => (
-                <tr key={p.id} style={{ borderTop: "1px solid var(--card-border)" }}>
+                <tr
+                  key={p.id}
+                  ref={(el) => {
+                    if (el) rowRefs.current.set(p.id, el);
+                    else rowRefs.current.delete(p.id);
+                  }}
+                  style={{
+                    borderTop: "1px solid var(--card-border)",
+                    backgroundColor: highlightId === p.id ? "var(--brand-light)" : undefined,
+                    transition: "background-color 200ms",
+                  }}
+                >
                   <Td mono>{p.productId}</Td>
                   <Td>
                     {p.imageUrl ? (
@@ -345,6 +418,9 @@ export default function ProductsPage() {
                   </Td>
                   <Td align="right">
                     <div style={{ display: "inline-flex", gap: "4px" }}>
+                      <IconBtn onClick={() => setBarcodeTarget(p)} title="Show barcode">
+                        <ScanLine size={13} />
+                      </IconBtn>
                       <IconBtn onClick={() => openEdit(p)} title="Edit">
                         <Pencil size={13} />
                       </IconBtn>
@@ -641,6 +717,66 @@ export default function ProductsPage() {
               </button>
             </div>
           </aside>
+        </>
+      )}
+
+      {barcodeTarget && (
+        <>
+          <div
+            onClick={() => setBarcodeTarget(null)}
+            style={{
+              position: "fixed",
+              inset: 0,
+              backgroundColor: "rgba(0,0,0,0.4)",
+              zIndex: 110,
+            }}
+          />
+          <div
+            style={{
+              position: "fixed",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              backgroundColor: "var(--card-bg)",
+              borderRadius: "12px",
+              padding: "20px",
+              width: "420px",
+              maxWidth: "90vw",
+              zIndex: 111,
+              border: "1px solid var(--card-border)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "12px",
+              }}
+            >
+              <h3
+                style={{
+                  fontSize: "15px",
+                  fontWeight: 600,
+                  color: "var(--text-primary)",
+                }}
+              >
+                Product Barcode
+              </h3>
+              <button
+                onClick={() => setBarcodeTarget(null)}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "var(--text-muted)",
+                }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <BarcodeDisplay value={barcodeTarget.productId} label={barcodeTarget.name} />
+          </div>
         </>
       )}
 

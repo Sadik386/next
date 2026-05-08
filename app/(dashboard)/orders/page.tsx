@@ -1,7 +1,8 @@
 "use client";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, X, Search, Eye, Trash2, Pencil } from "lucide-react";
+import { Plus, X, Search, Eye, Trash2, Pencil, ScanLine } from "lucide-react";
+import BarcodeDisplay from "@/components/ui/BarcodeDisplay";
 
 type OrderListItem = {
   id: number;
@@ -84,6 +85,8 @@ export default function OrdersPage() {
   const [deleteTarget, setDeleteTarget] = useState<OrderListItem | null>(null);
   const [deleteReason, setDeleteReason] = useState("");
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+
+  const [barcodeTarget, setBarcodeTarget] = useState<OrderListItem | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -371,6 +374,9 @@ export default function OrdersPage() {
                           <Eye size={13} />
                         </IconBtn>
                       </Link>
+                      <IconBtn onClick={() => setBarcodeTarget(o)} title="Show barcode">
+                        <ScanLine size={13} />
+                      </IconBtn>
                       <IconBtn onClick={() => openEdit(o)} title="Edit">
                         <Pencil size={13} />
                       </IconBtn>
@@ -655,6 +661,31 @@ export default function OrdersPage() {
                 {editSaving ? "Saving..." : "Save Changes"}
               </button>
             </div>
+          </div>
+        </>
+      )}
+
+      {barcodeTarget && (
+        <>
+          <div onClick={() => setBarcodeTarget(null)} style={modalOverlay} />
+          <div style={modalBox}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "12px",
+              }}
+            >
+              <h3 style={modalTitle}>Order Barcode</h3>
+              <button onClick={() => setBarcodeTarget(null)} style={iconButton}>
+                <X size={16} />
+              </button>
+            </div>
+            <BarcodeDisplay
+              value={barcodeTarget.orderId}
+              label={`${barcodeTarget.orderId} — ${barcodeTarget.customer.name}`}
+            />
           </div>
         </>
       )}

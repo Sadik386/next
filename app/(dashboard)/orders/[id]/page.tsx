@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState, use } from "react";
 import { ArrowLeft, ChevronDown, Trash2, Check, Circle } from "lucide-react";
+import BarcodeDisplay from "@/components/ui/BarcodeDisplay";
 
 type OrderItem = {
   id: number;
@@ -153,7 +154,18 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
             <PaymentBadge value={order.paymentStatus} />
           </div>
         </div>
-        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "flex-end" }}>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "12px",
+            alignItems: "flex-end",
+          }}
+        >
+          <div style={{ width: "260px" }}>
+            <BarcodeDisplay value={order.orderId} label={order.orderId} size="sm" />
+          </div>
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "flex-end" }}>
           <Dropdown
             open={statusOpen}
             onToggle={() => {
@@ -197,6 +209,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           <button onClick={() => setDeleteOpen(true)} style={btnDanger}>
             <Trash2 size={13} /> Request Delete
           </button>
+          </div>
         </div>
       </div>
 
