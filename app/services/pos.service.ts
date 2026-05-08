@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { createLog } from "@/services/activity-log.service";
 import { generateOrderId } from "@/services/order.service";
 import { applyStockDelta } from "@/lib/stockHelper";
+import { getCurrentBusinessId } from "@/lib/business";
 
 const SHORT_ID_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
@@ -26,6 +27,7 @@ export async function createPosSession(userId: number) {
   const session = await prisma.posSession.create({
     data: {
       id,
+      businessId: getCurrentBusinessId(),
       createdBy: userId,
       status: "active",
       scans: "[]",
@@ -201,7 +203,8 @@ export async function checkoutPos(data: PosCheckoutInput, userId: number) {
         totalAmount,
         paidAmount,
         notes: data.notes ?? null,
-        createdBy: userId,
+        businessId: getCurrentBusinessId(),
+      createdBy: userId,
         items: {
           create: itemRows.map((r) => ({
             productId: r.product.id,
@@ -235,7 +238,8 @@ export async function checkoutPos(data: PosCheckoutInput, userId: number) {
           paymentStatus,
           paymentMethod: data.paymentMethod ?? null,
           notes: data.notes ?? null,
-          createdBy: userId,
+          businessId: getCurrentBusinessId(),
+      createdBy: userId,
         },
       });
       sales.push({ id: sale.id, saleId: sale.saleId });
@@ -278,6 +282,7 @@ export async function listHeldOrders(userId: number) {
 export async function holdOrder(input: HeldOrderInput, userId: number) {
   return prisma.heldOrder.create({
     data: {
+      businessId: getCurrentBusinessId(),
       createdBy: userId,
       items: JSON.stringify(input.items ?? []),
       customerData: input.customerData ? JSON.stringify(input.customerData) : null,

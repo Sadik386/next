@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { createLog } from "@/services/activity-log.service";
 import { notifyDeleteRequest } from "@/services/delete-request.service";
+import { getCurrentBusinessId } from "@/lib/business";
 
 export const EXPENSE_CATEGORIES = [
   "Utilities",
@@ -55,7 +56,7 @@ export interface ExpenseInput {
 }
 
 export async function generateExpenseId(): Promise<string> {
-  const count = await prisma.expense.count();
+  const count = await prisma.expense.count({ where: { businessId: getCurrentBusinessId() } });
   return `EXP-${String(count + 1).padStart(3, "0")}`;
 }
 
@@ -78,7 +79,7 @@ export async function getExpenses(filters: ExpenseFilters = {}) {
   const pageSize = Math.min(100, Math.max(1, filters.pageSize ?? 20));
   const skip = (page - 1) * pageSize;
 
-  const where: Prisma.ExpenseWhereInput = {};
+  const where: Prisma.ExpenseWhereInput = { businessId: getCurrentBusinessId() };
   if (filters.search) {
     where.OR = [
       { expenseId: { contains: filters.search } },

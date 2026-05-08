@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { createLog } from "@/services/activity-log.service";
 import { createNotification } from "@/services/notification.service";
+import { getCurrentBusinessId } from "@/lib/business";
 
 export type StockStatus = "in_stock" | "low" | "out_of_stock";
 
@@ -29,9 +30,10 @@ export function getStockStatus(quantity: number, threshold: number): StockStatus
 }
 
 export async function ensureStockForProduct(productId: number) {
-  const existing = await prisma.stock.findUnique({ where: { productId } });
+  const businessId = getCurrentBusinessId();
+  const existing = await prisma.stock.findUnique({ where: { productId, businessId } });
   if (existing) return existing;
-  return prisma.stock.create({ data: { productId, quantity: 0, threshold: 10 } });
+  return prisma.stock.create({ data: { productId, quantity: 0, threshold: 10, businessId } });
 }
 
 export async function getInventory(filters: InventoryFilters = {}) {
@@ -39,7 +41,7 @@ export async function getInventory(filters: InventoryFilters = {}) {
   const pageSize = Math.min(100, Math.max(1, filters.pageSize ?? 20));
   const skip = (page - 1) * pageSize;
 
-  const productWhere: Prisma.ProductWhereInput = { deletedAt: null };
+  const productWhere: Prisma.ProductWhereInput = { deletedAt: null, businessId: getCurrentBusinessId() };
   if (filters.search) {
     productWhere.OR = [
       { name: { contains: filters.search } },
@@ -96,8 +98,9 @@ export async function adjustStock(
   input: AdjustStockInput,
   userId: number
 ) {
+  const businessId = getCurrentBusinessId();
   const product = await prisma.product.findFirst({
-    where: { id: productId, deletedAt: null },
+    where: { id: productId, deletedAt: null, businessId },
   });
   if (!product) return null;
 
@@ -117,7 +120,7 @@ export async function adjustStock(
   const location = input.location !== undefined ? input.location : stock.location;
 
   const updated = await prisma.stock.update({
-    where: { id: stock.id },
+    where: { id: stock.id, businessId },
     data: {
       quantity: newQty,
       threshold,
@@ -127,6 +130,7 @@ export async function adjustStock(
 
   await prisma.stockLog.create({
     data: {
+      businessId,
       stockId: stock.id,
       productId,
       type: input.type,
@@ -144,7 +148,7 @@ export async function adjustStock(
 
   if (targetProductStatus !== product.status) {
     await prisma.product.update({
-      where: { id: productId },
+      where: { id: productId, businessId },
       data: { status: targetProductStatus },
     });
   }
@@ -190,7 +194,7 @@ export async function adjustStock(
 
 export async function getStockLogs(stockId: number, limit = 20) {
   return prisma.stockLog.findMany({
-    where: { stockId },
+    where: { stockId, businessId: getCurrentBusinessId() },
     include: {
       createdByUser: { select: { id: true, name: true, email: true } },
       product: { select: { id: true, productId: true, name: true, unit: true } },
@@ -202,7 +206,7 @@ export async function getStockLogs(stockId: number, limit = 20) {
 
 export async function getStockLogsByProductId(productId: number, limit = 20) {
   return prisma.stockLog.findMany({
-    where: { productId },
+    where: { productId, businessId: getCurrentBusinessId() },
     include: {
       createdByUser: { select: { id: true, name: true, email: true } },
       product: { select: { id: true, productId: true, name: true, unit: true } },

@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { hasPermission } from "@/lib/rbac";
 import { PERMISSIONS } from "@/constants/permissions";
 import { ROLE_HIERARCHY, RoleName } from "@/constants/roles";
+import { getCurrentBusinessId } from "@/lib/business";
 
 export type NotificationType =
   | "new_order"
@@ -45,12 +46,14 @@ function getAllowedBroadcastTypes(role: RoleName): string[] {
 
 function visibleWhere(userId: number, role: RoleName): Prisma.NotificationWhereInput {
   const allowed = getAllowedBroadcastTypes(role);
-  const broadcastClause: Prisma.NotificationWhereInput =
-    allowed.length > 0
-      ? { userId: null, type: { in: allowed } }
-      : { id: -1 };
+  const businessId = getCurrentBusinessId();
   return {
-    OR: [{ userId }, broadcastClause],
+    businessId,
+    isRead: false, // Only show non-archived notifications
+    OR: [
+      { userId },
+      { userId: null, type: { in: allowed } },
+    ],
   };
 }
 
@@ -58,6 +61,7 @@ export async function createNotification(data: CreateNotificationInput) {
   try {
     return await prisma.notification.create({
       data: {
+        businessId: getCurrentBusinessId(),
         userId: data.userId ?? null,
         type: data.type,
         title: data.title,
@@ -148,7 +152,7 @@ export async function markAsRead(id: number, userId: number, role: RoleName) {
   if (!notif) return null;
   await prisma.notificationRead.upsert({
     where: { notificationId_userId: { notificationId: id, userId } },
-    create: { notificationId: id, userId },
+    create: { notificationId: id, userId, businessId: getCurrentBusinessId() },
     update: {},
   });
   return notif;
@@ -163,8 +167,9 @@ export async function markAllAsRead(userId: number, role: RoleName) {
     select: { id: true },
   });
   if (unread.length === 0) return { count: 0 };
+  const businessId = getCurrentBusinessId();
   await prisma.notificationRead.createMany({
-    data: unread.map((n) => ({ notificationId: n.id, userId })),
+    data: unread.map((n) => ({ notificationId: n.id, userId, businessId })),
     skipDuplicates: true,
   });
   return { count: unread.length };

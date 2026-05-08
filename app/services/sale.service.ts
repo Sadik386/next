@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { createLog } from "@/services/activity-log.service";
 import { notifyDeleteRequest } from "@/services/delete-request.service";
+import { getCurrentBusinessId } from "@/lib/business";
 
 export interface SaleFilters {
   search?: string;
@@ -40,7 +41,7 @@ const PAYMENT_STATUSES = ["unpaid", "partial", "paid"] as const;
 const RETURN_STATUSES = ["none", "requested", "approved", "completed"] as const;
 
 export async function generateSaleId(): Promise<string> {
-  const count = await prisma.sale.count();
+  const count = await prisma.sale.count({ where: { businessId: getCurrentBusinessId() } });
   return `SL-${String(count + 1).padStart(3, "0")}`;
 }
 
@@ -63,7 +64,7 @@ export async function getSales(filters: SaleFilters = {}) {
   const pageSize = Math.min(100, Math.max(1, filters.pageSize ?? 20));
   const skip = (page - 1) * pageSize;
 
-  const where: Prisma.SaleWhereInput = {};
+  const where: Prisma.SaleWhereInput = { businessId: getCurrentBusinessId() };
   if (filters.search) {
     where.OR = [
       { saleId: { contains: filters.search } },

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { createLog } from "./activity-log.service";
 import { createNotification } from "./notification.service";
+import { getCurrentBusinessId } from "@/lib/business";
 
 export async function notifyDeleteRequest(entityType: string, entityName: string) {
   await createNotification({
@@ -24,7 +25,7 @@ export async function getDeleteRequests(filters: DeleteRequestFilters = {}) {
   const pageSize = Math.min(100, Math.max(1, filters.pageSize ?? 20));
   const skip = (page - 1) * pageSize;
 
-  const where: Prisma.DeleteRequestWhereInput = {};
+  const where: Prisma.DeleteRequestWhereInput = { businessId: getCurrentBusinessId() };
   if (filters.status && filters.status !== "all") {
     where.status = filters.status;
   }
@@ -60,8 +61,9 @@ export async function getDeleteRequests(filters: DeleteRequestFilters = {}) {
 }
 
 export async function approveDeleteRequest(id: number, reviewerId: number) {
+  const businessId = getCurrentBusinessId();
   const request = await prisma.deleteRequest.findUnique({
-    where: { id },
+    where: { id, businessId },
     include: { requester: true },
   });
 
@@ -73,7 +75,7 @@ export async function approveDeleteRequest(id: number, reviewerId: number) {
   return await prisma.$transaction(async (tx) => {
     // 1. Update the request status
     const updatedRequest = await tx.deleteRequest.update({
-      where: { id },
+      where: { id, businessId },
       data: {
         status: "approved",
         reviewedBy: reviewerId,
@@ -88,37 +90,37 @@ export async function approveDeleteRequest(id: number, reviewerId: number) {
     switch (request.entityType.toLowerCase()) {
       case "order":
         deletedEntity = await tx.order.update({
-          where: { id: entityId },
+          where: { id: entityId, businessId },
           data: { deletedAt: now },
         });
         break;
       case "product":
         deletedEntity = await tx.product.update({
-          where: { id: entityId },
+          where: { id: entityId, businessId },
           data: { deletedAt: now },
         });
         break;
       case "customer":
         deletedEntity = await tx.customer.update({
-          where: { id: entityId },
+          where: { id: entityId, businessId },
           data: { deletedAt: now },
         });
         break;
       case "supplier":
         deletedEntity = await tx.supplier.update({
-          where: { id: entityId },
+          where: { id: entityId, businessId },
           data: { deletedAt: now },
         });
         break;
       case "sale":
         deletedEntity = await tx.sale.update({
-          where: { id: entityId },
+          where: { id: entityId, businessId },
           data: { deletedAt: now },
         });
         break;
       case "expense":
         deletedEntity = await tx.expense.update({
-          where: { id: entityId },
+          where: { id: entityId, businessId },
           data: { deletedAt: now },
         });
         break;
@@ -142,15 +144,16 @@ export async function approveDeleteRequest(id: number, reviewerId: number) {
 }
 
 export async function rejectDeleteRequest(id: number, reviewerId: number) {
+  const businessId = getCurrentBusinessId();
   const request = await prisma.deleteRequest.findUnique({
-    where: { id },
+    where: { id, businessId },
   });
 
   if (!request) return { error: "Delete request not found" };
   if (request.status !== "pending") return { error: "Request is already processed" };
 
   const updatedRequest = await prisma.deleteRequest.update({
-    where: { id },
+    where: { id, businessId },
     data: {
       status: "rejected",
       reviewedBy: reviewerId,

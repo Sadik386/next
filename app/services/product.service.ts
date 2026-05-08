@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { createLog } from "@/services/activity-log.service";
 import { notifyDeleteRequest } from "@/services/delete-request.service";
+import { getCurrentBusinessId } from "@/lib/business";
 
 export interface ProductFilters {
   search?: string;
@@ -25,7 +26,7 @@ export interface ProductInput {
 }
 
 export async function generateProductId(): Promise<string> {
-  const count = await prisma.product.count();
+  const count = await prisma.product.count({ where: { businessId: getCurrentBusinessId() } });
   const next = count + 1;
   return `PRD-${String(next).padStart(3, "0")}`;
 }
@@ -35,7 +36,7 @@ export async function getProducts(filters: ProductFilters = {}) {
   const pageSize = Math.min(100, Math.max(1, filters.pageSize ?? 20));
   const skip = (page - 1) * pageSize;
 
-  const where: Prisma.ProductWhereInput = { deletedAt: null };
+  const where: Prisma.ProductWhereInput = { deletedAt: null, businessId: getCurrentBusinessId() };
   if (filters.search) {
     where.OR = [
       { name: { contains: filters.search } },
@@ -68,7 +69,7 @@ export async function getProducts(filters: ProductFilters = {}) {
 
 export async function getProductById(id: number) {
   return prisma.product.findFirst({
-    where: { id, deletedAt: null },
+    where: { id, deletedAt: null, businessId: getCurrentBusinessId() },
     include: { category: true },
   });
 }
@@ -77,6 +78,7 @@ export async function createProduct(data: ProductInput, userId: number) {
   const productId = await generateProductId();
   const product = await prisma.product.create({
     data: {
+      businessId: getCurrentBusinessId(),
       productId,
       name: data.name,
       sku: data.sku ?? null,
@@ -93,7 +95,7 @@ export async function createProduct(data: ProductInput, userId: number) {
   });
 
   await prisma.stock.create({
-    data: { productId: product.id, quantity: 0, threshold: 10 },
+    data: { productId: product.id, quantity: 0, threshold: 10, businessId: getCurrentBusinessId() },
   });
 
   await createLog({

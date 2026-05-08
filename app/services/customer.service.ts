@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { createLog } from "@/services/activity-log.service";
 import { notifyDeleteRequest } from "@/services/delete-request.service";
+import { getCurrentBusinessId } from "@/lib/business";
 
 export interface CustomerFilters {
   search?: string;
@@ -25,7 +26,7 @@ export interface CustomerInput {
 }
 
 export async function generateCustomerId(): Promise<string> {
-  const count = await prisma.customer.count();
+  const count = await prisma.customer.count({ where: { businessId: getCurrentBusinessId() } });
   const next = count + 1;
   return `CX-${String(next).padStart(3, "0")}`;
 }
@@ -35,7 +36,7 @@ export async function getCustomers(filters: CustomerFilters = {}) {
   const pageSize = Math.min(100, Math.max(1, filters.pageSize ?? 20));
   const skip = (page - 1) * pageSize;
 
-  const where: Prisma.CustomerWhereInput = { deletedAt: null };
+  const where: Prisma.CustomerWhereInput = { deletedAt: null, businessId: getCurrentBusinessId() };
   if (filters.search) {
     where.OR = [
       { name: { contains: filters.search } },
@@ -68,7 +69,7 @@ export async function getCustomers(filters: CustomerFilters = {}) {
 
 export async function getCustomerById(id: number) {
   return prisma.customer.findFirst({
-    where: { id, deletedAt: null },
+    where: { id, deletedAt: null, businessId: getCurrentBusinessId() },
   });
 }
 
@@ -77,6 +78,7 @@ export async function createCustomer(data: CustomerInput, userId: number) {
   const customer = await prisma.customer.create({
     data: {
       customerId,
+      businessId: getCurrentBusinessId(),
       name: data.name,
       email: data.email ?? null,
       mobile: data.mobile,
@@ -119,7 +121,7 @@ export async function updateCustomer(id: number, data: Partial<CustomerInput>, u
   if (data.status !== undefined) update.status = data.status;
 
   const customer = await prisma.customer.update({
-    where: { id },
+    where: { id, businessId: getCurrentBusinessId() },
     data: update,
   });
 
@@ -137,16 +139,18 @@ export async function updateCustomer(id: number, data: Partial<CustomerInput>, u
 }
 
 export async function requestDeleteCustomer(id: number, reason: string, userId: number) {
-  const customer = await prisma.customer.findFirst({ where: { id, deletedAt: null } });
+  const businessId = getCurrentBusinessId();
+  const customer = await prisma.customer.findFirst({ where: { id, deletedAt: null, businessId } });
   if (!customer) return null;
 
   const existing = await prisma.deleteRequest.findFirst({
-    where: { entityType: "customer", entityId: String(id), status: "pending" },
+    where: { entityType: "customer", entityId: String(id), status: "pending", businessId },
   });
   if (existing) return existing;
 
   const request = await prisma.deleteRequest.create({
     data: {
+      businessId,
       entityType: "customer",
       entityId: String(id),
       entityName: customer.name,

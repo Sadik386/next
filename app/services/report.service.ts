@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import { getCurrentBusinessId } from "@/lib/business";
 
 function toNumber(value: Prisma.Decimal | number | string | null | undefined): number {
   if (value === null || value === undefined) return 0;
@@ -32,7 +33,7 @@ export async function getSalesReport(from: Date, to: Date) {
   const toDate = endOfDay(to);
 
   const sales = await prisma.sale.findMany({
-    where: { date: { gte: fromDate, lte: toDate } },
+    where: { date: { gte: fromDate, lte: toDate }, businessId: getCurrentBusinessId() },
     include: {
       customer: { select: { id: true, customerId: true, name: true } },
       product: { select: { id: true, productId: true, name: true } },
@@ -164,7 +165,7 @@ export async function getExpenseReport(from: Date, to: Date) {
   const toDate = endOfDay(to);
 
   const expenses = await prisma.expense.findMany({
-    where: { date: { gte: fromDate, lte: toDate } },
+    where: { date: { gte: fromDate, lte: toDate }, businessId: getCurrentBusinessId() },
     orderBy: { date: "asc" },
   });
 
@@ -243,11 +244,11 @@ export async function getProfitReport(from: Date, to: Date) {
 
   const [sales, expenses] = await Promise.all([
     prisma.sale.findMany({
-      where: { date: { gte: fromDate, lte: toDate } },
+      where: { date: { gte: fromDate, lte: toDate }, businessId: getCurrentBusinessId() },
       select: { date: true, totalAmount: true },
     }),
     prisma.expense.findMany({
-      where: { date: { gte: fromDate, lte: toDate } },
+      where: { date: { gte: fromDate, lte: toDate }, businessId: getCurrentBusinessId() },
       select: { date: true, amount: true },
     }),
   ]);

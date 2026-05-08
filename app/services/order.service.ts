@@ -4,6 +4,7 @@ import { createLog } from "@/services/activity-log.service";
 import { createNotification } from "@/services/notification.service";
 import { notifyDeleteRequest } from "@/services/delete-request.service";
 import { applyStockDelta } from "@/lib/stockHelper";
+import { getCurrentBusinessId } from "@/lib/business";
 
 export interface OrderFilters {
   search?: string;
@@ -37,7 +38,7 @@ const ORDER_STATUSES = ["pending", "confirmed", "delivered", "cancelled"] as con
 const PAYMENT_STATUSES = ["unpaid", "partial", "paid"] as const;
 
 export async function generateOrderId(): Promise<string> {
-  const count = await prisma.order.count();
+  const count = await prisma.order.count({ where: { businessId: getCurrentBusinessId() } });
   const next = count + 1;
   return `ORD-${String(next).padStart(3, "0")}`;
 }
@@ -47,7 +48,7 @@ export async function getOrders(filters: OrderFilters = {}) {
   const pageSize = Math.min(100, Math.max(1, filters.pageSize ?? 20));
   const skip = (page - 1) * pageSize;
 
-  const where: Prisma.OrderWhereInput = { deletedAt: null };
+  const where: Prisma.OrderWhereInput = { deletedAt: null, businessId: getCurrentBusinessId() };
   if (filters.search) {
     where.OR = [
       { orderId: { contains: filters.search } },
@@ -161,6 +162,7 @@ export async function createOrder(data: OrderInput, userId: number) {
     const created = await tx.order.create({
       data: {
         orderId,
+        businessId: getCurrentBusinessId(),
         customerId: data.customerId,
         status: "pending",
         paymentStatus,

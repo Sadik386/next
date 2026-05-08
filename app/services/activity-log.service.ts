@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import { getCurrentBusinessId } from "@/lib/business";
 
 export interface ActivityLogFilters {
   module?: string;
@@ -24,7 +25,9 @@ export async function getActivityLogs(filters: ActivityLogFilters = {}) {
   const pageSize = Math.min(100, Math.max(1, filters.pageSize ?? 20));
   const skip = (page - 1) * pageSize;
 
-  const where: Prisma.ActivityLogWhereInput = {};
+  const where: Prisma.ActivityLogWhereInput = {
+    businessId: getCurrentBusinessId(),
+  };
 
   if (filters.module) {
     where.module = filters.module;
@@ -70,6 +73,7 @@ export async function getActivityLogs(filters: ActivityLogFilters = {}) {
 export async function createLog(data: CreateLogInput) {
   return prisma.activityLog.create({
     data: {
+      businessId: getCurrentBusinessId(),
       userId: data.userId,
       action: data.action,
       module: data.module,

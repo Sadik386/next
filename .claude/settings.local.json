@@ -1,0 +1,42 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx create-next-app@latest . --typescript --tailwind --eslint --app --no-src-dir --import-alias \"@/*\" --yes --use-npm)",
+      "Bash(npx create-next-app@latest accoraze --typescript --tailwind --eslint --app --no-src-dir --import-alias \"@/*\" --yes --use-npm)",
+      "Bash(shopt -s dotglob)",
+      "Bash(mv accoraze/* .)",
+      "Bash(npm install *)",
+      "Bash(npx prisma *)",
+      "Bash(npm ls *)",
+      "Bash(npm run *)",
+      "Bash(npx next *)",
+      "Bash(node -e \"console.log\\('cwd:', process.cwd\\(\\)\\)\")",
+      "Bash(rm -rf .next)",
+      "Bash(node -e \"console.log\\(process.cwd\\(\\)\\)\")",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git -C /g/accoraze status)",
+      "Bash(git -C /g/accoraze add \"app/\\(dashboard\\)/products/page.tsx\" prisma/schema.prisma \"app/api/categories\" \"app/api/products\" \"app/api/upload\" \"app/services/category.service.ts\" \"app/services/product.service.ts\")",
+      "Bash(git -C /g/accoraze commit -m \"Phase 5: Products module\")",
+      "Bash(git stash *)",
+      "PowerShell(Set-Location \"G:\\\\accoraze\"; \\(Get-Location\\).Path)",
+      "PowerShell(Set-Location \"G:\\\\accoraze\"; npm run build 2>&1 | Select-Object -Last 5; Write-Output \"EXIT=$LASTEXITCODE\")",
+      "PowerShell(Set-Location \"G:\\\\accoraze\"; if \\(Test-Path .next\\) { Remove-Item -Recurse -Force .next }; npm run build 2>&1 | Select-Object -Last 5; Write-Output \"EXIT=$LASTEXITCODE\")",
+      "Bash(git commit *)",
+      "Bash(cd /g/accoraze && ls)",
+      "Read(//g/g/**)",
+      "Bash(mkdir -p \"app/api/customers/[id]/delete-request\" \"app/api/suppliers/[id]/delete-request\")",
+      "Bash(mkdir -p \"app/\\(dashboard\\)/customers/[id]\" \"app/\\(dashboard\\)/suppliers/[id]\")",
+      "Bash(mkdir -p app/api/users/\\\\[id\\\\]/role app/api/users/\\\\[id\\\\]/status app/api/users/assignable-roles)",
+      "Bash(git reset *)",
+      "Bash(node -e ' *)",
+      "Bash(mkdir -p \"app/api/barcode/product/[id]\" \"app/api/barcode/order/[id]\")"
+    ],
+    "additionalDirectories": [
+      "G:\\accoraze\\app\\api\\customers\\[id]",
+      "G:\\accoraze\\app\\(dashboard)\\customers",
+      "G:\\accoraze\\app\\api\\users\\[id]",
+      "G:\\accoraze\\app\\api\\barcode\\product"
+    ]
+  }
+}
