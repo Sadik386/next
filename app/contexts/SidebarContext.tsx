@@ -5,8 +5,12 @@ import { usePathname } from "next/navigation";
 interface SidebarContextValue {
   isCollapsed: boolean;
   isMobileOpen: boolean;
+  isHovered: boolean;
+  isExpanded: boolean;
+  sidebarWidth: string;
   toggleSidebar: () => void;
   closeMobile: () => void;
+  setIsHovered: (hovered: boolean) => void;
 }
 
 const SidebarContext = createContext<SidebarContextValue | undefined>(undefined);
@@ -18,23 +22,27 @@ const MOBILE_BREAKPOINT = 1024;
 export function SidebarProvider({ children }: { children: React.ReactNode }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
   const pathname = usePathname();
 
+  // Load collapsed state from localStorage on mount
   useEffect(() => {
     const saved = localStorage.getItem("sidebar-collapsed");
-    if (saved === "true") setIsCollapsed(true);
+    if (saved !== null) {
+      setIsCollapsed(saved === "true");
+    }
   }, []);
 
-  // Mirror collapsed state to a CSS custom property so server-rendered
-  // layout chrome (main, topbar) can react without prop-drilling.
+  // Update CSS variable for sidebar width
   useEffect(() => {
     const isMobile = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`).matches;
-    if (isMobile) return; // mobile width is forced to 0 in globals.css
+    if (isMobile) return;
+    const isExpanded = !isCollapsed || isHovered;
     document.documentElement.style.setProperty(
       "--sidebar-width",
-      isCollapsed ? COLLAPSED_WIDTH : EXPANDED_WIDTH,
+      isExpanded ? EXPANDED_WIDTH : COLLAPSED_WIDTH
     );
-  }, [isCollapsed]);
+  }, [isCollapsed, isHovered]);
 
   // Lock body scroll while the mobile drawer is open.
   useEffect(() => {
@@ -53,29 +61,32 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
   }, [pathname]);
 
   const toggleSidebar = useCallback(() => {
-    const isMobile = window.innerWidth < MOBILE_BREAKPOINT;
-    if (isMobile) {
-      setIsMobileOpen((prev) => !prev);
-    } else {
-      setIsCollapsed((prev) => {
-        const next = !prev;
-        localStorage.setItem("sidebar-collapsed", String(next));
-        return next;
-      });
-    }
+    setIsCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem("sidebar-collapsed", String(next));
+      return next;
+    });
   }, []);
 
   const closeMobile = useCallback(() => {
     setIsMobileOpen(false);
   }, []);
 
+  // Computed values
+  const isExpanded = !isCollapsed || isHovered;
+  const sidebarWidth = isExpanded ? EXPANDED_WIDTH : COLLAPSED_WIDTH;
+
   return (
     <SidebarContext.Provider
       value={{
         isCollapsed,
         isMobileOpen,
+        isHovered,
+        isExpanded,
+        sidebarWidth,
         toggleSidebar,
         closeMobile,
+        setIsHovered,
       }}
     >
       {children}

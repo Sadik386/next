@@ -16,9 +16,14 @@ import {
   Trash2,
   Activity,
   Bell,
-  Receipt,
   Import,
   Brain,
+  ChevronRight,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Receipt,
+  User,
+  LogOut,
 } from "lucide-react";
 import { useSidebar } from "@/contexts/SidebarContext";
 
@@ -49,27 +54,28 @@ const adminNav = [
 function NavItem({
   item,
   active,
-  collapsed,
+  isExpanded,
 }: {
   item: { label: string; href: string; icon: React.ElementType };
   active: boolean;
-  collapsed: boolean;
+  isExpanded: boolean;
 }) {
   const Icon = item.icon;
   return (
     <Link
       href={item.href}
-      title={collapsed ? item.label : undefined}
+      title={!isExpanded ? item.label : undefined}
       style={{
         display: "flex",
         alignItems: "center",
-        justifyContent: collapsed ? "center" : "space-between",
-        padding: "7px 10px",
+        justifyContent: isExpanded ? "space-between" : "center",
+        padding: isExpanded ? "7px 10px" : "7px 0",
+        height: isExpanded ? "auto" : "36px",
         borderRadius: "8px",
         textDecoration: "none",
         backgroundColor: active ? "var(--sidebar-active-bg)" : "transparent",
         marginBottom: "1px",
-        transition: "background 0.15s",
+        transition: "background 0.15s, padding 0.2s ease",
       }}
       onMouseEnter={(e) => {
         if (!active) (e.currentTarget as HTMLElement).style.backgroundColor = "var(--sidebar-hover)";
@@ -80,31 +86,30 @@ function NavItem({
     >
       <div style={{ display: "flex", alignItems: "center", gap: "9px" }}>
         <Icon size={15} strokeWidth={1.8} color={active ? "var(--brand)" : "var(--sidebar-text)"} />
-        {!collapsed && (
-          <span
-            style={{
-              fontSize: "13px",
-              fontWeight: active ? 600 : 400,
-              color: active ? "var(--sidebar-text-active)" : "var(--sidebar-text)",
-            }}
-          >
-            {item.label}
-          </span>
-        )}
+        <span
+          style={{
+            opacity: isExpanded ? 1 : 0,
+            width: isExpanded ? "auto" : 0,
+            overflow: "hidden",
+            whiteSpace: "nowrap",
+            fontSize: "13px",
+            fontWeight: active ? 600 : 400,
+            color: active ? "var(--sidebar-text-active)" : "var(--sidebar-text)",
+            transition: "opacity 0.15s ease, width 0.2s ease",
+          }}
+        >
+          {item.label}
+        </span>
       </div>
-      {active && !collapsed && <span style={{ fontSize: "11px", color: "var(--brand)" }}>›</span>}
+      {active && isExpanded && <span style={{ fontSize: "11px", color: "var(--brand)" }}>›</span>}
     </Link>
   );
 }
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const { isCollapsed, isMobileOpen, closeMobile } = useSidebar();
+  const { isCollapsed, isMobileOpen, closeMobile, isHovered, setIsHovered, isExpanded, toggleSidebar } = useSidebar();
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
-
-  // On mobile the drawer always renders at full expanded width.
-  const drawerExpanded = isMobileOpen || !isCollapsed;
-  const sidebarWidth = drawerExpanded ? "220px" : "64px";
 
   return (
     <>
@@ -112,27 +117,31 @@ export default function Sidebar() {
       <aside
         className="app-sidebar"
         data-mobile-open={isMobileOpen}
+        onMouseEnter={() => isCollapsed && setIsHovered(true)}
+        onMouseLeave={() => isCollapsed && setIsHovered(false)}
         style={{
           position: "fixed",
           left: 0,
           top: 0,
           height: "100vh",
-          width: sidebarWidth,
+          width: isExpanded ? "220px" : "64px",
           backgroundColor: "var(--sidebar-bg)",
           borderRight: "1px solid var(--sidebar-border)",
           display: "flex",
           flexDirection: "column",
           zIndex: 40,
           transition: "width 0.2s ease",
+          overflow: "hidden",
         }}
       >
         <div
           style={{
-            padding: drawerExpanded ? "18px 14px 14px" : "18px 8px 14px",
+            padding: isExpanded ? "18px 14px 14px" : "18px 8px 14px",
             borderBottom: "1px solid var(--sidebar-border)",
+            transition: "padding 0.2s ease",
           }}
         >
-          {drawerExpanded && (
+          {isExpanded && (
             <p
               style={{
                 fontSize: "9px",
@@ -150,7 +159,7 @@ export default function Sidebar() {
             style={{
               display: "flex",
               alignItems: "center",
-              justifyContent: drawerExpanded ? "flex-start" : "center",
+              justifyContent: isExpanded ? "flex-start" : "center",
               gap: "9px",
             }}
           >
@@ -166,19 +175,21 @@ export default function Sidebar() {
                 fontSize: "12px",
                 fontWeight: 700,
                 color: "white",
+                flexShrink: 0,
               }}
             >
               A
             </div>
-            {drawerExpanded && (
+            {isExpanded && (
               <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--sidebar-text-active)" }}>
                 Accoraze
               </span>
             )}
           </div>
         </div>
+
         <nav style={{ flex: 1, overflowY: "auto", padding: "10px 8px" }}>
-          {drawerExpanded && (
+          {isExpanded && (
             <p
               style={{
                 fontSize: "9px",
@@ -193,9 +204,9 @@ export default function Sidebar() {
             </p>
           )}
           {businessNav.map((item) => (
-            <NavItem key={item.href} item={item} active={isActive(item.href)} collapsed={!drawerExpanded} />
+            <NavItem key={item.href} item={item} active={isActive(item.href)} isExpanded={isExpanded} />
           ))}
-          {drawerExpanded && (
+          {isExpanded && (
             <p
               style={{
                 fontSize: "9px",
@@ -210,13 +221,83 @@ export default function Sidebar() {
             </p>
           )}
           {adminNav.map((item) => (
-            <NavItem key={item.href} item={item} active={isActive(item.href)} collapsed={!drawerExpanded} />
+            <NavItem key={item.href} item={item} active={isActive(item.href)} isExpanded={isExpanded} />
           ))}
         </nav>
-        <div style={{ padding: "10px 14px", borderTop: "1px solid var(--sidebar-border)" }}>
-          <p style={{ fontSize: "11px", color: "var(--sidebar-text)", textAlign: "center" }}>
-            {drawerExpanded ? "Accoraze v1.0.0" : "v1"}
-          </p>
+
+        <div
+          style={{
+            borderTop: "1px solid var(--sidebar-border)",
+            padding: "8px",
+          }}
+        >
+          <button
+            onClick={toggleSidebar}
+            title={isExpanded ? "Collapse sidebar" : "Expand sidebar"}
+            style={{
+              width: "100%",
+              height: "36px",
+              backgroundColor: "transparent",
+              border: "none",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: isExpanded ? "flex-start" : "center",
+              padding: "0 12px",
+              gap: "8px",
+              cursor: "pointer",
+              color: "var(--sidebar-text)",
+              fontSize: "12px",
+              fontWeight: 500,
+              borderRadius: "6px",
+              transition: "background 0.15s",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLElement).style.backgroundColor = "var(--sidebar-hover)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLElement).style.backgroundColor = "transparent";
+            }}
+          >
+            {isExpanded ? (
+              <>
+                <PanelLeftClose size={15} strokeWidth={1.8} />
+                <span>Collapse sidebar</span>
+              </>
+            ) : (
+              <PanelLeftOpen size={15} strokeWidth={1.8} />
+            )}
+          </button>
+        </div>
+
+        <div
+          style={{
+            borderTop: "1px solid var(--sidebar-border)",
+            padding: "10px 12px",
+            display: "flex",
+            alignItems: "center",
+            gap: "9px",
+          }}
+        >
+          <div
+            style={{
+              width: "28px",
+              height: "28px",
+              borderRadius: "7px",
+              backgroundColor: "var(--brand)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            <User size={13} color="white" />
+          </div>
+          {isExpanded && (
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: "12px", fontWeight: 600, color: "var(--sidebar-text-active)" }}>Admin</div>
+              <div style={{ fontSize: "10px", color: "var(--sidebar-text)" }}>admin@accoraze.com</div>
+            </div>
+          )}
         </div>
       </aside>
     </>

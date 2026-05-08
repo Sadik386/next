@@ -5,7 +5,6 @@ import {
   Moon,
   Sun,
   Bell,
-  Menu,
   LogOut,
   User,
   ChevronDown,
@@ -49,7 +48,6 @@ function timeAgo(date: string) {
 export default function Topbar() {
   const router = useRouter();
   const pathname = usePathname();
-  const { toggleSidebar } = useSidebar();
   const [isDark, setIsDark] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [showNotif, setShowNotif] = useState(false);
@@ -132,6 +130,8 @@ export default function Topbar() {
 
   const pathLabel = "/" + pathname.replace("/", "").toUpperCase();
 
+  const today = new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+
   return (
     <header
       style={{
@@ -150,44 +150,11 @@ export default function Topbar() {
         transition: "left 0.2s ease",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-        <button
-          onClick={toggleSidebar}
-          aria-label="Toggle sidebar"
-          style={{
-            width: "28px",
-            height: "28px",
-            borderRadius: "6px",
-            border: "none",
-            backgroundColor: "transparent",
-            cursor: "pointer",
-            color: "var(--text-secondary)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <Menu size={15} />
-        </button>
-        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-          <div
-            style={{
-              width: "20px",
-              height: "20px",
-              borderRadius: "4px",
-              backgroundColor: "var(--brand)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: "9px",
-              fontWeight: 700,
-              color: "white",
-            }}
-          >
-            A
-          </div>
-          <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>{pathLabel}</span>
+      <div>
+        <div style={{ fontSize: "14px", fontWeight: 600, color: "var(--text-primary)", lineHeight: 1.2 }}>
+          {pathLabel}
         </div>
+        <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>{today}</div>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
         <button
