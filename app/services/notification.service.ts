@@ -1,5 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import { hasPermission } from "@/lib/rbac";
+import { PERMISSIONS } from "@/constants/permissions";
+import { ROLE_HIERARCHY, RoleName } from "@/constants/roles";
 
 export type NotificationType =
   | "new_order"
@@ -22,6 +25,35 @@ export interface CreateNotificationInput {
   link?: string | null;
 }
 
+const ADMIN_BROADCAST_TYPES = [
+  "new_order",
+  "low_stock",
+  "out_of_stock",
+  "order_cancelled",
+];
+
+function getAllowedBroadcastTypes(role: RoleName): string[] {
+  const allowed: string[] = [];
+  if (hasPermission(role, PERMISSIONS.APPROVE_DELETE_REQUEST)) {
+    allowed.push("delete_request");
+  }
+  if ((ROLE_HIERARCHY[role] ?? 0) >= 80) {
+    allowed.push(...ADMIN_BROADCAST_TYPES);
+  }
+  return allowed;
+}
+
+function visibleWhere(userId: number, role: RoleName): Prisma.NotificationWhereInput {
+  const allowed = getAllowedBroadcastTypes(role);
+  const broadcastClause: Prisma.NotificationWhereInput =
+    allowed.length > 0
+      ? { userId: null, type: { in: allowed } }
+      : { id: -1 };
+  return {
+    OR: [{ userId }, broadcastClause],
+  };
+}
+
 export async function createNotification(data: CreateNotificationInput) {
   try {
     return await prisma.notification.create({
@@ -39,21 +71,51 @@ export async function createNotification(data: CreateNotificationInput) {
   }
 }
 
-export async function getNotifications(userId: number, filters: NotificationFilters = {}) {
+type RawNotification = {
+  id: number;
+  type: string;
+  title: string;
+  message: string;
+  link: string | null;
+  createdAt: Date;
+  reads: { id: number }[];
+};
+
+function shape(n: RawNotification) {
+  return {
+    id: n.id,
+    type: n.type,
+    title: n.title,
+    message: n.message,
+    link: n.link,
+    createdAt: n.createdAt,
+    isRead: n.reads.length > 0,
+  };
+}
+
+export async function getNotifications(
+  userId: number,
+  role: RoleName,
+  filters: NotificationFilters = {}
+) {
   const page = Math.max(1, filters.page ?? 1);
   const pageSize = Math.min(100, Math.max(1, filters.pageSize ?? 20));
   const skip = (page - 1) * pageSize;
 
   const where: Prisma.NotificationWhereInput = {
-    OR: [{ userId }, { userId: null }],
+    ...visibleWhere(userId, role),
   };
-  if (filters.status === "unread") where.isRead = false;
-  if (filters.status === "read") where.isRead = true;
+  if (filters.status === "unread") {
+    where.reads = { none: { userId } };
+  } else if (filters.status === "read") {
+    where.reads = { some: { userId } };
+  }
 
-  const [items, total] = await Promise.all([
+  const [rows, total] = await Promise.all([
     prisma.notification.findMany({
       where,
       orderBy: { createdAt: "desc" },
+      include: { reads: { where: { userId }, select: { id: true } } },
       skip,
       take: pageSize,
     }),
@@ -61,7 +123,7 @@ export async function getNotifications(userId: number, filters: NotificationFilt
   ]);
 
   return {
-    items,
+    items: rows.map(shape),
     total,
     page,
     pageSize,
@@ -69,39 +131,50 @@ export async function getNotifications(userId: number, filters: NotificationFilt
   };
 }
 
-export async function getRecentNotifications(userId: number, limit = 5) {
-  return prisma.notification.findMany({
-    where: { OR: [{ userId }, { userId: null }] },
+export async function getRecentNotifications(userId: number, role: RoleName, limit = 5) {
+  const rows = await prisma.notification.findMany({
+    where: visibleWhere(userId, role),
     orderBy: { createdAt: "desc" },
+    include: { reads: { where: { userId }, select: { id: true } } },
     take: limit,
   });
+  return rows.map(shape);
 }
 
-export async function markAsRead(id: number, userId: number) {
-  const notif = await prisma.notification.findUnique({ where: { id } });
+export async function markAsRead(id: number, userId: number, role: RoleName) {
+  const notif = await prisma.notification.findFirst({
+    where: { id, ...visibleWhere(userId, role) },
+  });
   if (!notif) return null;
-  if (notif.userId !== null && notif.userId !== userId) return null;
-  return prisma.notification.update({
-    where: { id },
-    data: { isRead: true },
+  await prisma.notificationRead.upsert({
+    where: { notificationId_userId: { notificationId: id, userId } },
+    create: { notificationId: id, userId },
+    update: {},
   });
+  return notif;
 }
 
-export async function markAllAsRead(userId: number) {
-  return prisma.notification.updateMany({
+export async function markAllAsRead(userId: number, role: RoleName) {
+  const unread = await prisma.notification.findMany({
     where: {
-      OR: [{ userId }, { userId: null }],
-      isRead: false,
+      ...visibleWhere(userId, role),
+      reads: { none: { userId } },
     },
-    data: { isRead: true },
+    select: { id: true },
   });
+  if (unread.length === 0) return { count: 0 };
+  await prisma.notificationRead.createMany({
+    data: unread.map((n) => ({ notificationId: n.id, userId })),
+    skipDuplicates: true,
+  });
+  return { count: unread.length };
 }
 
-export async function getUnreadCount(userId: number) {
+export async function getUnreadCount(userId: number, role: RoleName) {
   return prisma.notification.count({
     where: {
-      OR: [{ userId }, { userId: null }],
-      isRead: false,
+      ...visibleWhere(userId, role),
+      reads: { none: { userId } },
     },
   });
 }

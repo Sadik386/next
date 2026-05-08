@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/rbac";
+import { RoleName } from "@/constants/roles";
 import { markAsRead } from "@/services/notification.service";
 
 export async function PUT(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
@@ -12,7 +13,7 @@ export async function PUT(req: NextRequest, ctx: { params: Promise<{ id: string 
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
   }
 
-  const updated = await markAsRead(numId, auth.user.id);
+  const updated = await markAsRead(numId, auth.user.id, auth.user.role as RoleName);
   if (!updated) {
     return NextResponse.json({ error: "Notification not found" }, { status: 404 });
   }

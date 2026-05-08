@@ -1,9 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
-import { ensureStockForProduct, getStockStatus } from "@/services/inventory.service";
 import { createLog } from "@/services/activity-log.service";
 import { createNotification } from "@/services/notification.service";
 import { notifyDeleteRequest } from "@/services/delete-request.service";
+import { applyStockDelta } from "@/lib/stockHelper";
 
 export interface OrderFilters {
   search?: string;
@@ -141,7 +141,6 @@ export async function createOrder(data: OrderInput, userId: number) {
       quantity: qty,
       unitPrice,
       totalPrice,
-      _product: product,
     };
   });
 
@@ -189,45 +188,7 @@ export async function createOrder(data: OrderInput, userId: number) {
     });
 
     for (const row of itemRows) {
-      const product = row._product;
-      const stock = await tx.stock.findUnique({ where: { productId: product.id } });
-      const previousQty = stock?.quantity ?? 0;
-      const threshold = stock?.threshold ?? 10;
-      const newQty = Math.max(0, previousQty - row.quantity);
-
-      const stockRecord =
-        stock ??
-        (await tx.stock.create({
-          data: { productId: product.id, quantity: 0, threshold: 10 },
-        }));
-
-      await tx.stock.update({
-        where: { id: stockRecord.id },
-        data: { quantity: newQty },
-      });
-
-      await tx.stockLog.create({
-        data: {
-          stockId: stockRecord.id,
-          productId: product.id,
-          type: "subtract",
-          quantity: row.quantity,
-          reason: `Order ${orderId}`,
-          previousQty,
-          newQty,
-          createdBy: userId,
-        },
-      });
-
-      const status = getStockStatus(newQty, threshold);
-      const targetProductStatus =
-        status === "out_of_stock" ? "inactive" : status === "in_stock" ? "active" : product.status;
-      if (targetProductStatus !== product.status) {
-        await tx.product.update({
-          where: { id: product.id },
-          data: { status: targetProductStatus },
-        });
-      }
+      await applyStockDelta(tx, row.productId, -row.quantity, `Order ${orderId}`, userId);
     }
 
     return created;

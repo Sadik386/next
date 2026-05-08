@@ -1,8 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { createLog } from "@/services/activity-log.service";
-import { getStockStatus } from "@/services/inventory.service";
 import { generateOrderId } from "@/services/order.service";
+import { applyStockDelta } from "@/lib/stockHelper";
 
 const SHORT_ID_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
@@ -217,48 +217,7 @@ export async function checkoutPos(data: PosCheckoutInput, userId: number) {
 
     const sales: Array<{ id: number; saleId: string }> = [];
     for (const row of itemRows) {
-      const stock = await tx.stock.findUnique({ where: { productId: row.product.id } });
-      const previousQty = stock?.quantity ?? 0;
-      const threshold = stock?.threshold ?? 10;
-      const newQty = Math.max(0, previousQty - row.qty);
-
-      const stockRecord =
-        stock ??
-        (await tx.stock.create({
-          data: { productId: row.product.id, quantity: 0, threshold: 10 },
-        }));
-
-      await tx.stock.update({
-        where: { id: stockRecord.id },
-        data: { quantity: newQty },
-      });
-
-      await tx.stockLog.create({
-        data: {
-          stockId: stockRecord.id,
-          productId: row.product.id,
-          type: "subtract",
-          quantity: row.qty,
-          reason: `POS ${orderId}`,
-          previousQty,
-          newQty,
-          createdBy: userId,
-        },
-      });
-
-      const status = getStockStatus(newQty, threshold);
-      const targetStatus =
-        status === "out_of_stock"
-          ? "inactive"
-          : status === "in_stock"
-          ? "active"
-          : row.product.status;
-      if (targetStatus !== row.product.status) {
-        await tx.product.update({
-          where: { id: row.product.id },
-          data: { status: targetStatus },
-        });
-      }
+      await applyStockDelta(tx, row.product.id, -row.qty, `POS ${orderId}`, userId);
 
       const saleId = `SL-${String((await tx.sale.count()) + 1).padStart(3, "0")}`;
       const sale = await tx.sale.create({

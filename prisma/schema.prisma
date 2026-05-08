@@ -39,19 +39,31 @@ model User {
   posSessions            PosSession[]
   heldOrders             HeldOrder[]
   notifications          Notification[]
+  notificationReads      NotificationRead[]
 }
 
 model Notification {
-  id         Int      @id @default(autoincrement())
-  businessId Int      @default(1)
+  id         Int                @id @default(autoincrement())
+  businessId Int                @default(1)
   userId     Int?
-  type       String   @db.VarChar(50)
-  title      String   @db.VarChar(255)
-  message    String   @db.Text
-  isRead     Boolean  @default(false)
-  link       String?  @db.VarChar(500)
-  createdAt  DateTime @default(now())
-  user       User?    @relation(fields: [userId], references: [id])
+  type       String             @db.VarChar(50)
+  title      String             @db.VarChar(255)
+  message    String             @db.Text
+  isRead     Boolean            @default(false)
+  link       String?            @db.VarChar(500)
+  createdAt  DateTime           @default(now())
+  user       User?              @relation(fields: [userId], references: [id])
+  reads      NotificationRead[]
+}
+
+model NotificationRead {
+  id             Int          @id @default(autoincrement())
+  notificationId Int
+  userId         Int
+  readAt         DateTime     @default(now())
+  notification   Notification @relation(fields: [notificationId], references: [id])
+  user           User         @relation(fields: [userId], references: [id])
+  @@unique([notificationId, userId])
 }
 
 model PosSession {
