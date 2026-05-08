@@ -1,9 +1,9 @@
-import { ipcMain } from 'electron';
+// Central IPC handler registry.
+// Each handler module side-effectfully registers via ipcMain.handle on import.
 
-// Register all IPC handlers here
 export function registerIpcHandlers() {
-  // TODO: Initialize individual IPC handlers
-  // import './auth.ipc';
-  // import './sync.ipc';
-  // import './print.ipc';
+  // TODO: Uncomment as each handler is implemented.
+  // require('./auth.ipc');
+  // require('./sync.ipc');
+  // require('./print.ipc');
 }
