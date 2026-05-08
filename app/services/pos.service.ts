@@ -16,17 +16,19 @@ export function generateShortId(): string {
 }
 
 export async function createPosSession(userId: number) {
-  let id = generateShortId();
+  let shortId = generateShortId();
   for (let attempt = 0; attempt < 5; attempt++) {
-    const exists = await prisma.posSession.findUnique({ where: { id } });
+    const exists = await prisma.posSession.findUnique({ where: { shortId } });
     if (!exists) break;
-    id = generateShortId();
+    shortId = generateShortId();
   }
 
+  const id = shortId; // reuse shortId as primary key
   const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000);
   const session = await prisma.posSession.create({
     data: {
       id,
+      shortId,
       businessId: getCurrentBusinessId(),
       createdBy: userId,
       status: "active",
@@ -37,12 +39,12 @@ export async function createPosSession(userId: number) {
   return session;
 }
 
-export async function getPosSession(id: string) {
-  const session = await prisma.posSession.findUnique({ where: { id } });
+export async function getPosSession(shortId: string) {
+  const session = await prisma.posSession.findUnique({ where: { shortId } });
   if (!session) return null;
   if (session.status === "active" && session.expiresAt < new Date()) {
     await prisma.posSession.update({
-      where: { id },
+      where: { shortId },
       data: { status: "expired" },
     });
     return { ...session, status: "expired" };
@@ -50,21 +52,21 @@ export async function getPosSession(id: string) {
   return session;
 }
 
-export async function endPosSession(id: string) {
-  const session = await prisma.posSession.findUnique({ where: { id } });
+export async function endPosSession(shortId: string) {
+  const session = await prisma.posSession.findUnique({ where: { shortId } });
   if (!session) return null;
   return prisma.posSession.update({
-    where: { id },
+    where: { shortId },
     data: { status: "expired" },
   });
 }
 
-export async function appendScan(id: string, barcode: string) {
-  const session = await prisma.posSession.findUnique({ where: { id } });
+export async function appendScan(shortId: string, barcode: string) {
+  const session = await prisma.posSession.findUnique({ where: { shortId } });
   if (!session) return { error: "Session not found" as const };
   if (session.status !== "active") return { error: "Session is not active" as const };
   if (session.expiresAt < new Date()) {
-    await prisma.posSession.update({ where: { id }, data: { status: "expired" } });
+    await prisma.posSession.update({ where: { shortId }, data: { status: "expired" } });
     return { error: "Session expired" as const };
   }
 
@@ -96,7 +98,7 @@ export async function appendScan(id: string, barcode: string) {
   scans.push(entry);
 
   await prisma.posSession.update({
-    where: { id },
+    where: { shortId },
     data: { scans: JSON.stringify(scans) },
   });
 

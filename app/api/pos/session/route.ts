@@ -11,10 +11,10 @@ export async function POST(req: NextRequest) {
   const baseUrl =
     process.env.NEXT_PUBLIC_APP_URL ??
     `${req.nextUrl.protocol}//${req.nextUrl.host}`;
-  const mobileUrl = `${baseUrl.replace(/\/$/, "")}/pos/mobile?session=${session.id}`;
+  const mobileUrl = `${baseUrl.replace(/\/$/, "")}/pos/mobile?session=${session.shortId}`;
 
   return NextResponse.json({
-    sessionId: session.id,
+    sessionId: session.shortId,
     mobileUrl,
     expiresAt: session.expiresAt.toISOString(),
   });

@@ -69,6 +69,7 @@ model NotificationRead {
 
 model PosSession {
   id            String   @id
+  shortId       String   @unique @db.VarChar(20)
   businessId    Int      @default(1)
   createdBy     Int
   status        String   @default("active")

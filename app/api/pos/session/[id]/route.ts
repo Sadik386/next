@@ -14,7 +14,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
   }
 
   return NextResponse.json({
-    sessionId: session.id,
+    sessionId: session.shortId,
     status: session.status,
     scans,
     expiresAt: session.expiresAt.toISOString(),
