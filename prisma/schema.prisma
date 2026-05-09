@@ -48,6 +48,7 @@ model User {
   notifications          Notification[]
   notificationReads      NotificationRead[]
   reviewedRegistrations  RegistrationRequest[]
+  passwordResetTokens    PasswordResetToken[]
 }
 
 model Notification {
@@ -460,5 +461,15 @@ model RegistrationRequest {
   rejectReason String?   @db.Text
   createdAt    DateTime  @default(now())
   reviewer     User?     @relation(fields: [reviewedBy], references: [id])
+}
+
+model PasswordResetToken {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  token     String   @unique @db.VarChar(255)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 

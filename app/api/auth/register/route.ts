@@ -50,6 +50,26 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    const adminUsers = await prisma.user.findMany({
+      where: {
+        role: { name: { in: ["super_admin", "admin"] } },
+        isActive: true,
+      },
+      select: { id: true },
+    });
+
+    if (adminUsers.length > 0) {
+      await prisma.notification.createMany({
+        data: adminUsers.map((admin) => ({
+          userId: admin.id,
+          type: "registration",
+          title: "New Registration Request",
+          message: `New registration request from ${name} (${email})`,
+          link: "/admin/registrations",
+        })),
+      });
+    }
+
     return NextResponse.json({ success: true, message: "Registration submitted for approval" });
   } catch (error) {
     console.error("Registration error:", error);
