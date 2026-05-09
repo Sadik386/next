@@ -19,16 +19,23 @@ model Role {
 }
 
 model User {
-  id        Int        @id @default(autoincrement())
-  name      String     @db.VarChar(100)
-  email     String     @unique @db.VarChar(150)
-  password  String     @db.VarChar(255)
-  roleId    Int
-  isActive  Boolean    @default(true)
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-  deletedAt DateTime?
-  role      Role       @relation(fields: [roleId], references: [id])
+  id              Int        @id @default(autoincrement())
+  name            String     @db.VarChar(100)
+  username        String     @unique @db.VarChar(50)
+  email           String     @unique @db.VarChar(150)
+  password       String     @db.VarChar(255)
+  phone          String?    @db.VarChar(30)
+  gender         String?    @db.VarChar(20)
+  dob            DateTime?
+  address        String?    @db.Text
+  roleId         Int
+  isActive       Boolean    @default(true)
+  resetToken     String?    @db.VarChar(255)
+  resetTokenExpiry DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  deletedAt      DateTime? 
+  role           Role       @relation(fields: [roleId], references: [id])
   stockLogs StockLog[]
   orders    Order[]    @relation("OrderCreatedBy")
   sales     Sale[]     @relation("SaleCreatedBy")
@@ -40,6 +47,7 @@ model User {
   heldOrders             HeldOrder[]
   notifications          Notification[]
   notificationReads      NotificationRead[]
+  reviewedRegistrations  RegistrationRequest[]
 }
 
 model Notification {
@@ -208,28 +216,36 @@ model Customer {
 model Supplier {
   id              Int       @id @default(autoincrement())
   supplierId      String    @unique @db.VarChar(20)
-  businessId      Int       @default(1)
+  businessId      Int      @default(1)
   companyName     String    @db.VarChar(255)
-  contactName     String    @db.VarChar(150)
-  email           String?   @db.VarChar(150)
+  contactName    String    @db.VarChar(150)
+  email          String?   @db.VarChar(150)
   mobile          String?   @db.VarChar(30)
-  website         String?   @db.VarChar(255)
-  taxId           String?   @db.VarChar(100)
-  paymentTerms    String?   @db.VarChar(100)
-  currency        String    @default("BDT") @db.VarChar(10)
-  bankName        String?   @db.VarChar(150)
-  bankAccount     String?   @db.VarChar(100)
-  category        String?   @db.VarChar(100)
-  deliveryMethod  String?   @db.VarChar(100)
-  streetAddress   String?   @db.Text
-  city            String?   @db.VarChar(100)
-  state           String?   @db.VarChar(100)
-  zipCode         String?   @db.VarChar(20)
-  country         String?   @db.VarChar(100)
-  status          String    @default("active") @db.VarChar(20)
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  deletedAt       DateTime?
+  website        String?   @db.VarChar(255)
+  taxId          String?   @db.VarChar(100)
+  paymentTerms   String?   @db.VarChar(100)
+  currency       String    @default("BDT") @db.VarChar(10)
+  bankName       String?   @db.VarChar(150)
+  bankAccount    String?   @db.VarChar(100)
+  accountName   String?   @db.VarChar(150)
+  branchName    String?   @db.VarChar(150)
+  routingNumber String?   @db.VarChar(50)
+  swiftCode     String?   @db.VarChar(50)
+  bkash        String?   @db.VarChar(30)
+  nagad         String?   @db.VarChar(30)
+  rocket        String?   @db.VarChar(30)
+  upay         String?   @db.VarChar(30)
+  category      String?   @db.VarChar(100)
+  deliveryMethod String? @db.VarChar(100)
+  streetAddress  String?   @db.Text
+  city          String?   @db.VarChar(100)
+  state         String?   @db.VarChar(100)
+  zipCode       String?   @db.VarChar(20)
+  country      String?   @db.VarChar(100)
+  status        String    @default("active") @db.VarChar(20)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
 }
 
 model Setting {
@@ -426,5 +442,23 @@ model Shipment {
   deliveredAt  DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+}
+
+model RegistrationRequest {
+  id           Int       @id @default(autoincrement())
+  name         String    @db.VarChar(150)
+  email        String    @unique @db.VarChar(150)
+  phone        String?   @db.VarChar(30)
+  gender       String?   @db.VarChar(20)
+  dob          DateTime?
+  address      String?   @db.Text
+  username     String    @db.VarChar(50)
+  password     String    @db.VarChar(255)
+  status       String    @default("pending") @db.VarChar(20)
+  reviewedBy   Int?
+  reviewedAt   DateTime?
+  rejectReason String?   @db.Text
+  createdAt    DateTime  @default(now())
+  reviewer     User?     @relation(fields: [reviewedBy], references: [id])
 }
 

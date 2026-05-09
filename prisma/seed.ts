@@ -29,6 +29,7 @@ async function main() {
     create: {
       name: "Super Admin",
       email: "admin@accoraze.com",
+      username: "admin",
       password: hashedPassword,
       roleId: superAdminRole!.id,
       isActive: true,
