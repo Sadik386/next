@@ -32,12 +32,58 @@ export const ORDER_COLUMNS = [
   "Shipping Address*",
 ] as const;
 
-export type CsvModule = "products" | "customers" | "orders";
+export const EXPENSE_COLUMNS = [
+  "Date*",
+  "Amount*",
+  "Currency",
+  "Category*",
+  "Payment Method*",
+  "Vendor*",
+  "Receipt ID",
+  "Reference No",
+  "Tax Amount",
+  "Tax Percent",
+  "Description",
+  "Notes",
+] as const;
+
+export const SUPPLIER_COLUMNS = [
+  "Company Name*",
+  "Contact Name*",
+  "Email",
+  "Mobile",
+  "Website",
+  "Tax ID",
+  "Payment Terms",
+  "Currency",
+  "Bank Name",
+  "Bank Account",
+  "Account Name",
+  "Branch Name",
+  "Routing Number",
+  "SWIFT Code",
+  "Bkash",
+  "Nagad",
+  "Rocket",
+  "Upay",
+  "Category",
+  "Delivery Method",
+  "Street Address",
+  "City",
+  "State",
+  "Zip Code",
+  "Country",
+  "Status*",
+] as const;
+
+export type CsvModule = "products" | "customers" | "orders" | "expenses" | "suppliers";
 
 export const TEMPLATE_COLUMNS: Record<CsvModule, readonly string[]> = {
   products: PRODUCT_COLUMNS,
   customers: CUSTOMER_COLUMNS,
   orders: ORDER_COLUMNS,
+  expenses: EXPENSE_COLUMNS,
+  suppliers: SUPPLIER_COLUMNS,
 };
 
 export function generateCsv<T extends Record<string, unknown>>(

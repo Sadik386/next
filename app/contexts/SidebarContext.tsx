@@ -1,103 +1,84 @@
 "use client";
-import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { usePathname } from "next/navigation";
 
-interface SidebarContextValue {
+interface SidebarContextType {
   isCollapsed: boolean;
-  isMobileOpen: boolean;
   isHovered: boolean;
   isExpanded: boolean;
-  sidebarWidth: string;
+  isMobileOpen: boolean;
   toggleSidebar: () => void;
+  setIsHovered: (v: boolean) => void;
   closeMobile: () => void;
-  setIsHovered: (hovered: boolean) => void;
+  toggleMobile: () => void;
 }
 
-const SidebarContext = createContext<SidebarContextValue | undefined>(undefined);
-
-const COLLAPSED_WIDTH = "64px";
-const EXPANDED_WIDTH = "220px";
-const MOBILE_BREAKPOINT = 1024;
+const SidebarContext = createContext<SidebarContextType>({
+  isCollapsed: true,
+  isHovered: false,
+  isExpanded: false,
+  isMobileOpen: false,
+  toggleSidebar: () => {},
+  setIsHovered: () => {},
+  closeMobile: () => {},
+  toggleMobile: () => {},
+});
 
 export function SidebarProvider({ children }: { children: React.ReactNode }) {
-  const [isCollapsed, setIsCollapsed] = useState(false);
-  const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
   const [isHovered, setIsHovered] = useState(false);
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
   const pathname = usePathname();
 
-  // Load collapsed state from localStorage on mount
+  const isExpanded = !isCollapsed || isHovered;
+
+  // Load saved state on mount
   useEffect(() => {
-    const saved = localStorage.getItem("sidebar-collapsed");
-    if (saved !== null) {
-      setIsCollapsed(saved === "true");
-    }
+    const stored = localStorage.getItem("sidebarCollapsed");
+    if (stored !== null) setIsCollapsed(stored === "true");
   }, []);
 
-  // Update CSS variable for sidebar width
+  // Update --sidebar-width CSS variable on every change
   useEffect(() => {
-    const isMobile = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`).matches;
-    if (isMobile) return;
-    const isExpanded = !isCollapsed || isHovered;
-    document.documentElement.style.setProperty(
-      "--sidebar-width",
-      isExpanded ? EXPANDED_WIDTH : COLLAPSED_WIDTH
-    );
-  }, [isCollapsed, isHovered]);
+    const width = isExpanded ? "220px" : "64px";
+    document.documentElement.style.setProperty("--sidebar-width", width);
+  }, [isExpanded]);
 
-  // Lock body scroll while the mobile drawer is open.
-  useEffect(() => {
-    if (isMobileOpen) {
-      const prev = document.body.style.overflow;
-      document.body.style.overflow = "hidden";
-      return () => {
-        document.body.style.overflow = prev;
-      };
-    }
-  }, [isMobileOpen]);
-
-  // Auto-close the mobile drawer on navigation.
+  // Close mobile sidebar on route change
   useEffect(() => {
     setIsMobileOpen(false);
   }, [pathname]);
 
   const toggleSidebar = useCallback(() => {
-    setIsCollapsed((prev) => {
-      const next = !prev;
-      localStorage.setItem("sidebar-collapsed", String(next));
-      return next;
-    });
-  }, []);
+    const next = !isCollapsed;
+    setIsCollapsed(next);
+    localStorage.setItem("sidebarCollapsed", String(next));
+  }, [isCollapsed]);
 
   const closeMobile = useCallback(() => {
     setIsMobileOpen(false);
   }, []);
 
-  // Computed values
-  const isExpanded = !isCollapsed || isHovered;
-  const sidebarWidth = isExpanded ? EXPANDED_WIDTH : COLLAPSED_WIDTH;
+  const toggleMobile = useCallback(() => {
+    setIsMobileOpen((prev) => !prev);
+  }, []);
 
   return (
-    <SidebarContext.Provider
-      value={{
-        isCollapsed,
-        isMobileOpen,
-        isHovered,
-        isExpanded,
-        sidebarWidth,
-        toggleSidebar,
-        closeMobile,
-        setIsHovered,
-      }}
-    >
+    <SidebarContext.Provider value={{
+      isCollapsed,
+      isHovered,
+      isExpanded,
+      isMobileOpen,
+      toggleSidebar,
+      setIsHovered,
+      closeMobile,
+      toggleMobile,
+    }}>
       {children}
     </SidebarContext.Provider>
   );
 }
 
 export function useSidebar() {
-  const context = useContext(SidebarContext);
-  if (context === undefined) {
-    throw new Error("useSidebar must be used within a SidebarProvider");
-  }
-  return context;
+  return useContext(SidebarContext);
 }
