@@ -1,5 +1,5 @@
 import jsPDF from "jspdf"
-import "jspdf-autotable"
+import { autoTable } from "jspdf-autotable"
 import { InvoiceData } from "./types"
 
 export async function generateInvoicePDF(data: InvoiceData): Promise<Blob> {
@@ -73,7 +73,7 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<Blob> {
     `${data.currencySymbol}${Number(item.totalPrice).toFixed(2)}`
   ])
 
-  ;(doc as any).autoTable({
+  autoTable(doc, {
     startY: y,
     head: [["Description", "Qty", "Unit Price", "Total"]],
     body: tableData,
@@ -95,7 +95,7 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<Blob> {
     }
   })
 
-  y = (doc as any).lastAutoTable.finalY + 6
+  y = (doc as jsPDF).lastAutoTable!.finalY + 6
 
   // Totals
   const totalsX = pageWidth - 15
