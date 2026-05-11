@@ -1,8 +1,9 @@
 "use client";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, X, Search, Eye, Trash2, Pencil, ScanLine } from "lucide-react";
+import { Plus, X, Search, Eye, Trash2, Pencil, ScanLine, FileText, Truck } from "lucide-react";
 import BarcodeDisplay from "@/components/ui/BarcodeDisplay";
+import { usePDF } from "@/hooks/usePDF";
 
 type OrderListItem = {
   id: number;
@@ -60,6 +61,7 @@ export default function OrdersPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [paymentFilter, setPaymentFilter] = useState<string>("");
+  const { downloadPDF, loading: pdfLoading } = usePDF();
 
   const [createOpen, setCreateOpen] = useState(false);
   const [customers, setCustomers] = useState<CustomerOption[]>([]);
@@ -376,6 +378,20 @@ export default function OrdersPage() {
                       </Link>
                       <IconBtn onClick={() => setBarcodeTarget(o)} title="Show barcode">
                         <ScanLine size={13} />
+                      </IconBtn>
+                      <IconBtn
+                        onClick={() => downloadPDF(`/api/pdf/invoice/${o.id}`, `invoice-${o.orderId}.pdf`, `inv-${o.id}`)}
+                        title="Download Invoice"
+                        disabled={pdfLoading === `inv-${o.id}`}
+                      >
+                        {pdfLoading === `inv-${o.id}` ? <span style={{ fontSize: "10px" }}>...</span> : <FileText size={13} />}
+                      </IconBtn>
+                      <IconBtn
+                        onClick={() => downloadPDF(`/api/pdf/delivery-slip/${o.id}`, `delivery-${o.orderId}.pdf`, `del-${o.id}`)}
+                        title="Download Delivery Slip"
+                        disabled={pdfLoading === `del-${o.id}`}
+                      >
+                        {pdfLoading === `del-${o.id}` ? <span style={{ fontSize: "10px" }}>...</span> : <Truck size={13} />}
                       </IconBtn>
                       <IconBtn onClick={() => openEdit(o)} title="Edit">
                         <Pencil size={13} />
@@ -1040,27 +1056,31 @@ function IconBtn({
   onClick,
   title,
   danger,
+  disabled,
 }: {
   children: React.ReactNode;
   onClick?: () => void;
   title: string;
   danger?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
       title={title}
+      disabled={disabled}
       style={{
         width: "26px",
         height: "26px",
         borderRadius: "6px",
         border: "1px solid var(--card-border)",
         backgroundColor: "transparent",
-        cursor: "pointer",
-        color: danger ? "#dc2626" : "var(--text-secondary)",
+        cursor: disabled ? "not-allowed" : "pointer",
+        color: danger ? "#dc2626" : disabled ? "var(--text-muted)" : "var(--text-secondary)",
         display: "inline-flex",
         alignItems: "center",
         justifyContent: "center",
+        opacity: disabled ? 0.5 : 1,
       }}
     >
       {children}

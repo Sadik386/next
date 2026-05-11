@@ -1,8 +1,9 @@
 "use client";
 import Link from "next/link";
 import { useCallback, useEffect, useState, use } from "react";
-import { ArrowLeft, ChevronDown, Trash2, Check, Circle } from "lucide-react";
+import { ArrowLeft, ChevronDown, Trash2, Check, Circle, Download, Printer, FileText, Truck } from "lucide-react";
 import BarcodeDisplay from "@/components/ui/BarcodeDisplay";
+import { usePDF } from "@/hooks/usePDF";
 
 type OrderItem = {
   id: number;
@@ -55,6 +56,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteReason, setDeleteReason] = useState("");
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+  const { downloadPDF, printPDF, loading: pdfLoading } = usePDF();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -72,6 +74,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   }, [id]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
   }, [load]);
 
@@ -209,6 +212,29 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           <button onClick={() => setDeleteOpen(true)} style={btnDanger}>
             <Trash2 size={13} /> Request Delete
           </button>
+          </div>
+          <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end", marginTop: "4px" }}>
+            <button
+              onClick={() => downloadPDF(`/api/pdf/invoice/${order.id}`, `invoice-${order.orderId}.pdf`, `inv-${order.id}`)}
+              style={{ ...btnSecondary, display: "flex", alignItems: "center", gap: "4px" }}
+              disabled={pdfLoading === `inv-${order.id}`}
+            >
+              <Download size={12} /> {pdfLoading === `inv-${order.id}` ? "..." : "Invoice PDF"}
+            </button>
+            <button
+              onClick={() => downloadPDF(`/api/pdf/delivery-slip/${order.id}`, `delivery-${order.orderId}.pdf`, `del-${order.id}`)}
+              style={{ ...btnSecondary, display: "flex", alignItems: "center", gap: "4px" }}
+              disabled={pdfLoading === `del-${order.id}`}
+            >
+              <Truck size={12} /> {pdfLoading === `del-${order.id}` ? "..." : "Delivery Slip"}
+            </button>
+            <button
+              onClick={() => printPDF(`/api/pdf/invoice/${order.id}`, `inv-print-${order.id}`)}
+              style={{ ...btnSecondary, display: "flex", alignItems: "center", gap: "4px" }}
+              disabled={pdfLoading === `inv-print-${order.id}`}
+            >
+              <Printer size={12} /> Print Invoice
+            </button>
           </div>
         </div>
       </div>

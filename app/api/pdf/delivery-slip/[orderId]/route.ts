@@ -12,9 +12,14 @@ export async function GET(
   if (auth instanceof NextResponse) return auth;
 
   const { orderId } = await params;
+  const id = Number(orderId);
 
-  const order = await prisma.order.findUnique({
-    where: { orderId },
+  if (isNaN(id)) {
+    return NextResponse.json({ error: "Invalid order ID" }, { status: 400 });
+  }
+
+  const order = await prisma.order.findFirst({
+    where: { id, deletedAt: null },
     include: {
       customer: true,
       items: { include: { product: true } },
@@ -27,29 +32,25 @@ export async function GET(
 
   const settings = await getSettings();
 
-  const formatDate = (date: Date) => {
-    return new Date(date).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  };
+  const formatDate = (date: Date) =>
+    new Date(date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 
   const data = {
     orderId: order.orderId,
     date: formatDate(order.createdAt),
     business: {
       name: settings?.businessName || "My Business",
+      phone: settings?.phone ?? undefined,
     },
     customer: {
       name: order.customer.name,
       phone: order.customer.mobile || undefined,
-      shippingAddress: order.shippingAddress || order.customer.streetAddress || "",
+      shippingAddress: order.shippingAddress || order.customer.streetAddress || "N/A",
     },
     items: order.items.map((item) => ({
       name: item.productName,
       quantity: item.quantity,
-      unit: "pcs",
+      unit: item.product?.unit ?? "pcs",
     })),
     notes: order.notes || undefined,
   };
@@ -59,7 +60,7 @@ export async function GET(
   return new NextResponse(blob, {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="delivery-slip-${orderId}.pdf"`,
+      "Content-Disposition": `attachment; filename="delivery-${order.orderId}.pdf"`,
     },
   });
 }

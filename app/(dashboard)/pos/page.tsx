@@ -1,5 +1,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
+import dynamic from "next/dynamic";
 import {
   Camera,
   Smartphone,
@@ -15,10 +17,12 @@ import {
   Printer,
   Check,
   ExternalLink,
+  Download,
+  FileText,
 } from "lucide-react";
-import QRCode from "qrcode";
-import { BrowserMultiFormatReader } from "@zxing/library";
+import QrDisplay from "@/components/ui/QrDisplay";
 import { useSettings } from "@/contexts/SettingsContext";
+import { usePDF } from "@/hooks/usePDF";
 
 type ProductOption = {
   id: number;
@@ -113,7 +117,7 @@ export default function PosPage() {
 
   const [cameraOpen, setCameraOpen] = useState(false);
   const cameraVideoRef = useRef<HTMLVideoElement | null>(null);
-  const cameraReaderRef = useRef<BrowserMultiFormatReader | null>(null);
+  const cameraReaderRef = useRef<any>(null);
 
   const [mobileSession, setMobileSession] = useState<SessionInfo | null>(null);
   const [mobileQr, setMobileQr] = useState<string | null>(null);
@@ -125,6 +129,7 @@ export default function PosPage() {
 
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [completedOrder, setCompletedOrder] = useState<{
+    id: number;
     orderId: string;
     totalAmount: string;
     paidAmount: string;
@@ -135,6 +140,7 @@ export default function PosPage() {
     createdAt: string;
   } | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const { downloadPDF, printPDF, loading: pdfLoading } = usePDF();
 
   const loadProducts = useCallback(async () => {
     const res = await fetch("/api/products?pageSize=200");
@@ -318,14 +324,16 @@ export default function PosPage() {
   useEffect(() => {
     if (!cameraOpen) return;
     let stopped = false;
-    const reader = new BrowserMultiFormatReader();
-    cameraReaderRef.current = reader;
+    let reader: any = null;
 
     (async () => {
       try {
+        const { BrowserMultiFormatReader } = await import("@zxing/library");
+        reader = new BrowserMultiFormatReader();
+        cameraReaderRef.current = reader;
         const video = cameraVideoRef.current;
         if (!video) return;
-        await reader.decodeFromVideoDevice(null, video, (result) => {
+        await reader.decodeFromVideoDevice(null, video, (result: any) => {
           if (stopped) return;
           if (result) {
             handleScan(result.getText());
@@ -358,6 +366,7 @@ export default function PosPage() {
     setMobileStatus("waiting");
     processedScanRef.current = new Set();
     try {
+      const QRCode = (await import("qrcode")).default;
       const qr = await QRCode.toDataURL(data.mobileUrl, { width: 220, margin: 1 });
       setMobileQr(qr);
     } catch {
@@ -481,6 +490,7 @@ export default function PosPage() {
     const data = await res.json();
     const order = data.order;
     setCompletedOrder({
+      id: order.id,
       orderId: order.orderId,
       totalAmount: String(order.totalAmount),
       paidAmount: String(order.paidAmount),
@@ -635,11 +645,7 @@ export default function PosPage() {
             </div>
             <div style={{ display: "flex", alignItems: "flex-start", gap: "16px", marginTop: "12px" }}>
               {mobileQr && (
-                <img
-                  src={mobileQr}
-                  alt="QR for mobile scanner"
-                  style={{ width: "150px", height: "150px", borderRadius: "8px", border: "1px solid var(--card-border)" }}
-                />
+                <QrDisplay value={mobileQr} alt="QR for mobile scanner" />
               )}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>
@@ -742,11 +748,12 @@ export default function PosPage() {
                   >
                     <div style={productThumb}>
                       {p.imageUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
+                        <Image
                           src={p.imageUrl}
                           alt={p.name}
-                          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                          fill
+                          style={{ objectFit: "cover" }}
+                          sizes="80px"
                         />
                       ) : (
                         <span style={{ fontSize: "20px", color: "var(--text-muted)" }}>
@@ -1180,11 +1187,22 @@ export default function PosPage() {
               )}
             </div>
             <div style={{ display: "flex", gap: "8px", marginTop: "12px", justifyContent: "flex-end" }}>
-              <button onClick={() => printDocument("receipt")} style={btnSecondary}>
-                <Printer size={14} /> Print Receipt
+              <button
+                onClick={() => completedOrder && downloadPDF(`/api/pdf/invoice/${completedOrder.id}`, `invoice-${completedOrder.orderId}.pdf`, `inv-pos-${completedOrder.id}`)}
+                style={btnSecondary}
+                disabled={pdfLoading === `inv-pos-${completedOrder?.id}`}
+              >
+                <Download size={14} /> {pdfLoading === `inv-pos-${completedOrder?.id}` ? "..." : "Invoice PDF"}
               </button>
-              <button onClick={() => printDocument("invoice")} style={btnSecondary}>
-                <Printer size={14} /> Print Invoice
+              <button
+                onClick={() => completedOrder && downloadPDF(`/api/pdf/receipt/${completedOrder.id}`, `receipt-${completedOrder.orderId}.pdf`, `rec-pos-${completedOrder.id}`)}
+                style={btnSecondary}
+                disabled={pdfLoading === `rec-pos-${completedOrder?.id}`}
+              >
+                <FileText size={14} /> {pdfLoading === `rec-pos-${completedOrder?.id}` ? "..." : "Receipt PDF"}
+              </button>
+              <button onClick={() => printDocument("receipt")} style={btnSecondary}>
+                <Printer size={14} /> Print
               </button>
               <button onClick={finishOrder} style={btnPrimarySmall}>
                 <Check size={14} /> Done

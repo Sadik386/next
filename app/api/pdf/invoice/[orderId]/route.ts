@@ -12,9 +12,14 @@ export async function GET(
   if (auth instanceof NextResponse) return auth;
 
   const { orderId } = await params;
+  const id = Number(orderId);
 
-  const order = await prisma.order.findUnique({
-    where: { orderId },
+  if (isNaN(id)) {
+    return NextResponse.json({ error: "Invalid order ID" }, { status: 400 });
+  }
+
+  const order = await prisma.order.findFirst({
+    where: { id, deletedAt: null },
     include: {
       customer: true,
       items: { include: { product: true } },
@@ -26,32 +31,30 @@ export async function GET(
   }
 
   const settings = await getSettings();
-  const currencySymbol = settings?.currency || "BDT";
+  const currencySymbol = settings?.currency === "USD" ? "$" : settings?.currency === "EUR" ? "€" : "৳";
 
-  const formatDate = (date: Date) => {
-    return new Date(date).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  };
+  const formatDate = (date: Date) =>
+    new Date(date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+
+  const balanceDue = Number(order.totalAmount) - Number(order.paidAmount);
 
   const data = {
     invoiceNumber: order.orderId,
     date: formatDate(order.createdAt),
     business: {
       name: settings?.businessName || "My Business",
-      address: settings?.address || "",
-      phone: settings?.phone || "",
-      email: settings?.email || "",
-      taxId: settings?.taxId || "",
-      invoiceFooter: settings?.invoiceFooter || "",
+      address: settings?.address ? `${settings.address}${settings.city ? ", " + settings.city : ""}` : undefined,
+      phone: settings?.phone ?? undefined,
+      email: settings?.email ?? undefined,
+      taxId: settings?.taxId ?? undefined,
+      invoiceFooter: settings?.invoiceFooter ?? undefined,
     },
     customer: {
       name: order.customer.name,
-      email: order.customer.email || "",
-      phone: order.customer.mobile || "",
-      billingAddress: order.billingAddress || order.customer.streetAddress || "",
+      email: order.customer.email ?? undefined,
+      phone: order.customer.mobile || undefined,
+      billingAddress: order.billingAddress || order.customer.streetAddress || undefined,
+      shippingAddress: order.shippingAddress || undefined,
     },
     items: order.items.map((item) => ({
       name: item.productName,
@@ -60,13 +63,13 @@ export async function GET(
       totalPrice: Number(item.totalPrice),
     })),
     subtotal: Number(order.subtotal),
-    tax: Number(order.taxAmount),
-    discount: Number(order.discountAmount),
+    tax: Number(order.taxAmount) || undefined,
+    discount: Number(order.discountAmount) || undefined,
     total: Number(order.totalAmount),
-    paymentMethod: order.paymentMethod || "",
-    paidAmount: Number(order.paidAmount),
-    balanceDue: Number(order.totalAmount) - Number(order.paidAmount),
-    notes: order.notes || "",
+    paymentMethod: order.paymentMethod || undefined,
+    paidAmount: Number(order.paidAmount) || undefined,
+    balanceDue: balanceDue > 0 ? balanceDue : undefined,
+    notes: order.notes || undefined,
     currencySymbol,
   };
 
@@ -75,7 +78,7 @@ export async function GET(
   return new NextResponse(blob, {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="invoice-${orderId}.pdf"`,
+      "Content-Disposition": `attachment; filename="invoice-${order.orderId}.pdf"`,
     },
   });
 }

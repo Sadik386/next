@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, X, Search, Pencil, Trash2 } from "lucide-react";
+import { Plus, X, Search, Pencil, Trash2, FileText } from "lucide-react";
+import { usePDF } from "@/hooks/usePDF";
 
 type SaleListItem = {
   id: number;
@@ -78,6 +79,7 @@ export default function SalesPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [paymentFilter, setPaymentFilter] = useState("");
+  const { downloadPDF, loading: pdfLoading } = usePDF();
 
   const [customers, setCustomers] = useState<CustomerOption[]>([]);
   const [products, setProducts] = useState<ProductOption[]>([]);
@@ -354,6 +356,13 @@ export default function SalesPage() {
                   </Td>
                   <Td align="right">
                     <div style={{ display: "inline-flex", gap: "4px" }}>
+                      <IconBtn
+                        onClick={() => downloadPDF(`/api/pdf/receipt/${s.id}`, `receipt-${s.saleId}.pdf`, `rec-${s.id}`)}
+                        title="Download Receipt"
+                        disabled={pdfLoading === `rec-${s.id}`}
+                      >
+                        {pdfLoading === `rec-${s.id}` ? <span style={{ fontSize: "10px" }}>...</span> : <FileText size={13} />}
+                      </IconBtn>
                       <IconBtn onClick={() => openEdit(s)} title="Edit">
                         <Pencil size={13} />
                       </IconBtn>
@@ -735,27 +744,31 @@ function IconBtn({
   onClick,
   title,
   danger,
+  disabled,
 }: {
   children: React.ReactNode;
   onClick?: () => void;
   title: string;
   danger?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
       title={title}
+      disabled={disabled}
       style={{
         width: "26px",
         height: "26px",
         borderRadius: "6px",
         border: "1px solid var(--card-border)",
         backgroundColor: "transparent",
-        cursor: "pointer",
-        color: danger ? "#dc2626" : "var(--text-secondary)",
+        cursor: disabled ? "not-allowed" : "pointer",
+        color: danger ? "#dc2626" : disabled ? "var(--text-muted)" : "var(--text-secondary)",
         display: "inline-flex",
         alignItems: "center",
         justifyContent: "center",
+        opacity: disabled ? 0.5 : 1,
       }}
     >
       {children}
