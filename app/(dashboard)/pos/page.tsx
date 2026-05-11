@@ -17,12 +17,11 @@ import {
   Printer,
   Check,
   ExternalLink,
-  Download,
-  FileText,
 } from "lucide-react";
 import QrDisplay from "@/components/ui/QrDisplay";
 import { useSettings } from "@/contexts/SettingsContext";
 import { usePDF } from "@/hooks/usePDF";
+import PdfActions from "@/components/ui/PdfActions";
 
 type ProductOption = {
   id: number;
@@ -140,7 +139,7 @@ export default function PosPage() {
     createdAt: string;
   } | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const { downloadPDF, printPDF, loading: pdfLoading } = usePDF();
+  const { downloadPDF, printPDF, isLoading } = usePDF();
 
   const loadProducts = useCallback(async () => {
     const res = await fetch("/api/products?pageSize=200");
@@ -1187,23 +1186,71 @@ export default function PosPage() {
               )}
             </div>
             <div style={{ display: "flex", gap: "8px", marginTop: "12px", justifyContent: "flex-end" }}>
-              <button
-                onClick={() => completedOrder && downloadPDF(`/api/pdf/invoice/${completedOrder.id}`, `invoice-${completedOrder.orderId}.pdf`, `inv-pos-${completedOrder.id}`)}
-                style={btnSecondary}
-                disabled={pdfLoading === `inv-pos-${completedOrder?.id}`}
-              >
-                <Download size={14} /> {pdfLoading === `inv-pos-${completedOrder?.id}` ? "..." : "Invoice PDF"}
-              </button>
-              <button
-                onClick={() => completedOrder && downloadPDF(`/api/pdf/receipt/${completedOrder.id}`, `receipt-${completedOrder.orderId}.pdf`, `rec-pos-${completedOrder.id}`)}
-                style={btnSecondary}
-                disabled={pdfLoading === `rec-pos-${completedOrder?.id}`}
-              >
-                <FileText size={14} /> {pdfLoading === `rec-pos-${completedOrder?.id}` ? "..." : "Receipt PDF"}
-              </button>
-              <button onClick={() => printDocument("receipt")} style={btnSecondary}>
-                <Printer size={14} /> Print
-              </button>
+              {completedOrder && (
+                <PdfActions
+                  groups={[
+                    {
+                      label: "Invoice",
+                      items: [
+                        {
+                          label: "Download Invoice",
+                          icon: (
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                              <polyline points="7 10 12 15 17 10"/>
+                              <line x1="12" y1="15" x2="12" y2="3"/>
+                            </svg>
+                          ),
+                          onClick: () => downloadPDF(`/api/pdf/invoice/${completedOrder.id}`, `invoice-${completedOrder.orderId}.pdf`, `inv-pos-dl-${completedOrder.id}`),
+                          disabled: isLoading(`inv-pos-dl-${completedOrder.id}`),
+                        },
+                        {
+                          label: "Print Invoice",
+                          icon: (
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <polyline points="6 9 6 2 18 2 18 9"/>
+                              <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+                              <rect x="6" y="14" width="12" height="8"/>
+                            </svg>
+                          ),
+                          onClick: () => printPDF(`/api/pdf/invoice/${completedOrder.id}`, `inv-pos-print-${completedOrder.id}`),
+                          disabled: isLoading(`inv-pos-print-${completedOrder.id}`),
+                        },
+                      ],
+                    },
+                    {
+                      label: "Receipt",
+                      items: [
+                        {
+                          label: "Download Receipt",
+                          icon: (
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                              <polyline points="7 10 12 15 17 10"/>
+                              <line x1="12" y1="15" x2="12" y2="3"/>
+                            </svg>
+                          ),
+                          onClick: () => downloadPDF(`/api/pdf/receipt/${completedOrder.id}`, `receipt-${completedOrder.orderId}.pdf`, `rec-pos-dl-${completedOrder.id}`),
+                          disabled: isLoading(`rec-pos-dl-${completedOrder.id}`),
+                        },
+                        {
+                          label: "Print Receipt",
+                          icon: (
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <polyline points="6 9 6 2 18 2 18 9"/>
+                              <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+                              <rect x="6" y="14" width="12" height="8"/>
+                            </svg>
+                          ),
+                          onClick: () => printPDF(`/api/pdf/receipt/${completedOrder.id}`, `rec-pos-print-${completedOrder.id}`),
+                          disabled: isLoading(`rec-pos-print-${completedOrder.id}`),
+                        },
+                      ],
+                    },
+                  ]}
+                  menuWidth={210}
+                />
+              )}
               <button onClick={finishOrder} style={btnPrimarySmall}>
                 <Check size={14} /> Done
               </button>

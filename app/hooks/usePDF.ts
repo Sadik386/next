@@ -1,37 +1,38 @@
 "use client"
-import { useState } from "react"
+import { useState, useCallback } from "react"
 import { downloadBlob, printBlob } from "@/lib/pdf/download"
 
+type LoadingKey = string | null
+
 export function usePDF() {
-  const [loading, setLoading] = useState<string | null>(null)
+  const [loading, setLoading] = useState<LoadingKey>(null)
 
-  const downloadPDF = async (url: string, filename: string, loadingKey: string) => {
-    setLoading(loadingKey)
+  const generate = useCallback(async (url: string): Promise<Blob | null> => {
     try {
       const res = await fetch(url)
-      if (!res.ok) throw new Error("Failed to generate PDF")
-      const blob = await res.blob()
-      downloadBlob(blob, filename)
+      if (!res.ok) throw new Error("Failed to generate document")
+      return await res.blob()
     } catch (err) {
       console.error(err)
-    } finally {
-      setLoading(null)
+      return null
     }
-  }
+  }, [])
 
-  const printPDF = async (url: string, loadingKey: string) => {
-    setLoading(loadingKey)
-    try {
-      const res = await fetch(url)
-      if (!res.ok) throw new Error("Failed to generate PDF")
-      const blob = await res.blob()
-      printBlob(blob)
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setLoading(null)
-    }
-  }
+  const downloadPDF = useCallback(async (url: string, filename: string, key: string) => {
+    setLoading(key)
+    const blob = await generate(url)
+    if (blob) downloadBlob(blob, filename)
+    setLoading(null)
+  }, [generate])
 
-  return { downloadPDF, printPDF, loading }
+  const printPDF = useCallback(async (url: string, key: string) => {
+    setLoading(key)
+    const blob = await generate(url)
+    if (blob) printBlob(blob)
+    setLoading(null)
+  }, [generate])
+
+  const isLoading = useCallback((key: string) => loading === key, [loading])
+
+  return { downloadPDF, printPDF, isLoading, loading }
 }

@@ -1,9 +1,10 @@
 "use client";
 import Link from "next/link";
 import { useCallback, useEffect, useState, use } from "react";
-import { ArrowLeft, ChevronDown, Trash2, Check, Circle, Download, Printer, FileText, Truck } from "lucide-react";
+import { ArrowLeft, ChevronDown, Trash2, Check, Circle, Download, Printer, Truck } from "lucide-react";
 import BarcodeDisplay from "@/components/ui/BarcodeDisplay";
 import { usePDF } from "@/hooks/usePDF";
+import PdfActions from "@/components/ui/PdfActions";
 
 type OrderItem = {
   id: number;
@@ -56,7 +57,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteReason, setDeleteReason] = useState("");
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
-  const { downloadPDF, printPDF, loading: pdfLoading } = usePDF();
+  const { downloadPDF, printPDF, isLoading } = usePDF();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -214,27 +215,69 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           </button>
           </div>
           <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end", marginTop: "4px" }}>
-            <button
-              onClick={() => downloadPDF(`/api/pdf/invoice/${order.id}`, `invoice-${order.orderId}.pdf`, `inv-${order.id}`)}
-              style={{ ...btnSecondary, display: "flex", alignItems: "center", gap: "4px" }}
-              disabled={pdfLoading === `inv-${order.id}`}
-            >
-              <Download size={12} /> {pdfLoading === `inv-${order.id}` ? "..." : "Invoice PDF"}
-            </button>
-            <button
-              onClick={() => downloadPDF(`/api/pdf/delivery-slip/${order.id}`, `delivery-${order.orderId}.pdf`, `del-${order.id}`)}
-              style={{ ...btnSecondary, display: "flex", alignItems: "center", gap: "4px" }}
-              disabled={pdfLoading === `del-${order.id}`}
-            >
-              <Truck size={12} /> {pdfLoading === `del-${order.id}` ? "..." : "Delivery Slip"}
-            </button>
-            <button
-              onClick={() => printPDF(`/api/pdf/invoice/${order.id}`, `inv-print-${order.id}`)}
-              style={{ ...btnSecondary, display: "flex", alignItems: "center", gap: "4px" }}
-              disabled={pdfLoading === `inv-print-${order.id}`}
-            >
-              <Printer size={12} /> Print Invoice
-            </button>
+            <PdfActions
+              groups={[
+                {
+                  label: "Invoice",
+                  items: [
+                    {
+                      label: "Download Invoice",
+                      icon: (
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                          <polyline points="7 10 12 15 17 10"/>
+                          <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                      ),
+                      onClick: () => downloadPDF(`/api/pdf/invoice/${order.id}`, `invoice-${order.orderId}.pdf`, `inv-dl-${order.id}`),
+                      disabled: isLoading(`inv-dl-${order.id}`),
+                    },
+                    {
+                      label: "Print Invoice",
+                      icon: (
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="6 9 6 2 18 2 18 9"/>
+                          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+                          <rect x="6" y="14" width="12" height="8"/>
+                        </svg>
+                      ),
+                      onClick: () => printPDF(`/api/pdf/invoice/${order.id}`, `inv-print-${order.id}`),
+                      disabled: isLoading(`inv-print-${order.id}`),
+                    },
+                  ],
+                },
+                {
+                  label: "Delivery Slip",
+                  items: [
+                    {
+                      label: "Download Delivery Slip",
+                      icon: (
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                          <polyline points="7 10 12 15 17 10"/>
+                          <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                      ),
+                      onClick: () => downloadPDF(`/api/pdf/delivery-slip/${order.id}`, `delivery-${order.orderId}.pdf`, `del-dl-${order.id}`),
+                      disabled: isLoading(`del-dl-${order.id}`),
+                    },
+                    {
+                      label: "Print Delivery Slip",
+                      icon: (
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="6 9 6 2 18 2 18 9"/>
+                          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+                          <rect x="6" y="14" width="12" height="8"/>
+                        </svg>
+                      ),
+                      onClick: () => printPDF(`/api/pdf/delivery-slip/${order.id}`, `del-print-${order.id}`),
+                      disabled: isLoading(`del-print-${order.id}`),
+                    },
+                  ],
+                },
+              ]}
+              menuWidth={210}
+            />
           </div>
         </div>
       </div>

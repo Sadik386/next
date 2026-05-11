@@ -38,6 +38,7 @@ export interface InvoiceData {
 }
 
 export interface DeliverySlipData {
+  slipNumber?: string
   orderId: string
   date: string
   business: BusinessInfo
@@ -46,6 +47,10 @@ export interface DeliverySlipData {
     phone?: string
     shippingAddress: string
   }
+  courierName?: string
+  trackingId?: string
+  codAmount?: number
+  currencySymbol?: string
   items: {
     name: string
     quantity: number
@@ -70,6 +75,7 @@ export interface ExpenseSlipData {
   description?: string
   notes?: string
   preparedBy: string
+  approvedBy?: string
 }
 
 export interface ReceiptData {

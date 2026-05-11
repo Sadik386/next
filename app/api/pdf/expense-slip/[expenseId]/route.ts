@@ -3,7 +3,6 @@ import { requireAuth } from "@/lib/rbac";
 import { getExpenseById } from "@/services/expense.service";
 import { getSettings } from "@/services/setting.service";
 import { generateExpenseSlipPDF } from "@/lib/pdf/expenseSlip";
-import { ExpenseSlipData } from "@/lib/pdf/types";
 
 export async function GET(
   req: NextRequest,
@@ -25,15 +24,15 @@ export async function GET(
   }
 
   const settings = await getSettings();
-  const currencySymbol = settings.currency === "USD" ? "$" : settings.currency === "EUR" ? "€" : "৳";
+  const currencySymbol = settings?.currency === "USD" ? "$" : settings?.currency === "EUR" ? "€" : "৳";
 
-  const slipData: ExpenseSlipData = {
+  const data = {
     expenseId: expense.expenseId,
     date: new Date(expense.date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
     business: {
-      name: settings.businessName,
-      address: settings.address ? `${settings.address}${settings.city ? ", " + settings.city : ""}` : undefined,
-      phone: settings.phone ?? undefined,
+      name: settings?.businessName || "My Business",
+      address: settings?.address ? `${settings.address}${settings.city ? ", " + settings.city : ""}` : undefined,
+      phone: settings?.phone ?? undefined,
     },
     vendor: expense.vendor,
     category: expense.category,
@@ -49,7 +48,7 @@ export async function GET(
     preparedBy: expense.createdByUser?.name ?? "N/A",
   };
 
-  const pdfBlob = await generateExpenseSlipPDF(slipData);
+  const pdfBlob = await generateExpenseSlipPDF(data);
 
   return new Response(pdfBlob, {
     headers: {

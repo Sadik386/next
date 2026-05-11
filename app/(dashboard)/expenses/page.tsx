@@ -1,7 +1,8 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
-import { Plus, X, Search, Pencil, Trash2, FileText } from "lucide-react";
+import { Plus, X, Search, Pencil, Trash2 } from "lucide-react";
 import { usePDF } from "@/hooks/usePDF";
+import PdfActions from "@/components/ui/PdfActions";
 
 type Expense = {
   id: number;
@@ -62,7 +63,7 @@ export default function ExpensesPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
-  const { downloadPDF, loading: pdfLoading } = usePDF();
+  const { downloadPDF, printPDF, isLoading } = usePDF();
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<Expense | null>(null);
@@ -273,13 +274,39 @@ export default function ExpensesPage() {
                   <Td mono>{e.receiptId ?? "—"}</Td>
                   <Td align="right">
                     <div style={{ display: "inline-flex", gap: "4px" }}>
-                      <IconBtn
-                        onClick={() => downloadPDF(`/api/pdf/expense-slip/${e.id}`, `expense-${e.expenseId}.pdf`, `exp-${e.id}`)}
-                        title="Download Expense Slip"
-                        disabled={pdfLoading === `exp-${e.id}`}
-                      >
-                        {pdfLoading === `exp-${e.id}` ? <span style={{ fontSize: "10px" }}>...</span> : <FileText size={13} />}
-                      </IconBtn>
+                      <PdfActions
+                        groups={[
+                          {
+                            label: "Expense Voucher",
+                            items: [
+                              {
+                                label: "Download Voucher",
+                                icon: (
+                                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                    <polyline points="7 10 12 15 17 10"/>
+                                    <line x1="12" y1="15" x2="12" y2="3"/>
+                                  </svg>
+                                ),
+                                onClick: () => downloadPDF(`/api/pdf/expense-slip/${e.id}`, `expense-${e.expenseId}.pdf`, `exp-dl-${e.id}`),
+                                disabled: isLoading(`exp-dl-${e.id}`),
+                              },
+                              {
+                                label: "Print Voucher",
+                                icon: (
+                                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <polyline points="6 9 6 2 18 2 18 9"/>
+                                    <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+                                    <rect x="6" y="14" width="12" height="8"/>
+                                  </svg>
+                                ),
+                                onClick: () => printPDF(`/api/pdf/expense-slip/${e.id}`, `exp-print-${e.id}`),
+                                disabled: isLoading(`exp-print-${e.id}`),
+                              },
+                            ],
+                          },
+                        ]}
+                      />
                       <IconBtn onClick={() => openEdit(e)} title="Edit">
                         <Pencil size={13} />
                       </IconBtn>

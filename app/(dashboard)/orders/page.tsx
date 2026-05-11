@@ -1,9 +1,10 @@
 "use client";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, X, Search, Eye, Trash2, Pencil, ScanLine, FileText, Truck } from "lucide-react";
+import { Plus, X, Search, Eye, Trash2, Pencil, ScanLine } from "lucide-react";
 import BarcodeDisplay from "@/components/ui/BarcodeDisplay";
 import { usePDF } from "@/hooks/usePDF";
+import PdfActions from "@/components/ui/PdfActions";
 
 type OrderListItem = {
   id: number;
@@ -61,7 +62,7 @@ export default function OrdersPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [paymentFilter, setPaymentFilter] = useState<string>("");
-  const { downloadPDF, loading: pdfLoading } = usePDF();
+  const { downloadPDF, printPDF, isLoading } = usePDF();
 
   const [createOpen, setCreateOpen] = useState(false);
   const [customers, setCustomers] = useState<CustomerOption[]>([]);
@@ -379,23 +380,71 @@ export default function OrdersPage() {
                       <IconBtn onClick={() => setBarcodeTarget(o)} title="Show barcode">
                         <ScanLine size={13} />
                       </IconBtn>
-                      <IconBtn
-                        onClick={() => downloadPDF(`/api/pdf/invoice/${o.id}`, `invoice-${o.orderId}.pdf`, `inv-${o.id}`)}
-                        title="Download Invoice"
-                        disabled={pdfLoading === `inv-${o.id}`}
-                      >
-                        {pdfLoading === `inv-${o.id}` ? <span style={{ fontSize: "10px" }}>...</span> : <FileText size={13} />}
-                      </IconBtn>
-                      <IconBtn
-                        onClick={() => downloadPDF(`/api/pdf/delivery-slip/${o.id}`, `delivery-${o.orderId}.pdf`, `del-${o.id}`)}
-                        title="Download Delivery Slip"
-                        disabled={pdfLoading === `del-${o.id}`}
-                      >
-                        {pdfLoading === `del-${o.id}` ? <span style={{ fontSize: "10px" }}>...</span> : <Truck size={13} />}
-                      </IconBtn>
                       <IconBtn onClick={() => openEdit(o)} title="Edit">
                         <Pencil size={13} />
                       </IconBtn>
+                      <PdfActions
+                        groups={[
+                          {
+                            label: "Invoice",
+                            items: [
+                              {
+                                label: "Download Invoice",
+                                icon: (
+                                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                    <polyline points="7 10 12 15 17 10"/>
+                                    <line x1="12" y1="15" x2="12" y2="3"/>
+                                  </svg>
+                                ),
+                                onClick: () => downloadPDF(`/api/pdf/invoice/${o.id}`, `invoice-${o.orderId}.pdf`, `inv-dl-${o.id}`),
+                                disabled: isLoading(`inv-dl-${o.id}`),
+                              },
+                              {
+                                label: "Print Invoice",
+                                icon: (
+                                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <polyline points="6 9 6 2 18 2 18 9"/>
+                                    <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+                                    <rect x="6" y="14" width="12" height="8"/>
+                                  </svg>
+                                ),
+                                onClick: () => printPDF(`/api/pdf/invoice/${o.id}`, `inv-print-${o.id}`),
+                                disabled: isLoading(`inv-print-${o.id}`),
+                              },
+                            ],
+                          },
+                          {
+                            label: "Delivery Slip",
+                            items: [
+                              {
+                                label: "Download Delivery Slip",
+                                icon: (
+                                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                    <polyline points="7 10 12 15 17 10"/>
+                                    <line x1="12" y1="15" x2="12" y2="3"/>
+                                  </svg>
+                                ),
+                                onClick: () => downloadPDF(`/api/pdf/delivery-slip/${o.id}`, `delivery-${o.orderId}.pdf`, `del-dl-${o.id}`),
+                                disabled: isLoading(`del-dl-${o.id}`),
+                              },
+                              {
+                                label: "Print Delivery Slip",
+                                icon: (
+                                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <polyline points="6 9 6 2 18 2 18 9"/>
+                                    <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+                                    <rect x="6" y="14" width="12" height="8"/>
+                                  </svg>
+                                ),
+                                onClick: () => printPDF(`/api/pdf/delivery-slip/${o.id}`, `del-print-${o.id}`),
+                                disabled: isLoading(`del-print-${o.id}`),
+                              },
+                            ],
+                          },
+                        ]}
+                      />
                       <IconBtn
                         onClick={() => {
                           setDeleteTarget(o);

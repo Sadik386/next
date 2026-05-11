@@ -31,15 +31,20 @@ export async function GET(
   }
 
   const settings = await getSettings();
+  const currencySymbol = settings?.currency === "USD" ? "$" : settings?.currency === "EUR" ? "€" : "৳";
 
   const formatDate = (date: Date) =>
     new Date(date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 
+  const balanceDue = Number(order.totalAmount) - Number(order.paidAmount);
+
   const data = {
+    slipNumber: `DS-${order.orderId.replace("ORD-", "")}`,
     orderId: order.orderId,
     date: formatDate(order.createdAt),
     business: {
       name: settings?.businessName || "My Business",
+      address: settings?.address ? `${settings.address}${settings.city ? ", " + settings.city : ""}` : undefined,
       phone: settings?.phone ?? undefined,
     },
     customer: {
@@ -47,6 +52,10 @@ export async function GET(
       phone: order.customer.mobile || undefined,
       shippingAddress: order.shippingAddress || order.customer.streetAddress || "N/A",
     },
+    courierName: undefined,
+    trackingId: undefined,
+    codAmount: balanceDue > 0 ? balanceDue : undefined,
+    currencySymbol,
     items: order.items.map((item) => ({
       name: item.productName,
       quantity: item.quantity,

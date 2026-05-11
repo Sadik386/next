@@ -12,7 +12,7 @@ export function downloadBlob(blob: Blob, filename: string) {
 export function printBlob(blob: Blob) {
   const url = URL.createObjectURL(blob)
   const iframe = document.createElement("iframe")
-  iframe.style.display = "none"
+  iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:none;"
   iframe.src = url
   document.body.appendChild(iframe)
   iframe.onload = () => {
@@ -20,6 +20,6 @@ export function printBlob(blob: Blob) {
     setTimeout(() => {
       document.body.removeChild(iframe)
       URL.revokeObjectURL(url)
-    }, 1000)
+    }, 3000)
   }
 }

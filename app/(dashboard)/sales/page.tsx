@@ -1,7 +1,8 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, X, Search, Pencil, Trash2, FileText } from "lucide-react";
+import { Plus, X, Search, Pencil, Trash2 } from "lucide-react";
 import { usePDF } from "@/hooks/usePDF";
+import PdfActions from "@/components/ui/PdfActions";
 
 type SaleListItem = {
   id: number;
@@ -79,7 +80,7 @@ export default function SalesPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [paymentFilter, setPaymentFilter] = useState("");
-  const { downloadPDF, loading: pdfLoading } = usePDF();
+  const { downloadPDF, printPDF, isLoading } = usePDF();
 
   const [customers, setCustomers] = useState<CustomerOption[]>([]);
   const [products, setProducts] = useState<ProductOption[]>([]);
@@ -356,13 +357,39 @@ export default function SalesPage() {
                   </Td>
                   <Td align="right">
                     <div style={{ display: "inline-flex", gap: "4px" }}>
-                      <IconBtn
-                        onClick={() => downloadPDF(`/api/pdf/receipt/${s.id}`, `receipt-${s.saleId}.pdf`, `rec-${s.id}`)}
-                        title="Download Receipt"
-                        disabled={pdfLoading === `rec-${s.id}`}
-                      >
-                        {pdfLoading === `rec-${s.id}` ? <span style={{ fontSize: "10px" }}>...</span> : <FileText size={13} />}
-                      </IconBtn>
+                      <PdfActions
+                        groups={[
+                          {
+                            label: "Receipt",
+                            items: [
+                              {
+                                label: "Download Receipt",
+                                icon: (
+                                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                    <polyline points="7 10 12 15 17 10"/>
+                                    <line x1="12" y1="15" x2="12" y2="3"/>
+                                  </svg>
+                                ),
+                                onClick: () => downloadPDF(`/api/pdf/receipt/${s.id}`, `receipt-${s.saleId}.pdf`, `rec-dl-${s.id}`),
+                                disabled: isLoading(`rec-dl-${s.id}`),
+                              },
+                              {
+                                label: "Print Receipt",
+                                icon: (
+                                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <polyline points="6 9 6 2 18 2 18 9"/>
+                                    <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+                                    <rect x="6" y="14" width="12" height="8"/>
+                                  </svg>
+                                ),
+                                onClick: () => printPDF(`/api/pdf/receipt/${s.id}`, `rec-print-${s.id}`),
+                                disabled: isLoading(`rec-print-${s.id}`),
+                              },
+                            ],
+                          },
+                        ]}
+                      />
                       <IconBtn onClick={() => openEdit(s)} title="Edit">
                         <Pencil size={13} />
                       </IconBtn>
