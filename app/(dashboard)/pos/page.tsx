@@ -553,9 +553,9 @@ export default function PosPage() {
   }, [cameraOpen, checkoutOpen, showHeldDrawer, mobileSession, cart, customerId, discountValue, notes, customers]);
 
   return (
-    <div style={{ display: "flex", gap: "16px", alignItems: "stretch", minHeight: "calc(100vh - 96px)" }}>
+    <div style={{ display: "flex", gap: "16px", alignItems: "stretch", height: "calc(100vh - 96px)", overflow: "hidden" }}>
       {/* LEFT */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "14px", minWidth: 0 }}>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "14px", minWidth: 0, overflowY: "auto" }}>
         <div>
           <h1 style={pageTitle}>Point of Sale</h1>
           <p style={pageSubtitle}>
@@ -723,7 +723,7 @@ export default function PosPage() {
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
                 gap: "10px",
               }}
             >
@@ -970,41 +970,29 @@ export default function PosPage() {
         {/* Payment Method */}
         <div style={{ marginTop: "10px" }}>
           <Label>Payment Method</Label>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+          <select
+            value={paymentMethod}
+            onChange={(e) => setPaymentMethod(e.target.value)}
+            style={{ width: "100%", padding: "8px", borderRadius: "8px", border: "1px solid var(--card-border)", backgroundColor: "var(--input-bg)", color: "var(--text-primary)", fontSize: "13px" }}
+          >
             {PAYMENT_METHODS.map((m) => (
-              <button
-                key={m}
-                onClick={() => setPaymentMethod(m)}
-                style={{
-                  ...pill,
-                  ...(paymentMethod === m ? pillActive : {}),
-                }}
-              >
-                {m}
-              </button>
+              <option key={m} value={m}>{m}</option>
             ))}
-          </div>
+          </select>
         </div>
 
         {/* Payment Status */}
         <div style={{ marginTop: "10px" }}>
           <Label>Payment Status</Label>
-          <div style={{ display: "flex", gap: "6px" }}>
+          <select
+            value={paymentStatus}
+            onChange={(e) => setPaymentStatus(e.target.value as "paid"|"partial"|"unpaid")}
+            style={{ width: "100%", padding: "8px", borderRadius: "8px", border: "1px solid var(--card-border)", backgroundColor: "var(--input-bg)", color: "var(--text-primary)", fontSize: "13px", textTransform: "capitalize" }}
+          >
             {PAYMENT_STATUSES.map((s) => (
-              <button
-                key={s}
-                onClick={() => setPaymentStatus(s)}
-                style={{
-                  ...pill,
-                  ...(paymentStatus === s ? pillActive : {}),
-                  textTransform: "capitalize",
-                  flex: 1,
-                }}
-              >
-                {s}
-              </button>
+              <option key={s} value={s} style={{ textTransform: "capitalize" }}>{s}</option>
             ))}
-          </div>
+          </select>
         </div>
 
         {paymentStatus === "partial" && (
@@ -1518,6 +1506,8 @@ const cartCol: React.CSSProperties = {
   border: "1px solid var(--card-border)",
   borderRadius: "10px",
   padding: "14px",
+  height: "100%",
+  overflowY: "auto",
 };
 const cartRow: React.CSSProperties = {
   display: "flex",
@@ -1628,6 +1618,8 @@ const pill: React.CSSProperties = {
 const pillActive: React.CSSProperties = {
   backgroundColor: "var(--brand)",
   color: "#fff",
+  borderWidth: "1px",
+  borderStyle: "solid",
   borderColor: "var(--brand)",
 };
 const checkoutBtn: React.CSSProperties = {
@@ -1728,3 +1720,6 @@ const receiptPreview: React.CSSProperties = {
   borderRadius: "8px",
   padding: "14px",
 };
+
+
+

@@ -163,21 +163,21 @@ export async function getUserById(id: number) {
   };
 }
 
-export async function createUser(data: { name: string; email: string; password: string; roleId: number; phone?: string; gender?: string; username?: string }) {
+export async function createUser(data: { name: string; email: string; password: string; roleName: string }, _role?: string, _userId?: number) {
   const existing = await prisma.user.findUnique({ where: { email: data.email } });
   if (existing) return { error: "Email already in use" };
 
   const hashedPassword = await hashPassword(data.password);
-  const username = data.username || data.email.split("@")[0];
+  const username = data.email.split("@")[0];
+  const roleRecord = await prisma.role.findUnique({ where: { name: data.roleName } });
+  if (!roleRecord) return { error: "Role not found" };
   const user = await prisma.user.create({
     data: {
       name: data.name,
       email: data.email,
       username,
       password: hashedPassword,
-      roleId: data.roleId,
-      phone: data.phone,
-      gender: data.gender,
+      roleId: roleRecord.id,
     },
     include: { role: true },
   });
@@ -193,19 +193,21 @@ export async function createUser(data: { name: string; email: string; password: 
   };
 }
 
-export async function changeRole(userId: number, newRoleId: number) {
+export async function changeRole(userId: number, newRoleName: string, _currentRole?: string, _requesterId?: number) {
+  const roleRecord = await prisma.role.findUnique({ where: { name: newRoleName } });
+  if (!roleRecord) return { error: "Role not found" };
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) return { error: "User not found" };
 
   await prisma.user.update({
     where: { id: userId },
-    data: { roleId: newRoleId },
+    data: { roleId: roleRecord.id },
   });
 
   return { success: true };
 }
 
-export async function changeStatus(userId: number, isActive: boolean) {
+export async function changeStatus(userId: number, isActive: boolean, _currentRole?: string, _requesterId?: number) {
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) return { error: "User not found" };
 

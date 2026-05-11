@@ -30,30 +30,42 @@ import {
 import { useSidebar } from "@/contexts/SidebarContext";
 import { useEffect, useState } from "react";
 
-const businessNav = [
-  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { label: "Orders", href: "/orders", icon: ShoppingCart },
-  { label: "Products", href: "/products", icon: Package },
-  { label: "Inventory", href: "/inventory", icon: Warehouse },
-  { label: "Sales", href: "/sales", icon: BarChart2 },
-  { label: "Expenses", href: "/expenses", icon: TrendingDown },
-  { label: "Customers", href: "/customers", icon: Users },
-  { label: "Suppliers", href: "/suppliers", icon: Truck },
-  { label: "Reports", href: "/reports", icon: FileText },
-  { label: "Intelligence", href: "/intelligence", icon: Brain },
-  { label: "POS", href: "/pos", icon: Receipt },
-  { label: "Settings", href: "/settings", icon: Settings },
-];
-
-const adminNav = [
-  { label: "My Profile", href: "/profile", icon: UserCircle },
-  { label: "Users", href: "/users", icon: Users },
-  { label: "Roles & Permissions", href: "/roles", icon: Shield },
-  { label: "Registration Requests", href: "/admin/registrations", icon: UserPlus },
-  { label: "Import / Export", href: "/import-export", icon: Import },
-  { label: "Delete Requests", href: "/delete-requests", icon: Trash2 },
-  { label: "Activity Log", href: "/activity-logs", icon: Activity },
-  { label: "Notifications", href: "/notifications", icon: Bell },
+const navGroups = [
+  {
+    label: "Analytics",
+    items: [
+      { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+      { label: "Intelligence", href: "/intelligence", icon: Brain },
+      { label: "Reports", href: "/reports", icon: FileText },
+    ],
+  },
+  {
+    label: "Operations",
+    items: [
+      { label: "POS", href: "/pos", icon: Receipt },
+      { label: "Sales", href: "/sales", icon: BarChart2 },
+      { label: "Orders", href: "/orders", icon: ShoppingCart },
+      { label: "Products", href: "/products", icon: Package },
+      { label: "Inventory", href: "/inventory", icon: Warehouse },
+      { label: "Expenses", href: "/expenses", icon: TrendingDown },
+    ],
+  },
+  {
+    label: "Relationships",
+    items: [
+      { label: "Customers", href: "/customers", icon: Users },
+      { label: "Suppliers", href: "/suppliers", icon: Truck },
+    ],
+  },
+  {
+    label: "System",
+    items: [
+      { label: "System", href: "/system", icon: Settings },
+      { label: "Activity Log", href: "/activity-logs", icon: Activity },
+      { label: "My Profile", href: "/profile", icon: UserCircle },
+      { label: "Notifications", href: "/notifications", icon: Bell },
+    ],
+  },
 ];
 
 function NavItem({
@@ -259,46 +271,29 @@ export default function Sidebar() {
         </div>
 
         <nav style={{ flex: 1, overflowY: "auto", padding: "8px" }}>
-          <p
-            style={{
-              fontSize: "10px",
-              color: "var(--text-muted)",
-              fontWeight: 600,
-              letterSpacing: "0.08em",
-              textTransform: "uppercase",
-              padding: "12px 10px 4px",
-              opacity: isExpanded ? 1 : 0,
-              transition: "opacity 0.15s",
-            }}
-          >
-            Business
-          </p>
-          {businessNav.map((item) => (
-            <NavItem key={item.href} item={item} active={isActive(item.href)} isExpanded={isExpanded} />
-          ))}
-
-          <p
-            style={{
-              fontSize: "10px",
-              color: "var(--text-muted)",
-              fontWeight: 600,
-              letterSpacing: "0.08em",
-              textTransform: "uppercase",
-              padding: "14px 10px 4px",
-              opacity: isExpanded ? 1 : 0,
-              transition: "opacity 0.15s",
-            }}
-          >
-            Admin
-          </p>
-          {adminNav.map((item) => (
-            <NavItem 
-              key={item.href} 
-              item={item} 
-              active={isActive(item.href)} 
-              isExpanded={isExpanded}
-              badge={item.href === "/admin/registrations" ? pendingRegCount : undefined}
-            />
+          {navGroups.map((group) => (
+            <div key={group.label}>
+              <p style={{
+                fontSize: "10px",
+                color: "var(--text-muted)",
+                fontWeight: 600,
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                padding: "12px 10px 4px",
+                opacity: isExpanded ? 1 : 0,
+                transition: "opacity 0.15s",
+              }}>
+                {group.label}
+              </p>
+              {group.items.map((item) => (
+                <NavItem
+                  key={item.href}
+                  item={item}
+                  active={isActive(item.href)}
+                  isExpanded={isExpanded}
+                />
+              ))}
+            </div>
           ))}
         </nav>
 

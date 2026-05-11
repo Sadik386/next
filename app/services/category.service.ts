@@ -28,3 +28,21 @@ export async function createCategory(name: string, userId: number) {
 
   return { category };
 }
+
+export async function deleteCategory(id: number, userId: number) {
+  const category = await prisma.category.findUnique({ where: { id } });
+  if (!category) throw new Error("Category not found");
+
+  await prisma.category.delete({ where: { id } });
+
+  await prisma.activityLog.create({
+    data: {
+      userId,
+      action: "DELETE",
+      module: "category",
+      entityId: String(id),
+      entityName: category.name,
+      description: `Deleted category: ${category.name}`,
+    },
+  });
+}

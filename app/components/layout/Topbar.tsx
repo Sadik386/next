@@ -14,7 +14,6 @@ import {
   Trash2,
   XCircle,
 } from "lucide-react";
-import { useSidebar } from "@/contexts/SidebarContext";
 
 type Notification = {
   id: number;
