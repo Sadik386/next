@@ -1,10 +1,10 @@
 "use client";
 import Link from "next/link";
 import { useCallback, useEffect, useState, use } from "react";
-import { ArrowLeft, ChevronDown, Trash2, Check, Circle, Download, Printer, Truck } from "lucide-react";
+import { ArrowLeft, ChevronDown, Trash2, Check, Circle, FileText, Truck } from "lucide-react";
 import BarcodeDisplay from "@/components/ui/BarcodeDisplay";
 import { usePDF } from "@/hooks/usePDF";
-import PdfActions from "@/components/ui/PdfActions";
+import { FloatingPopover } from "@/components/ui/FloatingPopover";
 
 type OrderItem = {
   id: number;
@@ -215,68 +215,101 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           </button>
           </div>
           <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end", marginTop: "4px" }}>
-            <PdfActions
-              groups={[
+            <FloatingPopover
+              trigger={
+                <button
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    padding: "6px 12px",
+                    borderRadius: "7px",
+                    border: "1px solid var(--input-border)",
+                    backgroundColor: "var(--card-bg)",
+                    color: "var(--text-primary)",
+                    fontSize: "13px",
+                    fontWeight: 500,
+                    cursor: "pointer",
+                  }}
+                >
+                  <FileText size={13} /> Invoice
+                </button>
+              }
+              items={[
                 {
-                  label: "Invoice",
-                  items: [
-                    {
-                      label: "Download Invoice",
-                      icon: (
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                          <polyline points="7 10 12 15 17 10"/>
-                          <line x1="12" y1="15" x2="12" y2="3"/>
-                        </svg>
-                      ),
-                      onClick: () => downloadPDF(`/api/pdf/invoice/${order.id}`, `invoice-${order.orderId}.pdf`, `inv-dl-${order.id}`),
-                      disabled: isLoading(`inv-dl-${order.id}`),
-                    },
-                    {
-                      label: "Print Invoice",
-                      icon: (
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <polyline points="6 9 6 2 18 2 18 9"/>
-                          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
-                          <rect x="6" y="14" width="12" height="8"/>
-                        </svg>
-                      ),
-                      onClick: () => printPDF(`/api/pdf/invoice/${order.id}`, `inv-print-${order.id}`),
-                      disabled: isLoading(`inv-print-${order.id}`),
-                    },
-                  ],
+                  label: "Download PDF",
+                  icon: (
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                      <polyline points="7 10 12 15 17 10"/>
+                      <line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                  ),
+                  onClick: () => downloadPDF(`/api/pdf/invoice/${order.id}`, `invoice-${order.orderId}.pdf`, `inv-dl-${order.id}`),
+                  disabled: isLoading(`inv-dl-${order.id}`),
                 },
                 {
-                  label: "Delivery Slip",
-                  items: [
-                    {
-                      label: "Download Delivery Slip",
-                      icon: (
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                          <polyline points="7 10 12 15 17 10"/>
-                          <line x1="12" y1="15" x2="12" y2="3"/>
-                        </svg>
-                      ),
-                      onClick: () => downloadPDF(`/api/pdf/delivery-slip/${order.id}`, `delivery-${order.orderId}.pdf`, `del-dl-${order.id}`),
-                      disabled: isLoading(`del-dl-${order.id}`),
-                    },
-                    {
-                      label: "Print Delivery Slip",
-                      icon: (
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <polyline points="6 9 6 2 18 2 18 9"/>
-                          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
-                          <rect x="6" y="14" width="12" height="8"/>
-                        </svg>
-                      ),
-                      onClick: () => printPDF(`/api/pdf/delivery-slip/${order.id}`, `del-print-${order.id}`),
-                      disabled: isLoading(`del-print-${order.id}`),
-                    },
-                  ],
+                  label: "Print Invoice",
+                  icon: (
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <polyline points="6 9 6 2 18 2 18 9"/>
+                      <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+                      <rect x="6" y="14" width="12" height="8"/>
+                    </svg>
+                  ),
+                  onClick: () => printPDF(`/api/pdf/invoice/${order.id}`, `inv-print-${order.id}`),
+                  disabled: isLoading(`inv-print-${order.id}`),
                 },
               ]}
-              menuWidth={210}
+              width={180}
+            />
+            <FloatingPopover
+              trigger={
+                <button
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    padding: "6px 12px",
+                    borderRadius: "7px",
+                    border: "1px solid var(--input-border)",
+                    backgroundColor: "var(--card-bg)",
+                    color: "var(--text-primary)",
+                    fontSize: "13px",
+                    fontWeight: 500,
+                    cursor: "pointer",
+                  }}
+                >
+                  <Truck size={13} /> Delivery Slip
+                </button>
+              }
+              items={[
+                {
+                  label: "Download PDF",
+                  icon: (
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                      <polyline points="7 10 12 15 17 10"/>
+                      <line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                  ),
+                  onClick: () => downloadPDF(`/api/pdf/delivery-slip/${order.id}`, `delivery-${order.orderId}.pdf`, `del-dl-${order.id}`),
+                  disabled: isLoading(`del-dl-${order.id}`),
+                },
+                {
+                  label: "Print Slip",
+                  icon: (
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <polyline points="6 9 6 2 18 2 18 9"/>
+                      <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+                      <rect x="6" y="14" width="12" height="8"/>
+                    </svg>
+                  ),
+                  onClick: () => printPDF(`/api/pdf/delivery-slip/${order.id}`, `del-print-${order.id}`),
+                  disabled: isLoading(`del-print-${order.id}`),
+                },
+              ]}
+              width={180}
             />
           </div>
         </div>
