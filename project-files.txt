@@ -1,4 +1,4 @@
-.claude/settings.local.json
+.claude/settings.json
 .gitignore
 AGENTS.md
 CLAUDE.md

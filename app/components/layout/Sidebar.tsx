@@ -12,6 +12,7 @@ import {
   Truck,
   FileText,
   Settings,
+  HelpCircle,
   Bell,
   Brain,
   PanelLeftClose,
@@ -69,6 +70,7 @@ const navGroups = [
     label: "System",
     items: [
       { label: "System", href: "/system", navTarget: "/system/settings", icon: Settings },
+      { label: "Support", href: "/system/support", icon: HelpCircle },
       { label: "All Logs", href: "/logs", icon: FileText },
       { label: "My Profile", href: "/profile", icon: UserCircle },
       { label: "Notifications", href: "/notifications", icon: Bell },

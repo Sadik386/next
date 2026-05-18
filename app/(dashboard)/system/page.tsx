@@ -6,7 +6,7 @@ export default function SystemPage() {
   const router = useRouter();
 
   useEffect(() => {
-    router.replace("/system/users");
+    router.replace("/system/settings");
   }, [router]);
 
   return null;

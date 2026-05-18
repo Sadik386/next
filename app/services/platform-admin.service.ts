@@ -64,6 +64,77 @@ export class PlatformAdminService {
   }
 
   /**
+   * Update business status for admin
+   */
+  async updateBusinessStatusForAdmin(businessId: number, isActive: boolean) {
+    return prisma.business.update({
+      where: { id: businessId },
+      data: {
+        isActive,
+      },
+    });
+  }
+
+  /**
+   * Reset business overrides for admin
+   */
+  async resetBusinessOverridesForAdmin(businessId: number) {
+    return prisma.business.findUnique({
+      where: { id: businessId },
+      include: {
+        subscription: { include: { plan: true } },
+        members: { include: { user: true } },
+      },
+    });
+  }
+
+  /**
+   * Update business overrides for admin
+   */
+  async updateBusinessOverridesForAdmin(businessId: number, overrides: any, adminId: number) {
+    return prisma.business.findUnique({
+      where: { id: businessId },
+      include: {
+        subscription: { include: { plan: true } },
+        members: { include: { user: true } },
+      },
+    });
+  }
+
+  /**
+   * Update business plan for admin
+   */
+  async updateBusinessPlanForAdmin(businessId: number, planName: string) {
+    const plan = await prisma.subscriptionPlan.findFirst({ where: { name: planName } });
+    if (!plan) throw new Error("Plan not found");
+    
+    return prisma.business.update({
+      where: { id: businessId },
+      data: {
+        subscription: {
+          update: {
+            planId: plan.id
+          }
+        }
+      },
+      include: { subscription: { include: { plan: true } } }
+    });
+  }
+
+  /**
+   * Get detail of a specific business for admin
+   */
+  async getBusinessDetailForAdmin(businessId: number) {
+    return prisma.business.findUnique({
+      where: { id: businessId },
+      include: {
+        subscription: { include: { plan: true } },
+        members: { include: { user: true } },
+      },
+    });
+  }
+
+  /**
    * Get list of all businesses with basic stats
    */
   async getBusinesses() {

@@ -6,7 +6,8 @@ import {
   Shield, 
   UserPlus, 
   Import, 
-  Trash2 
+  Trash2,
+  HelpCircle
 } from "lucide-react";
 
 const tabs = [
@@ -16,6 +17,7 @@ const tabs = [
   { label: "Delete Requests", href: "/system/delete-requests", icon: Trash2 },
   { label: "Users", href: "/system/users", icon: Users },
   { label: "Roles & Permissions", href: "/system/roles-permissions", icon: Shield },
+  { label: "Support", href: "/system/support", icon: HelpCircle },
 ];
 
 export default function SystemLayout({ children }: { children: React.ReactNode }) {

@@ -1,15 +1,16 @@
-{
+﻿{
   "env": {
     "ANTHROPIC_BASE_URL": "https://opencode.ai/zen",
-    "ANTHROPIC_MODEL": "minimax-m2.5-free",
-    "ANTHROPIC_API_KEY": "sk-sOWRmvIf4p0ikJrzp9dNsZOptbu6QcvVN7vFahsCUn8QEpwYozoWd6NpRHfl9qRp",
+    "ANTHROPIC_MODEL": "gemini-2.5-pro-free",
+    "ANTHROPIC_API_KEY": "sk-7O8XsH3ccGwcfTln5q0toltjQknXH93UFTL1larICwBVWXym3UGffqi1FiOCQ2i0",
     "ENABLE_TOOL_SEARCH": "true"
   },
   "permissions": {
     "allow": [
       "Bash(*)",
       "PowerShell(*)",
-      "pwsh(*)"
+      "Pwsh(*)"
     ]
   }
 }
+

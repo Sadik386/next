@@ -44,6 +44,12 @@
   --input-border: #2a2d3a;
 }
 
+.platform-theme {
+  --brand: #0f172a;
+  --brand-hover: #1e293b;
+  --brand-light: color-mix(in srgb, #0f172a 12%, transparent);
+}
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { background-color: var(--page-bg); color: var(--text-primary); }
 ::-webkit-scrollbar { width: 4px; }

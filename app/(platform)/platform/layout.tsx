@@ -10,7 +10,8 @@ import {
   Mail, 
   ArrowLeft,
   ShieldCheck,
-  FileText
+  FileText,
+  MessageSquare
 } from "lucide-react";
 import { Toaster } from "sonner";
 import { useEffect, useState } from "react";
@@ -19,6 +20,7 @@ import { UserAvatar } from "@/components/ui/UserAvatar";
 const NAV_ITEMS = [
   { label: "Overview", href: "/platform", icon: LayoutDashboard },
   { label: "Businesses", href: "/platform/businesses", icon: Building2 },
+  { label: "Requests", href: "/platform/requests", icon: MessageSquare },
   { label: "Plans", href: "/platform/plans", icon: CreditCard },
   { label: "Usage", href: "/platform/usage", icon: BarChart3 },
   { label: "Email Policy", href: "/platform/email", icon: Mail },
@@ -50,7 +52,7 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
   if (loading) return null;
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "var(--page-bg)" }}>
+    <div className="platform-theme" style={{ display: "flex", minHeight: "100vh", backgroundColor: "var(--page-bg)" }}>
       {/* Platform Sidebar */}
       <aside style={{
         width: "240px",
