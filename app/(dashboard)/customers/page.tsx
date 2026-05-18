@@ -2,7 +2,10 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { Pencil, Trash2, Plus, X, Search, Eye } from "lucide-react";
+import { toast } from "sonner";
 import { COUNTRIES } from "@/constants/countries";
+import { normalizePhoneString, normalizeCountryValue } from "@/lib/normalize";
+import { readErrorMessage } from "@/lib/read-error-message";
 
 type Customer = {
   id: number;
@@ -80,8 +83,8 @@ export default function CustomersPage() {
     setForm({
       name: c.name,
       email: c.email ?? "",
-      mobile: c.mobile,
-      country: c.country ?? "BD",
+      mobile: normalizePhoneString(c.mobile),
+      country: normalizeCountryValue(c.country) || "BD",
       state: c.state ?? "",
       zipCode: c.zipCode ?? "",
       city: c.city ?? "",
@@ -106,11 +109,12 @@ export default function CustomersPage() {
     if (!form.city.trim()) return setError("City is required");
     if (!form.streetAddress.trim()) return setError("Street address is required");
 
+    const wasEditing = Boolean(editing);
     setSaving(true);
     const body = {
       name: form.name.trim(),
       email: form.email.trim() || null,
-      mobile: form.mobile.trim(),
+      mobile: normalizePhoneString(form.mobile.trim()),
       country: form.country,
       state: form.state.trim() || null,
       zipCode: form.zipCode.trim() || null,
@@ -126,40 +130,56 @@ export default function CustomersPage() {
     };
     const url = editing ? `/api/customers/${editing.id}` : "/api/customers";
     const method = editing ? "PUT" : "POST";
-    const res = await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    setSaving(false);
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      setError(data.error ?? "Save failed");
-      return;
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        setError(await readErrorMessage(res, "Save failed"));
+        return;
+      }
+      setDrawerOpen(false);
+      toast.success(wasEditing ? "Customer updated" : "Customer created");
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Save failed");
+    } finally {
+      setSaving(false);
     }
-    setDrawerOpen(false);
-    load();
   }
 
   async function submitDeleteRequest() {
     if (!deleteTarget) return;
     if (!deleteReason.trim()) return;
+    const targetName = deleteTarget.name;
     setDeleteSubmitting(true);
-    const res = await fetch(`/api/customers/${deleteTarget.id}/delete-request`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ reason: deleteReason.trim() }),
-    });
-    setDeleteSubmitting(false);
-    if (res.ok) {
+    try {
+      const res = await fetch(`/api/customers/${deleteTarget.id}/delete-request`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: deleteReason.trim() }),
+      });
+      if (!res.ok) {
+        toast.error(await readErrorMessage(res, "Delete request failed"));
+        return;
+      }
       setDeleteTarget(null);
       setDeleteReason("");
+      toast.success(`Delete request submitted for ${targetName}`);
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Delete request failed");
+    } finally {
+      setDeleteSubmitting(false);
     }
   }
 
   return (
     <div>
       <div
+        className="acc-page-header"
         style={{
           display: "flex",
           justifyContent: "space-between",
@@ -181,6 +201,7 @@ export default function CustomersPage() {
       </div>
 
       <div
+        className="acc-filters"
         style={{
           display: "flex",
           alignItems: "center",
@@ -210,6 +231,7 @@ export default function CustomersPage() {
       </div>
 
       <div
+        className="acc-table-wrap"
         style={{
           backgroundColor: "var(--card-bg)",
           border: "1px solid var(--card-border)",

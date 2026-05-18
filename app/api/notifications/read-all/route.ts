@@ -1,12 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth } from "@/lib/rbac";
+import { getAuthUser } from "@/lib/auth";
 import { RoleName } from "@/constants/roles";
 import { markAllAsRead } from "@/services/notification.service";
+import { runWithBusinessContext } from "@/lib/business-context";
 
 export async function PUT(req: NextRequest) {
-  const auth = await requireAuth(req);
-  if (auth instanceof NextResponse) return auth;
+  const user = await getAuthUser();
 
-  const result = await markAllAsRead(auth.user.id, auth.user.role as RoleName);
-  return NextResponse.json({ updated: result.count });
+  if (!user || !user.businessId) {
+    return NextResponse.json({ error: "Access denied: Business context required." }, { status: 403 });
+  }
+
+  const role = user.role as RoleName;
+
+  return runWithBusinessContext(user, async () => {
+    const result = await markAllAsRead(user.id, role);
+    return NextResponse.json({ updated: result.count });
+  });
 }

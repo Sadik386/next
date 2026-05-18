@@ -2,9 +2,11 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState, use } from "react";
 import { ArrowLeft, ChevronDown, Trash2, Check, Circle, FileText, Truck } from "lucide-react";
-import BarcodeDisplay from "@/components/ui/BarcodeDisplay";
+import { toast } from "sonner";
+import { BarcodePopup } from "@/components/ui/BarcodePopup";
 import { usePDF } from "@/hooks/usePDF";
 import { FloatingPopover } from "@/components/ui/FloatingPopover";
+import { readErrorMessage } from "@/lib/read-error-message";
 
 type OrderItem = {
   id: number;
@@ -81,22 +83,40 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
 
   async function setStatus(status: string) {
     setStatusOpen(false);
-    await fetch(`/api/orders/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
-    });
-    load();
+    try {
+      const res = await fetch(`/api/orders/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) {
+        toast.error(await readErrorMessage(res, "Status update failed"));
+        return;
+      }
+      toast.success("Order status updated");
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Status update failed");
+    }
   }
 
   async function setPayment(paymentStatus: string, paidAmount?: number) {
     setPaymentOpen(false);
-    await fetch(`/api/orders/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ paymentStatus, paidAmount }),
-    });
-    load();
+    try {
+      const res = await fetch(`/api/orders/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ paymentStatus, paidAmount }),
+      });
+      if (!res.ok) {
+        toast.error(await readErrorMessage(res, "Payment update failed"));
+        return;
+      }
+      toast.success("Payment updated");
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Payment update failed");
+    }
   }
 
   async function submitPartial() {
@@ -109,15 +129,23 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   async function submitDeleteRequest() {
     if (!deleteReason.trim()) return;
     setDeleteSubmitting(true);
-    const res = await fetch(`/api/orders/${id}/delete-request`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ reason: deleteReason.trim() }),
-    });
-    setDeleteSubmitting(false);
-    if (res.ok) {
+    try {
+      const res = await fetch(`/api/orders/${id}/delete-request`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: deleteReason.trim() }),
+      });
+      if (!res.ok) {
+        toast.error(await readErrorMessage(res, "Delete request failed"));
+        return;
+      }
       setDeleteOpen(false);
       setDeleteReason("");
+      toast.success(`Delete request submitted for ${order?.orderId ?? "order"}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Delete request failed");
+    } finally {
+      setDeleteSubmitting(false);
     }
   }
 
@@ -166,11 +194,8 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
             alignItems: "flex-end",
           }}
         >
-          <div style={{ width: "260px" }}>
-            <BarcodeDisplay value={order.orderId} label={order.orderId} size="sm" />
-          </div>
           <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "flex-end" }}>
-          <Dropdown
+            <Dropdown
             open={statusOpen}
             onToggle={() => {
               setStatusOpen((s) => !s);
@@ -213,9 +238,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           <button onClick={() => setDeleteOpen(true)} style={btnDanger}>
             <Trash2 size={13} /> Request Delete
           </button>
-          </div>
-          <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end", marginTop: "4px" }}>
-            <FloatingPopover
+          <FloatingPopover
               trigger={
                 <button
                   style={{
@@ -310,6 +333,38 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                 },
               ]}
               width={180}
+            />
+            <BarcodePopup
+              trigger={
+                <button
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    padding: "6px 12px",
+                    borderRadius: "7px",
+                    border: "1px solid var(--input-border)",
+                    backgroundColor: "var(--card-bg)",
+                    color: "var(--text-primary)",
+                    fontSize: "13px",
+                    fontWeight: 500,
+                    cursor: "pointer",
+                  }}
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="4" width="18" height="16" rx="2" />
+                    <line x1="7" y1="8" x2="7" y2="16" />
+                    <line x1="11" y1="8" x2="11" y2="16" />
+                    <line x1="15" y1="8" x2="15" y2="16" />
+                    <line x1="19" y1="8" x2="19" y2="16" />
+                  </svg>
+                  Barcode
+                </button>
+              }
+              value={order.orderId}
+              label={order.orderId}
+              filename={`barcode-${order.orderId}`}
+              size="md"
             />
           </div>
         </div>

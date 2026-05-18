@@ -15,8 +15,8 @@ export async function syncAll(): Promise<SyncResult> {
   console.log("[sync] starting full sync...");
 
   const conflicts: SyncConflict[] = [];
-  let synced = 0;
-  let failed = 0;
+  const synced = 0;
+  const failed = 0;
 
   try {
     // 1) Upload pending writes.

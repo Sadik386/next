@@ -1,6 +1,8 @@
 "use client"
 import { useState, useCallback } from "react"
+import { toast } from "sonner"
 import { downloadBlob, printBlob } from "@/lib/pdf/download"
+import { readErrorMessage } from "@/lib/read-error-message"
 
 type LoadingKey = string | null
 
@@ -10,10 +12,11 @@ export function usePDF() {
   const generate = useCallback(async (url: string): Promise<Blob | null> => {
     try {
       const res = await fetch(url)
-      if (!res.ok) throw new Error("Failed to generate document")
+      if (!res.ok) throw new Error(await readErrorMessage(res, `Document generation failed (${res.status})`))
       return await res.blob()
     } catch (err) {
       console.error(err)
+      toast.error(err instanceof Error ? err.message : "Document generation failed")
       return null
     }
   }, [])

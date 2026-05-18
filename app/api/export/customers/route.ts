@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requirePermission } from "@/lib/rbac";
+import { forbiddenResponse, requirePermission } from "@/lib/rbac";
 import { PERMISSIONS } from "@/constants/permissions";
 import { ROLES, ROLE_HIERARCHY, RoleName } from "@/constants/roles";
 import { prisma } from "@/lib/prisma";
@@ -10,11 +10,11 @@ export async function GET(req: NextRequest) {
   if (auth instanceof NextResponse) return auth;
 
   if (ROLE_HIERARCHY[auth.user.role as RoleName] < ROLE_HIERARCHY[ROLES.ADMIN]) {
-    return NextResponse.json({ error: "Forbidden — admin or higher required" }, { status: 403 });
+    return forbiddenResponse();
   }
 
   const customers = await prisma.customer.findMany({
-    where: { deletedAt: null },
+    where: { deletedAt: null, businessId: auth.businessId },
     orderBy: { id: "asc" },
   });
 

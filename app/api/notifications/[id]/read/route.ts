@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth } from "@/lib/rbac";
+import { getAuthUser } from "@/lib/auth";
 import { RoleName } from "@/constants/roles";
 import { markAsRead } from "@/services/notification.service";
+import { runWithBusinessContext } from "@/lib/business-context";
 
 export async function PUT(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  const auth = await requireAuth(req);
-  if (auth instanceof NextResponse) return auth;
+  const user = await getAuthUser();
+
+  if (!user || !user.businessId) {
+    return NextResponse.json({ error: "Access denied: Business context required." }, { status: 403 });
+  }
 
   const { id } = await ctx.params;
   const numId = Number(id);
@@ -13,9 +17,13 @@ export async function PUT(req: NextRequest, ctx: { params: Promise<{ id: string 
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
   }
 
-  const updated = await markAsRead(numId, auth.user.id, auth.user.role as RoleName);
-  if (!updated) {
-    return NextResponse.json({ error: "Notification not found" }, { status: 404 });
-  }
-  return NextResponse.json({ notification: updated });
+  const role = user.role as RoleName;
+
+  return runWithBusinessContext(user, async () => {
+    const updated = await markAsRead(numId, user.id, role);
+    if (!updated) {
+      return NextResponse.json({ error: "Notification not found" }, { status: 404 });
+    }
+    return NextResponse.json({ notification: updated });
+  });
 }

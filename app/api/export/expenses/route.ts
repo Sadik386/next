@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
   if (auth instanceof NextResponse) return auth;
 
   const expenses = await prisma.expense.findMany({
-    where: { deletedAt: null },
+    where: { deletedAt: null, businessId: auth.businessId },
     orderBy: { id: "asc" },
   });
 

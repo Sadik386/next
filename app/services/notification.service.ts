@@ -14,6 +14,8 @@ export type NotificationType =
 
 export interface NotificationFilters {
   status?: "all" | "unread" | "read";
+  from?: Date;
+  to?: Date;
   page?: number;
   pageSize?: number;
 }
@@ -113,6 +115,11 @@ export async function getNotifications(
     where.reads = { none: { userId } };
   } else if (filters.status === "read") {
     where.reads = { some: { userId } };
+  }
+  if (filters.from || filters.to) {
+    where.createdAt = {};
+    if (filters.from) (where.createdAt as any).gte = filters.from;
+    if (filters.to) (where.createdAt as any).lte = filters.to;
   }
 
   const [rows, total] = await Promise.all([

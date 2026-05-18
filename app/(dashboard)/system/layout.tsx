@@ -1,6 +1,7 @@
 "use client";
 import { usePathname, useRouter } from "next/navigation";
 import { 
+  Settings,
   Users, 
   Shield, 
   UserPlus, 
@@ -9,11 +10,12 @@ import {
 } from "lucide-react";
 
 const tabs = [
-  { label: "Users", href: "/system/users", icon: Users },
-  { label: "Roles & Permissions", href: "/system/roles", icon: Shield },
-  { label: "Registration Requests", href: "/system/registrations", icon: UserPlus },
+  { label: "Business Settings", href: "/system/settings", icon: Settings },
   { label: "Import & Export", href: "/system/import-export", icon: Import },
+  { label: "Registration Requests", href: "/system/registration-requests", icon: UserPlus },
   { label: "Delete Requests", href: "/system/delete-requests", icon: Trash2 },
+  { label: "Users", href: "/system/users", icon: Users },
+  { label: "Roles & Permissions", href: "/system/roles-permissions", icon: Shield },
 ];
 
 export default function SystemLayout({ children }: { children: React.ReactNode }) {
@@ -46,7 +48,7 @@ export default function SystemLayout({ children }: { children: React.ReactNode }
                 borderRadius: "6px",
                 border: "none",
                 backgroundColor: isActive ? "var(--brand)" : "transparent",
-                color: isActive ? "#fff" : "var(--text-secondary)",
+                color: isActive ? "var(--brand-text)" : "var(--text-secondary)",
                 fontSize: "13px",
                 fontWeight: 500,
                 cursor: "pointer",

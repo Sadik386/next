@@ -5,9 +5,10 @@ interface BulkActionBarProps {
   selectedCount: number;
   onClear: () => void;
   actions?: React.ReactNode;
+  children?: React.ReactNode;
 }
 
-export function BulkActionBar({ selectedCount, onClear, actions }: BulkActionBarProps) {
+export function BulkActionBar({ selectedCount, onClear, actions, children }: BulkActionBarProps) {
   if (selectedCount === 0) return null;
 
   return (
@@ -31,6 +32,7 @@ export function BulkActionBar({ selectedCount, onClear, actions }: BulkActionBar
         {selectedCount} selected
       </span>
       {actions}
+      {children}
       <button
         onClick={onClear}
         style={{

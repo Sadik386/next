@@ -1,9 +1,78 @@
 import { prisma } from "@/lib/prisma";
 import { verifyPassword, hashPassword } from "@/lib/password";
 import { signToken } from "@/lib/jwt";
+import {
+  BusinessContextError,
+  resolveBusinessContextForUser,
+  setActiveBusinessContext,
+} from "@/lib/business-context";
+import type { Role, User } from "@prisma/client";
 import { randomBytes } from "crypto";
 
-export async function loginUser(email: string, password: string) {
+type LoginUser = User & { role: Role };
+type LoginResult =
+  | {
+      token: string;
+      user: {
+        id: number;
+        name: string;
+        email: string;
+        role: string;
+        businessId: number;
+      };
+      error?: never;
+    }
+  | {
+      error: string;
+      token?: never;
+      user?: never;
+    };
+
+async function createLoginResult(user: LoginUser): Promise<LoginResult> {
+  try {
+    const businessContext = await resolveBusinessContextForUser({
+      id: user.id,
+      name: user.name,
+      username: user.username || undefined,
+      email: user.email,
+      role: user.role.name,
+      businessId: undefined,
+    });
+
+    const payload = {
+      id: user.id,
+      name: user.name,
+      username: user.username || undefined,
+      email: user.email,
+      role: user.role.name,
+      businessId: businessContext.businessId,
+    };
+    const token = await signToken(payload);
+    setActiveBusinessContext({
+      ...businessContext,
+      user: payload,
+      role: payload.role,
+    });
+
+    return {
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role.name,
+        businessId: businessContext.businessId,
+      },
+    };
+  } catch (error) {
+    if (error instanceof BusinessContextError) {
+      return { error: error.message };
+    }
+    throw error;
+  }
+}
+
+export async function loginUser(email: string, password: string): Promise<LoginResult> {
   const user = await prisma.user.findUnique({
     where: { email },
     include: { role: true },
@@ -17,32 +86,12 @@ export async function loginUser(email: string, password: string) {
     if (!userByUsername.isActive) return { error: "Account deactivated" };
     const isValid = await verifyPassword(password, userByUsername.password);
     if (!isValid) return { error: "Invalid email/username or password" };
-    const token = await signToken({
-      id: userByUsername.id,
-      name: userByUsername.name,
-      username: userByUsername.username || undefined,
-      email: userByUsername.email,
-      role: userByUsername.role.name,
-    });
-    return {
-      token,
-      user: { id: userByUsername.id, name: userByUsername.name, email: userByUsername.email, role: userByUsername.role.name },
-    };
+    return await createLoginResult(userByUsername);
   }
   if (!user.isActive) return { error: "Account deactivated" };
   const isValid = await verifyPassword(password, user.password);
   if (!isValid) return { error: "Invalid email or password" };
-  const token = await signToken({
-    id: user.id,
-    name: user.name,
-    username: user.username || undefined,
-    email: user.email,
-    role: user.role.name,
-  });
-  return {
-    token,
-    user: { id: user.id, name: user.name, email: user.email, role: user.role.name },
-  };
+  return await createLoginResult(user);
 }
 
 export async function forgotPassword(email: string) {

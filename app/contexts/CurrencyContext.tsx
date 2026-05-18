@@ -9,10 +9,10 @@ interface CurrencyContextValue {
   format: (amount: number | string | null | undefined) => string;
 }
 
-const DEFAULT: CurrencyContextValue = {
+const DEFAULT_CURRENCY_FORMAT = {
   code: "BDT",
   symbol: CURRENCIES[0]?.symbol ?? "৳",
-  format: (amount) => {
+  format: (amount: number | string | null | undefined): string => {
     const n = toNumber(amount);
     return `${CURRENCIES[0]?.symbol ?? "৳"}${n.toLocaleString(undefined, {
       minimumFractionDigits: 2,
@@ -21,7 +21,7 @@ const DEFAULT: CurrencyContextValue = {
   },
 };
 
-const CurrencyContext = createContext<CurrencyContextValue>(DEFAULT);
+const CurrencyContext = createContext<CurrencyContextValue>(DEFAULT_CURRENCY_FORMAT);
 
 function toNumber(value: number | string | null | undefined): number {
   if (value === null || value === undefined || value === "") return 0;
@@ -30,10 +30,12 @@ function toNumber(value: number | string | null | undefined): number {
 }
 
 export function CurrencyProvider({ children }: { children: React.ReactNode }) {
-  const { currency } = useSettings();
+  // useSettings is a client-side hook, and SettingsProvider is also client-side.
+  // This hook call should be safe within a client component.
+  const { currency: currencyCode } = useSettings();
 
   const value = useMemo<CurrencyContextValue>(() => {
-    const found = getCurrency(currency);
+    const found = getCurrency(currencyCode);
     const symbol = found?.symbol ?? "৳";
     const code = found?.code ?? "BDT";
     return {
@@ -47,11 +49,15 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
         })}`;
       },
     };
-  }, [currency]);
+  }, [currencyCode]);
 
   return <CurrencyContext.Provider value={value}>{children}</CurrencyContext.Provider>;
 }
 
 export function useCurrency() {
-  return useContext(CurrencyContext);
+  const context = useContext(CurrencyContext);
+  if (context === undefined) {
+    throw new Error('useCurrency must be used within a CurrencyProvider');
+  }
+  return context;
 }

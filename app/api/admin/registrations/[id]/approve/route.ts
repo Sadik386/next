@@ -44,6 +44,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       },
     });
 
+    await prisma.businessMember.create({
+      data: {
+        userId: user.id,
+        businessId: auth.businessId,
+        isDefault: true,
+        status: "active",
+      },
+    });
+
     await prisma.registrationRequest.update({
       where: { id: parseInt(id) },
       data: {
@@ -55,6 +64,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     await prisma.activityLog.create({
       data: {
+        businessId: auth.businessId,
         userId: auth.user.id,
         action: "approve_registration",
         module: "users",

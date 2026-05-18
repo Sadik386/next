@@ -1,8 +1,13 @@
 "use client";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { Pencil, Trash2, Plus, X, Search, Eye } from "lucide-react";
+import { Pencil, Trash2, Plus, X, Search, Eye, Trash } from "lucide-react";
 import { COUNTRIES, CURRENCIES } from "@/constants/countries";
+import { useBulkSelection } from "@/hooks/useBulkSelection";
+import { BulkActionBar } from "@/components/ui/BulkActionBar";
+import { toast } from "sonner";
+import { normalizePhoneString, normalizeCountryValue } from "@/lib/normalize";
+import { readErrorMessage } from "@/lib/read-error-message";
 
 type Supplier = {
   id: number;
@@ -17,6 +22,14 @@ type Supplier = {
   currency: string;
   bankName: string | null;
   bankAccount: string | null;
+  accountName: string | null;
+  branchName: string | null;
+  routingNumber: string | null;
+  swiftCode: string | null;
+  bkash: string | null;
+  nagad: string | null;
+  rocket: string | null;
+  upay: string | null;
   category: string | null;
   deliveryMethod: string | null;
   streetAddress: string | null;
@@ -25,11 +38,68 @@ type Supplier = {
   zipCode: string | null;
   country: string | null;
   status: string;
+  paymentMethods: SupplierPaymentMethod[] | null;
 };
 
 const PAYMENT_TERMS = ["Net 7", "Net 15", "Net 30", "Net 45", "Net 60", "Net 90", "Cash on Delivery", "Advance Payment"];
+const MFS_PROVIDERS = ["bKash", "Nagad", "Rocket", "Upay"] as const;
 
-const emptyForm = {
+type PaymentType = "BANK" | "MFS";
+type MfsProvider = (typeof MFS_PROVIDERS)[number];
+
+type SupplierPaymentMethod =
+  | {
+      type: "MFS";
+      provider: MfsProvider;
+      accountNumber: string;
+    }
+  | {
+      type: "BANK";
+      bankName: string;
+      accountName: string;
+      accountNumber: string;
+      branchName: string;
+      routingNumber: string;
+      swiftCode: string;
+    };
+
+type PaymentMethodForm = {
+  id: string;
+  type: PaymentType;
+  provider: "" | MfsProvider;
+  accountNumber: string;
+  bankName: string;
+  accountName: string;
+  branchName: string;
+  routingNumber: string;
+  swiftCode: string;
+};
+
+type SupplierForm = {
+  companyName: string;
+  contactName: string;
+  email: string;
+  mobile: string;
+  paymentTerms: string;
+  currency: string;
+  taxId: string;
+  website: string;
+  category: string;
+  deliveryMethod: string;
+  streetAddress: string;
+  city: string;
+  state: string;
+  zipCode: string;
+  country: string;
+  status: string;
+  paymentMethods: PaymentMethodForm[];
+};
+
+type PaymentMethodsPayloadResult =
+  | { paymentMethods: SupplierPaymentMethod[]; error?: undefined }
+  | { paymentMethods?: undefined; error: string };
+
+const createEmptyForm = (): SupplierForm => ({
   companyName: "",
   contactName: "",
   email: "",
@@ -40,15 +110,148 @@ const emptyForm = {
   website: "",
   category: "",
   deliveryMethod: "",
-  bankName: "",
-  bankAccount: "",
   streetAddress: "",
   city: "",
   state: "",
   zipCode: "",
   country: "BD",
   status: "active",
-};
+  paymentMethods: [],
+});
+
+function createPaymentMethod(type: PaymentType = "MFS"): PaymentMethodForm {
+  return {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    type,
+    provider: "",
+    accountNumber: "",
+    bankName: "",
+    accountName: "",
+    branchName: "",
+    routingNumber: "",
+    swiftCode: "",
+  };
+}
+
+function stringValue(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
+function isMfsProvider(value: string): value is MfsProvider {
+  return MFS_PROVIDERS.includes(value as MfsProvider);
+}
+
+function paymentMethodFromValue(value: unknown): PaymentMethodForm | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+  const method = value as Record<string, unknown>;
+  const type = method.type === "BANK" || method.type === "MFS" ? method.type : null;
+  if (!type) return null;
+
+  if (type === "MFS") {
+    const provider = stringValue(method.provider);
+    if (!isMfsProvider(provider)) return null;
+    return {
+      ...createPaymentMethod("MFS"),
+      provider,
+      accountNumber: stringValue(method.accountNumber),
+    };
+  }
+
+  return {
+    ...createPaymentMethod("BANK"),
+    bankName: stringValue(method.bankName),
+    accountName: stringValue(method.accountName),
+    accountNumber: stringValue(method.accountNumber),
+    branchName: stringValue(method.branchName),
+    routingNumber: stringValue(method.routingNumber),
+    swiftCode: stringValue(method.swiftCode),
+  };
+}
+
+function legacyPaymentMethodsFromSupplier(supplier: Supplier): PaymentMethodForm[] {
+  const methods: PaymentMethodForm[] = [];
+
+  if (supplier.bankName || supplier.bankAccount) {
+    methods.push({
+      ...createPaymentMethod("BANK"),
+      bankName: supplier.bankName ?? "",
+      accountName: supplier.accountName ?? "",
+      accountNumber: supplier.bankAccount ?? "",
+      branchName: supplier.branchName ?? "",
+      routingNumber: supplier.routingNumber ?? "",
+      swiftCode: supplier.swiftCode ?? "",
+    });
+  }
+
+  const legacyMfs: Array<[MfsProvider, string | null]> = [
+    ["bKash", supplier.bkash],
+    ["Nagad", supplier.nagad],
+    ["Rocket", supplier.rocket],
+    ["Upay", supplier.upay],
+  ];
+
+  legacyMfs.forEach(([provider, accountNumber]) => {
+    if (accountNumber) {
+      methods.push({
+        ...createPaymentMethod("MFS"),
+        provider,
+        accountNumber,
+      });
+    }
+  });
+
+  return methods;
+}
+
+function paymentMethodsFromSupplier(supplier: Supplier): PaymentMethodForm[] {
+  const fromJson = Array.isArray(supplier.paymentMethods)
+    ? supplier.paymentMethods
+        .map((method) => paymentMethodFromValue(method))
+        .filter((method): method is PaymentMethodForm => Boolean(method))
+    : [];
+
+  return fromJson.length ? fromJson : legacyPaymentMethodsFromSupplier(supplier);
+}
+
+function buildPaymentMethodsPayload(methods: PaymentMethodForm[]): PaymentMethodsPayloadResult {
+  const paymentMethods: SupplierPaymentMethod[] = [];
+
+  for (const [index, method] of methods.entries()) {
+    if (method.type === "MFS") {
+      const provider = method.provider;
+      const accountNumber = method.accountNumber.trim();
+      if (!provider && !accountNumber) continue;
+      if (!provider) return { error: `Payment method #${index + 1} needs an MFS provider.` };
+      if (!accountNumber) return { error: `Payment method #${index + 1} account number is required.` };
+      paymentMethods.push({ type: "MFS", provider, accountNumber });
+      continue;
+    }
+
+    const bankName = method.bankName.trim();
+    const accountName = method.accountName.trim();
+    const accountNumber = method.accountNumber.trim();
+    const branchName = method.branchName.trim();
+    const routingNumber = method.routingNumber.trim();
+    const swiftCode = method.swiftCode.trim();
+    const hasAnyBankDetail = Boolean(bankName || accountName || accountNumber || branchName || routingNumber || swiftCode);
+    if (!hasAnyBankDetail) continue;
+    if (!bankName && !accountNumber) {
+      return { error: `Bank payment method #${index + 1} requires bank name or account number.` };
+    }
+
+    paymentMethods.push({
+      type: "BANK",
+      bankName,
+      accountName,
+      accountNumber,
+      branchName,
+      routingNumber,
+      swiftCode,
+    });
+  }
+
+  return { paymentMethods };
+}
 
 export default function SuppliersPage() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -56,12 +259,17 @@ export default function SuppliersPage() {
   const [search, setSearch] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<Supplier | null>(null);
-  const [form, setForm] = useState(emptyForm);
+  const [form, setForm] = useState<SupplierForm>(() => createEmptyForm());
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Supplier | null>(null);
   const [deleteReason, setDeleteReason] = useState("");
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+  const [bulkReason, setBulkReason] = useState("");
+  const [bulkModalOpen, setBulkModalOpen] = useState(false);
+  const [bulkSubmitting, setBulkSubmitting] = useState(false);
+
+  const { selectedIds, selectedCount, isAllSelected, toggle, selectAll, clearSelection, isSelected } = useBulkSelection({ items: suppliers });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -82,7 +290,7 @@ export default function SuppliersPage() {
 
   function openCreate() {
     setEditing(null);
-    setForm(emptyForm);
+    setForm(createEmptyForm());
     setError(null);
     setDrawerOpen(true);
   }
@@ -93,48 +301,53 @@ export default function SuppliersPage() {
       companyName: s.companyName,
       contactName: s.contactName,
       email: s.email ?? "",
-      mobile: s.mobile ?? "",
+      mobile: normalizePhoneString(s.mobile ?? ""),
       paymentTerms: s.paymentTerms ?? "Net 30",
       currency: s.currency,
       taxId: s.taxId ?? "",
       website: s.website ?? "",
       category: s.category ?? "",
       deliveryMethod: s.deliveryMethod ?? "",
-      bankName: s.bankName ?? "",
-      bankAccount: s.bankAccount ?? "",
       streetAddress: s.streetAddress ?? "",
       city: s.city ?? "",
       state: s.state ?? "",
       zipCode: s.zipCode ?? "",
-      country: s.country ?? "BD",
+      country: normalizeCountryValue(s.country) || "BD",
       status: s.status,
+      paymentMethods: paymentMethodsFromSupplier(s),
     });
     setError(null);
     setDrawerOpen(true);
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleSubmit(e?: React.FormEvent | React.MouseEvent<HTMLButtonElement>) {
+    e?.preventDefault();
     setError(null);
-    if (!form.companyName.trim()) return setError("Company name is required");
-    if (!form.contactName.trim()) return setError("Contact name is required");
-    if (!form.paymentTerms) return setError("Payment terms is required");
-    if (!form.currency) return setError("Currency is required");
+    if (!form.companyName.trim()) return setError("Company name is required.");
+    if (!form.contactName.trim()) return setError("Contact name is required.");
+    if (!form.mobile.trim()) return setError("Mobile number is required.");
+    if (!form.paymentTerms.trim()) return setError("Payment terms is required.");
+    if (!form.currency.trim()) return setError("Currency is required.");
+    if (!form.country.trim()) return setError("Country is required.");
+    if (!form.status.trim()) return setError("Status is required.");
 
+    const paymentMethodsResult = buildPaymentMethodsPayload(form.paymentMethods);
+    if (paymentMethodsResult.error) return setError(paymentMethodsResult.error);
+
+    const wasEditing = Boolean(editing);
     setSaving(true);
     const body = {
       companyName: form.companyName.trim(),
       contactName: form.contactName.trim(),
       email: form.email.trim() || null,
-      mobile: form.mobile.trim() || null,
+      mobile: normalizePhoneString(form.mobile.trim()) || null,
       paymentTerms: form.paymentTerms,
       currency: form.currency,
       taxId: form.taxId.trim() || null,
       website: form.website.trim() || null,
       category: form.category.trim() || null,
       deliveryMethod: form.deliveryMethod.trim() || null,
-      bankName: form.bankName.trim() || null,
-      bankAccount: form.bankAccount.trim() || null,
+      paymentMethods: paymentMethodsResult.paymentMethods,
       streetAddress: form.streetAddress.trim() || null,
       city: form.city.trim() || null,
       state: form.state.trim() || null,
@@ -144,35 +357,99 @@ export default function SuppliersPage() {
     };
     const url = editing ? `/api/suppliers/${editing.id}` : "/api/suppliers";
     const method = editing ? "PUT" : "POST";
-    const res = await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    setSaving(false);
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      setError(data.error ?? "Save failed");
-      return;
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        setError(await readErrorMessage(res, "Save failed"));
+        return;
+      }
+      setDrawerOpen(false);
+      toast.success(wasEditing ? "Supplier updated" : "Supplier created");
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Save failed");
+    } finally {
+      setSaving(false);
     }
-    setDrawerOpen(false);
-    load();
   }
 
   async function submitDeleteRequest() {
     if (!deleteTarget) return;
     if (!deleteReason.trim()) return;
+    const targetName = deleteTarget.companyName;
     setDeleteSubmitting(true);
-    const res = await fetch(`/api/suppliers/${deleteTarget.id}/delete-request`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ reason: deleteReason.trim() }),
-    });
-    setDeleteSubmitting(false);
-    if (res.ok) {
+    try {
+      const res = await fetch(`/api/suppliers/${deleteTarget.id}/delete-request`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: deleteReason.trim() }),
+      });
+      if (!res.ok) {
+        toast.error(await readErrorMessage(res, "Delete request failed"));
+        return;
+      }
       setDeleteTarget(null);
       setDeleteReason("");
+      toast.success(`Delete request submitted for ${targetName}`);
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Delete request failed");
+    } finally {
+      setDeleteSubmitting(false);
     }
+  }
+
+  async function submitBulkDelete() {
+    if (!bulkReason.trim()) return;
+    setBulkSubmitting(true);
+    try {
+      const res = await fetch("/api/suppliers/bulk/delete-request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: selectedIds, reason: bulkReason.trim() }),
+      });
+      const data = res.ok ? await res.json() : null;
+      if (res.ok) {
+        toast.success(`Delete requests created: ${data.created}, failed: ${data.failed}`);
+        clearSelection();
+        setBulkModalOpen(false);
+        setBulkReason("");
+        load();
+      } else {
+        toast.error(await readErrorMessage(res, "Bulk request failed"));
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Bulk request failed");
+    } finally {
+      setBulkSubmitting(false);
+    }
+  }
+
+  function addPaymentMethod() {
+    setForm((current) => ({
+      ...current,
+      paymentMethods: [...current.paymentMethods, createPaymentMethod()],
+    }));
+  }
+
+  function updatePaymentMethod(id: string, changes: Partial<PaymentMethodForm>) {
+    setForm((current) => ({
+      ...current,
+      paymentMethods: current.paymentMethods.map((method) =>
+        method.id === id ? { ...method, ...changes } : method
+      ),
+    }));
+  }
+
+  function removePaymentMethod(id: string) {
+    setForm((current) => ({
+      ...current,
+      paymentMethods: current.paymentMethods.filter((method) => method.id !== id),
+    }));
   }
 
   return (
@@ -238,6 +515,14 @@ export default function SuppliersPage() {
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
           <thead>
             <tr style={{ backgroundColor: "var(--input-bg)" }}>
+              <Th style={{ width: "40px" }}>
+                <input
+                  type="checkbox"
+                  checked={isAllSelected}
+                  onChange={selectAll}
+                  style={{ cursor: "pointer", width: "16px", height: "16px" }}
+                />
+              </Th>
               <Th>Supplier ID</Th>
               <Th>Company Name</Th>
               <Th>Contact Name</Th>
@@ -250,19 +535,27 @@ export default function SuppliersPage() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={7} style={emptyCell}>
+                <td colSpan={8} style={emptyCell}>
                   Loading...
                 </td>
               </tr>
             ) : suppliers.length === 0 ? (
               <tr>
-                <td colSpan={7} style={emptyCell}>
+                <td colSpan={8} style={emptyCell}>
                   No suppliers yet. Click &ldquo;New Supplier&rdquo; to add one.
                 </td>
               </tr>
             ) : (
               suppliers.map((s) => (
-                <tr key={s.id} style={{ borderTop: "1px solid var(--card-border)" }}>
+                <tr key={s.id} style={{ borderTop: "1px solid var(--card-border)", backgroundColor: isSelected(s.id) ? "rgba(37,99,235,0.04)" : undefined }}>
+                  <Td>
+                    <input
+                      type="checkbox"
+                      checked={isSelected(s.id)}
+                      onChange={() => toggle(s.id)}
+                      style={{ cursor: "pointer", width: "16px", height: "16px" }}
+                    />
+                  </Td>
                   <Td mono>{s.supplierId}</Td>
                   <Td>{s.companyName}</Td>
                   <Td>{s.contactName}</Td>
@@ -311,6 +604,59 @@ export default function SuppliersPage() {
         </table>
       </div>
 
+      <BulkActionBar selectedCount={selectedCount} onClear={clearSelection}>
+        <button
+          onClick={() => setBulkModalOpen(true)}
+          style={{
+            background: "rgba(255,255,255,0.2)",
+            border: "none",
+            borderRadius: "6px",
+            padding: "5px 12px",
+            cursor: "pointer",
+            color: "white",
+            display: "flex",
+            alignItems: "center",
+            gap: "5px",
+            fontSize: "13px",
+            fontWeight: 500,
+          }}
+        >
+          <Trash size={13} /> Request Delete
+        </button>
+      </BulkActionBar>
+
+      {bulkModalOpen && (
+        <>
+          <div onClick={() => setBulkModalOpen(false)} style={modalOverlay} />
+          <div style={modalBox}>
+            <h3 style={{ fontSize: "15px", fontWeight: 600, color: "var(--text-primary)", marginBottom: "6px" }}>
+              Request deletion of {selectedCount} suppliers
+            </h3>
+            <p style={{ fontSize: "12px", color: "var(--text-secondary)", marginBottom: "12px" }}>
+              An admin will review these requests before the suppliers are removed.
+            </p>
+            <Label required>Reason</Label>
+            <textarea
+              value={bulkReason}
+              onChange={(e) => setBulkReason(e.target.value)}
+              rows={3}
+              placeholder="Why should these suppliers be deleted?"
+              style={{ ...inputStyle, resize: "vertical" }}
+            />
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "14px" }}>
+              <button onClick={() => setBulkModalOpen(false)} style={btnSecondary}>Cancel</button>
+              <button
+                onClick={submitBulkDelete}
+                disabled={!bulkReason.trim() || bulkSubmitting}
+                style={{ ...btnPrimary, backgroundColor: "#dc2626", opacity: !bulkReason.trim() || bulkSubmitting ? 0.6 : 1 }}
+              >
+                {bulkSubmitting ? "Submitting..." : "Submit Requests"}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
       {drawerOpen && (
         <>
           <div onClick={() => setDrawerOpen(false)} style={overlay} />
@@ -345,6 +691,7 @@ export default function SuppliersPage() {
                 />
                 <Field
                   label="Mobile"
+                  required
                   value={form.mobile}
                   onChange={(v) => setForm((f) => ({ ...f, mobile: v }))}
                 />
@@ -356,6 +703,7 @@ export default function SuppliersPage() {
                   <select
                     value={form.paymentTerms}
                     onChange={(e) => setForm((f) => ({ ...f, paymentTerms: e.target.value }))}
+                    required
                     style={inputStyle}
                   >
                     {PAYMENT_TERMS.map((t) => (
@@ -370,6 +718,7 @@ export default function SuppliersPage() {
                   <select
                     value={form.currency}
                     onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value }))}
+                    required
                     style={inputStyle}
                   >
                     {CURRENCIES.map((c) => (
@@ -408,18 +757,12 @@ export default function SuppliersPage() {
                 />
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-                <Field
-                  label="Bank Name"
-                  value={form.bankName}
-                  onChange={(v) => setForm((f) => ({ ...f, bankName: v }))}
-                />
-                <Field
-                  label="Bank Account"
-                  value={form.bankAccount}
-                  onChange={(v) => setForm((f) => ({ ...f, bankAccount: v }))}
-                />
-              </div>
+              <PaymentMethodsSection
+                methods={form.paymentMethods}
+                onAdd={addPaymentMethod}
+                onRemove={removePaymentMethod}
+                onChange={updatePaymentMethod}
+              />
 
               <div>
                 <Label>Street Address</Label>
@@ -451,10 +794,11 @@ export default function SuppliersPage() {
                   onChange={(v) => setForm((f) => ({ ...f, zipCode: v }))}
                 />
                 <div>
-                  <Label>Country</Label>
+                  <Label required>Country</Label>
                   <select
                     value={form.country}
                     onChange={(e) => setForm((f) => ({ ...f, country: e.target.value }))}
+                    required
                     style={inputStyle}
                   >
                     {COUNTRIES.map((c) => (
@@ -467,7 +811,7 @@ export default function SuppliersPage() {
               </div>
 
               <div>
-                <Label>Status</Label>
+                <Label required>Status</Label>
                 <div style={{ display: "flex", gap: "8px" }}>
                   {["active", "inactive"].map((s) => (
                     <button
@@ -580,6 +924,61 @@ const btnSecondary: React.CSSProperties = {
   cursor: "pointer",
 };
 
+const btnCompactSecondary: React.CSSProperties = {
+  ...btnSecondary,
+  padding: "6px 10px",
+  fontSize: "12px",
+};
+
+const btnRemovePayment: React.CSSProperties = {
+  ...btnCompactSecondary,
+  color: "#dc2626",
+  borderColor: "rgba(220,38,38,0.3)",
+};
+
+const paymentSection: React.CSSProperties = {
+  border: "1px solid var(--card-border)",
+  borderRadius: "8px",
+  padding: "12px",
+  display: "grid",
+  gap: "10px",
+};
+
+const paymentSectionHeader: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "10px",
+};
+
+const paymentEntryStyle: React.CSSProperties = {
+  border: "1px solid var(--card-border)",
+  borderRadius: "8px",
+  padding: "10px",
+  display: "grid",
+  gap: "10px",
+  backgroundColor: "var(--input-bg)",
+};
+
+const paymentEntryHeader: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "8px",
+};
+
+const twoColumnGrid: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: "10px",
+};
+
+const paymentEmptyState: React.CSSProperties = {
+  color: "var(--text-muted)",
+  fontSize: "12px",
+  padding: "8px 0",
+};
+
 const overlay: React.CSSProperties = {
   position: "fixed",
   inset: 0,
@@ -592,7 +991,7 @@ const drawer: React.CSSProperties = {
   top: 0,
   right: 0,
   height: "100vh",
-  width: "480px",
+  width: "min(480px, 100vw)",
   backgroundColor: "var(--card-bg)",
   borderLeft: "1px solid var(--card-border)",
   zIndex: 101,
@@ -681,7 +1080,140 @@ function statusBtn(active: boolean): React.CSSProperties {
   };
 }
 
-function Th({ children, align }: { children: React.ReactNode; align?: "left" | "right" }) {
+function PaymentMethodsSection({
+  methods,
+  onAdd,
+  onRemove,
+  onChange,
+}: {
+  methods: PaymentMethodForm[];
+  onAdd: () => void;
+  onRemove: (id: string) => void;
+  onChange: (id: string, changes: Partial<PaymentMethodForm>) => void;
+}) {
+  return (
+    <section style={paymentSection}>
+      <div style={paymentSectionHeader}>
+        <h3 style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-primary)" }}>
+          Payment Methods
+        </h3>
+        <button type="button" onClick={onAdd} style={btnCompactSecondary}>
+          <Plus size={13} /> Add Payment Method
+        </button>
+      </div>
+
+      {methods.length === 0 ? (
+        <div style={paymentEmptyState}>No payment methods added.</div>
+      ) : (
+        methods.map((method, index) => (
+          <div key={method.id} style={paymentEntryStyle}>
+            <div style={paymentEntryHeader}>
+              <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--text-secondary)" }}>
+                Method {index + 1}
+              </span>
+              <button type="button" onClick={() => onRemove(method.id)} style={btnRemovePayment}>
+                <Trash2 size={13} /> Remove
+              </button>
+            </div>
+
+            <div style={twoColumnGrid}>
+              <div>
+                <Label>Payment Type</Label>
+                <select
+                  value={method.type}
+                  onChange={(e) =>
+                    onChange(method.id, {
+                      ...createPaymentMethod(e.target.value as PaymentType),
+                      id: method.id,
+                    })
+                  }
+                  style={inputStyle}
+                >
+                  <option value="MFS">MFS</option>
+                  <option value="BANK">Bank</option>
+                </select>
+              </div>
+
+              {method.type === "MFS" && (
+                <div>
+                  <Label>MFS Provider</Label>
+                  <select
+                    value={method.provider}
+                    onChange={(e) =>
+                      onChange(method.id, {
+                        provider: e.target.value as "" | MfsProvider,
+                        accountNumber: "",
+                      })
+                    }
+                    style={inputStyle}
+                  >
+                    <option value="">Select provider</option>
+                    {MFS_PROVIDERS.map((provider) => (
+                      <option key={provider} value={provider}>
+                        {provider}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+
+            {method.type === "MFS" && method.provider && (
+              <Field
+                label={`${method.provider} Number`}
+                value={method.accountNumber}
+                onChange={(value) => onChange(method.id, { accountNumber: value })}
+              />
+            )}
+
+            {method.type === "BANK" && (
+              <>
+                <div style={twoColumnGrid}>
+                  <Field
+                    label="Bank Name"
+                    value={method.bankName}
+                    onChange={(value) => onChange(method.id, { bankName: value })}
+                  />
+                  <Field
+                    label="Account Name"
+                    value={method.accountName}
+                    onChange={(value) => onChange(method.id, { accountName: value })}
+                  />
+                </div>
+                <div style={twoColumnGrid}>
+                  <Field
+                    label="Account Number"
+                    value={method.accountNumber}
+                    onChange={(value) => onChange(method.id, { accountNumber: value })}
+                  />
+                  <Field
+                    label="Branch Name"
+                    value={method.branchName}
+                    onChange={(value) => onChange(method.id, { branchName: value })}
+                  />
+                </div>
+                <div style={twoColumnGrid}>
+                  <Field
+                    label="Routing Number"
+                    value={method.routingNumber}
+                    onChange={(value) => onChange(method.id, { routingNumber: value })}
+                  />
+                  <Field
+                    label="SWIFT / BIC Code"
+                    value={method.swiftCode}
+                    onChange={(value) => onChange(method.id, { swiftCode: value })}
+                  />
+                </div>
+              </>
+            )}
+          </div>
+        ))
+      )}
+    </section>
+  );
+}
+
+function Th({ children, align, style }: { children: React.ReactNode; align?: "left" | "right"; style?: React.CSSProperties }) {
   return (
     <th
       style={{
@@ -692,6 +1224,7 @@ function Th({ children, align }: { children: React.ReactNode; align?: "left" | "
         textTransform: "uppercase",
         letterSpacing: "0.05em",
         color: "var(--text-muted)",
+        ...style,
       }}
     >
       {children}
@@ -795,6 +1328,7 @@ function Field({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
+        required={required}
         style={inputStyle}
       />
     </div>

@@ -1,36 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthUser } from "@/lib/auth";
-
-function getPresetRange(preset: string) {
-  const now = new Date();
-  let from: Date, to: Date = now;
-  
-  switch (preset) {
-    case "today":
-      from = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      break;
-    case "yesterday":
-      from = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
-      to = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 23, 59, 59);
-      break;
-    case "week":
-      from = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      break;
-    case "month":
-      from = new Date(now.getFullYear(), now.getMonth(), 1);
-      break;
-    case "year":
-      from = new Date(now.getFullYear(), 0, 1);
-      break;
-    case "lifetime":
-    default:
-      from = new Date(0);
-      break;
-  }
-  
-  return { from, to };
-}
+import { runWithBusinessContext } from "@/lib/business-context";
+import { endOfDay, parseDateRangeFromSearchParams } from "@/lib/date-filter";
 
 function getPreviousRange(from: Date, to: Date) {
   const diff = to.getTime() - from.getTime();
@@ -44,113 +16,152 @@ function calcChange(current: number, previous: number) {
   return Math.round(((current - previous) / previous) * 100);
 }
 
+function trend(current: number, previous: number) {
+  return current > previous ? "up" : current < previous ? "down" : "stable";
+}
+
+function metric(current: number, previous: number) {
+  return {
+    value: current,
+    percentChange: calcChange(current, previous),
+    trend: trend(current, previous),
+  };
+}
+
+function toNumber(value: unknown): number {
+  if (value === null || value === undefined) return 0;
+  if (typeof value === "number") return value;
+  if (typeof value === "string") return Number(value) || 0;
+  if (typeof value === "object" && "toString" in value) return Number(value.toString()) || 0;
+  return 0;
+}
+
 export async function GET(req: NextRequest) {
   const user = await getAuthUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user || !user.businessId) {
+    return NextResponse.json({ error: "Access denied: Business context required." }, { status: 403 });
   }
 
   const sp = req.nextUrl.searchParams;
-  const preset = sp.get("preset") || "month";
-  const fromParam = sp.get("from");
-  const toParam = sp.get("to");
+  const range = parseDateRangeFromSearchParams(sp, { defaultPreset: "this_month" });
+  const from = range.startDate ?? new Date(0);
+  const to = range.endDate ?? endOfDay(new Date());
 
-  let from: Date, to: Date;
+  return runWithBusinessContext(user, async () => {
+    const businessId = user.businessId;
+    const prevRange = getPreviousRange(from, to);
+    const currentDate = { gte: from, lte: to };
+    const previousDate = { gte: prevRange.from, lte: prevRange.to };
 
-  if (fromParam && toParam) {
-    from = new Date(fromParam);
-    to = new Date(toParam);
-  } else {
-    const range = getPresetRange(preset);
-    from = range.from;
-    to = range.to;
-  }
+    const [
+      currentSales,
+      previousSales,
+      currentExpenses,
+      previousExpenses,
+      currentOrders,
+      previousOrders,
+      currentCustomers,
+      previousCustomers,
+      currentUnpaidOrders,
+      previousUnpaidOrders,
+      stockRows,
+    ] = await Promise.all([
+      prisma.sale.aggregate({
+        where: { businessId, deletedAt: null, date: currentDate },
+        _sum: { totalAmount: true },
+      }),
+      prisma.sale.aggregate({
+        where: { businessId, deletedAt: null, date: previousDate },
+        _sum: { totalAmount: true },
+      }),
+      prisma.expense.aggregate({
+        where: { businessId, deletedAt: null, date: currentDate },
+        _sum: { amount: true },
+      }),
+      prisma.expense.aggregate({
+        where: { businessId, deletedAt: null, date: previousDate },
+        _sum: { amount: true },
+      }),
+      prisma.order.count({
+        where: { businessId, deletedAt: null, createdAt: currentDate },
+      }),
+      prisma.order.count({
+        where: { businessId, deletedAt: null, createdAt: previousDate },
+      }),
+      prisma.customer.count({
+        where: { businessId, deletedAt: null, createdAt: currentDate },
+      }),
+      prisma.customer.count({
+        where: { businessId, deletedAt: null, createdAt: previousDate },
+      }),
+      prisma.order.count({
+        where: { businessId, deletedAt: null, paymentStatus: { not: "paid" }, createdAt: currentDate },
+      }),
+      prisma.order.count({
+        where: { businessId, deletedAt: null, paymentStatus: { not: "paid" }, createdAt: previousDate },
+      }),
+      prisma.stock.findMany({
+        where: { businessId, product: { deletedAt: null } },
+        select: { quantity: true, threshold: true },
+      }),
+    ]);
 
-  const prevRange = getPreviousRange(from, to);
+    const totalRevenue = toNumber(currentSales._sum.totalAmount);
+    const previousRevenue = toNumber(previousSales._sum.totalAmount);
+    const totalExpenses = toNumber(currentExpenses._sum.amount);
+    const previousTotalExpenses = toNumber(previousExpenses._sum.amount);
+    const netProfit = totalRevenue - totalExpenses;
+    const previousNetProfit = previousRevenue - previousTotalExpenses;
+    const lowStock = stockRows.filter((stock) => stock.quantity <= stock.threshold).length;
 
-  const [currentSales, prevSales, currentOrders, prevOrders, currentProfit, prevProfit, currentCustomers, prevCustomers] = await Promise.all([
-    prisma.sale.aggregate({
-      where: { businessId: 1, createdAt: { gte: from, lte: to } },
-      _sum: { totalAmount: true },
-    }),
-    prisma.sale.aggregate({
-      where: { businessId: 1, createdAt: { gte: prevRange.from, lte: prevRange.to } },
-      _sum: { totalAmount: true },
-    }),
-    prisma.order.count({
-      where: { businessId: 1, createdAt: { gte: from, lte: to } },
-    }),
-    prisma.order.count({
-      where: { businessId: 1, createdAt: { gte: prevRange.from, lte: prevRange.to } },
-    }),
-    prisma.sale.aggregate({
-      where: { businessId: 1, createdAt: { gte: from, lte: to } },
-      _sum: { salesCommission: true },
-    }),
-    prisma.sale.aggregate({
-      where: { businessId: 1, createdAt: { gte: prevRange.from, lte: prevRange.to } },
-      _sum: { salesCommission: true },
-    }),
-    prisma.customer.count({
-      where: { businessId: 1, createdAt: { gte: from, lte: to }, deletedAt: null },
-    }),
-    prisma.customer.count({
-      where: { businessId: 1, createdAt: { gte: prevRange.from, lte: prevRange.to }, deletedAt: null },
-    }),
-  ]);
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
 
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
+    const [activeUsersToday, recentLogins24h] =
+      user.role === "super_admin"
+        ? await Promise.all([
+            prisma.activityLog.groupBy({
+              by: ["userId"],
+              where: { businessId, action: "login", createdAt: { gte: todayStart } },
+            }),
+            prisma.activityLog.count({
+              where: {
+                businessId,
+                action: "login",
+                createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+              },
+            }),
+          ])
+        : [null, 0];
 
-  const [activeUsersToday, recentLogins24h] = user.role === "super_admin" ? await Promise.all([
-    prisma.activityLog.groupBy({
-      by: ["userId"],
-      where: { businessId: 1, action: "login", createdAt: { gte: todayStart } },
-    }),
-    prisma.activityLog.count({
-      where: { businessId: 1, action: "login", createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
-    }),
-  ]) : [null, 0];
-
-  const totalSales = Number(currentSales._sum.totalAmount || 0) / 100;
-  const prevTotalSales = Number(prevSales._sum.totalAmount || 0) / 100;
-  const totalProfit = Number(currentProfit._sum.salesCommission || 0) / 100;
-  const prevTotalProfit = Number(prevProfit._sum.salesCommission || 0) / 100;
-
-  const result: any = {
-    totalSales: {
-      value: totalSales,
-      percentChange: calcChange(totalSales, prevTotalSales),
-      trend: totalSales > prevTotalSales ? "up" : totalSales < prevTotalSales ? "down" : "stable",
-    },
-    totalProfit: {
-      value: totalProfit,
-      percentChange: calcChange(totalProfit, prevTotalProfit),
-      trend: totalProfit > prevTotalProfit ? "up" : totalProfit < prevTotalProfit ? "down" : "stable",
-    },
-    totalOrders: {
-      value: currentOrders,
-      percentChange: calcChange(currentOrders, prevOrders),
-      trend: currentOrders > prevOrders ? "up" : currentOrders < prevOrders ? "down" : "stable",
-    },
-    totalCustomers: {
-      value: currentCustomers,
-      percentChange: calcChange(currentCustomers, prevCustomers),
-      trend: currentCustomers > prevCustomers ? "up" : currentCustomers < prevCustomers ? "down" : "stable",
-    },
-    period: {
-      from: from.toISOString(),
-      to: to.toISOString(),
-      label: preset,
-    },
-  };
-
-  if (user.role === "super_admin") {
-    result.superAdmin = {
-      activeUsersToday: activeUsersToday?.length || 0,
-      recentLogins24h,
+    const result: any = {
+      totalSales: metric(totalRevenue, previousRevenue),
+      totalRevenue: metric(totalRevenue, previousRevenue),
+      totalExpenses: metric(totalExpenses, previousTotalExpenses),
+      netProfit: metric(netProfit, previousNetProfit),
+      totalProfit: metric(netProfit, previousNetProfit),
+      totalOrders: metric(currentOrders, previousOrders),
+      totalCustomers: metric(currentCustomers, previousCustomers),
+      lowStock: {
+        value: lowStock,
+        percentChange: 0,
+        trend: "stable",
+      },
+      unpaidOrders: metric(currentUnpaidOrders, previousUnpaidOrders),
+      period: {
+        from: from.toISOString(),
+        to: to.toISOString(),
+        label: range.preset,
+      },
     };
-  }
 
-  return NextResponse.json(result);
+    if (user.role === "super_admin") {
+      result.superAdmin = {
+        activeUsersToday: activeUsersToday?.length || 0,
+        recentLogins24h,
+      };
+    }
+
+    return NextResponse.json(result);
+  });
 }

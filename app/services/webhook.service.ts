@@ -46,7 +46,7 @@ export async function triggerWebhook(
   });
 
   const matchingWebhooks = webhooks.filter((wh) => {
-    const events = JSON.parse(wh.events) as string[];
+    const events = JSON.parse(wh.events ?? '[]') as string[];
     return events.includes(event);
   });
 

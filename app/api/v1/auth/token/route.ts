@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/rbac";
 import { generateApiKey, hashKey } from "@/lib/api-key";
 import { prisma } from "@/lib/prisma";
-import { getCurrentBusinessId } from "@/lib/business";
 
 export async function POST(req: NextRequest) {
   const auth = await requireAuth(req);
@@ -16,7 +15,7 @@ export async function POST(req: NextRequest) {
 
   const apiKey = await prisma.apiKey.create({
     data: {
-      businessId: getCurrentBusinessId(),
+      businessId: auth.businessId,
       name,
       key: hashed,
       permissions: JSON.stringify(permissions || ["read:products"]),
@@ -38,7 +37,7 @@ export async function GET(req: NextRequest) {
   if (auth instanceof NextResponse) return auth;
 
   const keys = await prisma.apiKey.findMany({
-    where: { businessId: getCurrentBusinessId() },
+    where: { businessId: auth.businessId },
     select: {
       id: true,
       name: true,
@@ -52,6 +51,6 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json(keys.map(k => ({
     ...k,
-    permissions: JSON.parse(k.permissions),
+    permissions: JSON.parse(k.permissions ?? '[]'),
   })));
 }

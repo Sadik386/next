@@ -142,7 +142,7 @@ export default function SecurityLogPage() {
     <div>
       <div style={{ marginBottom: "24px" }}>
         <h1 style={{ fontSize: "22px", fontWeight: 700, color: "var(--text-primary)" }}>
-          Security Log
+          Security Logs
         </h1>
         <p style={{ fontSize: "13px", color: "var(--text-secondary)", marginTop: "4px" }}>
           Login and logout events with security monitoring

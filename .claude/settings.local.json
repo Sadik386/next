@@ -30,7 +30,11 @@
       "Bash(mkdir -p app/api/users/\\\\[id\\\\]/role app/api/users/\\\\[id\\\\]/status app/api/users/assignable-roles)",
       "Bash(git reset *)",
       "Bash(node -e ' *)",
-      "Bash(mkdir -p \"app/api/barcode/product/[id]\" \"app/api/barcode/order/[id]\")"
+      "Bash(mkdir -p \"app/api/barcode/product/[id]\" \"app/api/barcode/order/[id]\")",
+      "PowerShell(npm run dev -- --inspect)",
+      "PowerShell(Get-Process -Name \"node\" -ErrorAction SilentlyContinue)",
+      "PowerShell(Stop-Process -Force -ErrorAction SilentlyContinue)",
+      "WebFetch(domain:minimax-algeng-chat-tts-us.oss-us-east-1.aliyuncs.com)"
     ],
     "additionalDirectories": [
       "G:\\accoraze\\app\\api\\customers\\[id]",

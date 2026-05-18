@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
     }
     const ext = path.extname(file.name) || ".png";
     const safeExt = /^\.[a-zA-Z0-9]{1,8}$/.test(ext) ? ext.toLowerCase() : ".png";
-    const safeType = type === "print" ? "print" : "main";
+    const safeType = type === "print" ? "print" : type === "email-header" ? "email-header" : "main";
     const filename = `${safeType}-${Date.now()}-${crypto.randomBytes(6).toString("hex")}${safeExt}`;
     const dir = path.join(process.cwd(), "public", "uploads", "logos");
     await mkdir(dir, { recursive: true });

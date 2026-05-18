@@ -38,6 +38,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     await prisma.activityLog.create({
       data: {
+        businessId: auth.businessId,
         userId: auth.user.id,
         action: "reject_registration",
         module: "users",

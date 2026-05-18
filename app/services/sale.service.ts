@@ -12,6 +12,8 @@ export interface SaleFilters {
   productId?: number;
   fromDate?: string;
   toDate?: string;
+  from?: Date;
+  to?: Date;
   page?: number;
   pageSize?: number;
 }
@@ -64,13 +66,14 @@ export async function getSales(filters: SaleFilters = {}) {
   const pageSize = Math.min(100, Math.max(1, filters.pageSize ?? 20));
   const skip = (page - 1) * pageSize;
 
-  const where: Prisma.SaleWhereInput = { businessId: getCurrentBusinessId() };
+  const where: Prisma.SaleWhereInput = { businessId: getCurrentBusinessId(), deletedAt: null };
   if (filters.search) {
     where.OR = [
       { saleId: { contains: filters.search } },
       { productName: { contains: filters.search } },
       { customer: { name: { contains: filters.search } } },
       { customer: { customerId: { contains: filters.search } } },
+      { order: { orderId: { contains: filters.search } } },
     ];
   }
   if (filters.paymentStatus) where.paymentStatus = filters.paymentStatus;
@@ -81,6 +84,10 @@ export async function getSales(filters: SaleFilters = {}) {
     where.date = {};
     if (filters.fromDate) where.date.gte = new Date(filters.fromDate);
     if (filters.toDate) where.date.lte = new Date(filters.toDate);
+  } else if (filters.from || filters.to) {
+    where.date = {};
+    if (filters.from) where.date.gte = filters.from;
+    if (filters.to) where.date.lte = filters.to;
   }
 
   const [items, total] = await Promise.all([
@@ -89,6 +96,7 @@ export async function getSales(filters: SaleFilters = {}) {
       include: {
         customer: { select: { id: true, customerId: true, name: true, email: true, mobile: true } },
         product: { select: { id: true, productId: true, name: true, unit: true } },
+        order: { select: { id: true, orderId: true } },
       },
       orderBy: { id: "desc" },
       skip,
@@ -106,9 +114,106 @@ export async function getSales(filters: SaleFilters = {}) {
   };
 }
 
+export type TransactionSale = {
+  id: number;
+  orderId: number | null;
+  orderIdDisplay: string | null;
+  saleId: string;
+  date: string;
+  customer: { id: number; customerId: string; name: string } | null;
+  items: number;
+  totalQuantity: number;
+  totalAmount: string;
+  paidAmount: string;
+  dueAmount: string;
+  paymentStatus: string;
+  paymentMethod: string | null;
+};
+
+export async function getSalesGrouped(filters: SaleFilters = {}) {
+  const page = Math.max(1, filters.page ?? 1);
+  const pageSize = Math.min(100, Math.max(1, filters.pageSize ?? 20));
+  const skip = (page - 1) * pageSize;
+
+  const businessId = getCurrentBusinessId();
+
+  const whereClause: Prisma.SaleWhereInput = { businessId, deletedAt: null };
+  if (filters.search) {
+    whereClause.OR = [
+      { saleId: { contains: filters.search } },
+      { productName: { contains: filters.search } },
+      { customer: { name: { contains: filters.search } } },
+      { customer: { customerId: { contains: filters.search } } },
+      { order: { orderId: { contains: filters.search } } },
+    ];
+  }
+  if (filters.paymentStatus) whereClause.paymentStatus = filters.paymentStatus;
+  if (filters.customerId) whereClause.customerId = filters.customerId;
+  if (filters.fromDate || filters.toDate) {
+    whereClause.date = {};
+    if (filters.fromDate) whereClause.date.gte = new Date(filters.fromDate);
+    if (filters.toDate) whereClause.date.lte = new Date(filters.toDate);
+  } else if (filters.from || filters.to) {
+    whereClause.date = {};
+    if (filters.from) whereClause.date.gte = filters.from;
+    if (filters.to) whereClause.date.lte = filters.to;
+  }
+
+  const sales = await prisma.sale.findMany({
+    where: whereClause,
+    include: {
+      customer: { select: { id: true, customerId: true, name: true } },
+      order: { select: { id: true, orderId: true, paidAmount: true, paymentStatus: true } },
+    },
+    orderBy: { id: "desc" },
+  });
+
+  const groupedMap = new Map<number, TransactionSale>();
+  for (const sale of sales) {
+    const key = sale.orderId ?? sale.id;
+    const existing = groupedMap.get(key);
+    if (existing) {
+      existing.items += 1;
+      existing.totalQuantity += sale.quantity;
+      existing.totalAmount = (Number(existing.totalAmount) + Number(sale.totalAmount)).toString();
+    } else {
+      const order = sale.order;
+      const totalAmount = Number(sale.totalAmount);
+      const paidAmount = order ? Number(order.paidAmount) : totalAmount;
+      groupedMap.set(key, {
+        id: sale.id,
+        orderId: sale.orderId,
+        orderIdDisplay: order?.orderId ?? null,
+        saleId: sale.saleId,
+        date: sale.date instanceof Date ? sale.date.toISOString() : String(sale.date),
+        customer: sale.customer,
+        items: 1,
+        totalQuantity: sale.quantity,
+        totalAmount: String(sale.totalAmount),
+        paidAmount: paidAmount.toString(),
+        dueAmount: Math.max(0, totalAmount - paidAmount).toString(),
+        paymentStatus: order?.paymentStatus ?? sale.paymentStatus,
+        paymentMethod: sale.paymentMethod,
+      });
+    }
+  }
+
+  const items = Array.from(groupedMap.values());
+  const total = items.length;
+  const paginatedItems = items.slice(skip, skip + pageSize);
+
+  return {
+    items: paginatedItems,
+    total,
+    page,
+    pageSize,
+    totalPages: Math.max(1, Math.ceil(total / pageSize)),
+  };
+}
+
 export async function getSaleById(id: number) {
-  return prisma.sale.findUnique({
-    where: { id },
+  return prisma.sale.findFirst({
+    where: { id, businessId: getCurrentBusinessId() },
     include: {
       customer: true,
       product: true,
@@ -122,9 +227,10 @@ export async function createSale(data: SaleInput, userId: number) {
   if (!data.customerId) throw new Error("Customer is required");
   if (!data.productId) throw new Error("Product is required");
 
+  const businessId = getCurrentBusinessId();
   const [customer, product] = await Promise.all([
-    prisma.customer.findFirst({ where: { id: data.customerId, deletedAt: null } }),
-    prisma.product.findFirst({ where: { id: data.productId, deletedAt: null } }),
+    prisma.customer.findFirst({ where: { id: data.customerId, businessId, deletedAt: null } }),
+    prisma.product.findFirst({ where: { id: data.productId, businessId, deletedAt: null } }),
   ]);
   if (!customer) throw new Error("Customer not found");
   if (!product) throw new Error("Product not found");
@@ -151,6 +257,7 @@ export async function createSale(data: SaleInput, userId: number) {
 
   const sale = await prisma.sale.create({
     data: {
+      businessId,
       saleId,
       orderId: data.orderId ?? null,
       customerId: data.customerId,
@@ -195,7 +302,7 @@ export async function createSale(data: SaleInput, userId: number) {
 }
 
 export async function updateSale(id: number, data: Partial<SaleInput>, userId: number) {
-  const existing = await prisma.sale.findUnique({ where: { id } });
+  const existing = await prisma.sale.findFirst({ where: { id, businessId: getCurrentBusinessId() } });
   if (!existing) return null;
 
   const update: Prisma.SaleUpdateInput = {};
@@ -203,14 +310,14 @@ export async function updateSale(id: number, data: Partial<SaleInput>, userId: n
   if (data.date !== undefined) update.date = toDate(data.date) ?? new Date();
   if (data.customerId !== undefined) {
     const customer = await prisma.customer.findFirst({
-      where: { id: data.customerId, deletedAt: null },
+      where: { id: data.customerId, businessId: getCurrentBusinessId(), deletedAt: null },
     });
     if (!customer) throw new Error("Customer not found");
     update.customer = { connect: { id: data.customerId } };
   }
   if (data.productId !== undefined) {
     const product = await prisma.product.findFirst({
-      where: { id: data.productId, deletedAt: null },
+      where: { id: data.productId, businessId: getCurrentBusinessId(), deletedAt: null },
     });
     if (!product) throw new Error("Product not found");
     update.product = { connect: { id: data.productId } };
@@ -278,16 +385,18 @@ export async function updateSale(id: number, data: Partial<SaleInput>, userId: n
 }
 
 export async function requestDeleteSale(id: number, reason: string, userId: number) {
-  const sale = await prisma.sale.findUnique({ where: { id } });
+  const businessId = getCurrentBusinessId();
+  const sale = await prisma.sale.findFirst({ where: { id, businessId, deletedAt: null } });
   if (!sale) return null;
 
   const existingRequest = await prisma.deleteRequest.findFirst({
-    where: { entityType: "sale", entityId: String(id), status: "pending" },
+    where: { businessId, entityType: "sale", entityId: String(id), status: "pending" },
   });
   if (existingRequest) return existingRequest;
 
   const request = await prisma.deleteRequest.create({
     data: {
+      businessId,
       entityType: "sale",
       entityId: String(id),
       entityName: sale.saleId,

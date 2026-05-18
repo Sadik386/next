@@ -22,7 +22,7 @@ export async function PUT(req: NextRequest, ctx: { params: Promise<{ id: string 
     if (result.error) {
       return NextResponse.json({ error: result.error }, { status: 400 });
     }
-    return NextResponse.json({ user: result.user });
+    return NextResponse.json({ user: (result as any).user });
   } catch {
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }

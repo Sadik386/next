@@ -1,7 +1,10 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Pencil, Trash2, Plus, X, Search, Upload, ScanLine } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { Pencil, Trash2, Plus, X, Search, Upload, ScanLine, Smartphone, ExternalLink } from "lucide-react";
+import { toast } from "sonner";
 import BarcodeDisplay from "@/components/ui/BarcodeDisplay";
+import QrDisplay from "@/components/ui/QrDisplay";
 
 type Category = { id: number; name: string };
 type Product = {
@@ -36,10 +39,11 @@ const emptyForm = {
 };
 
 export default function ProductsPage() {
+  const searchParams = useSearchParams();
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(searchParams.get("search") || "");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [form, setForm] = useState(emptyForm);
@@ -57,6 +61,13 @@ export default function ProductsPage() {
   const scanInputRef = useRef<HTMLInputElement | null>(null);
   const rowRefs = useRef<Map<number, HTMLTableRowElement>>(new Map());
 
+  type MobileSessionInfo = { sessionId: string; mobileUrl: string; expiresAt: string };
+  const [mobileSession, setMobileSession] = useState<MobileSessionInfo | null>(null);
+  const [mobileQr, setMobileQr] = useState<string | null>(null);
+  const [mobileStatus, setMobileStatus] = useState<string>("waiting");
+  const [showMobileModal, setShowMobileModal] = useState(false);
+  const processedScanRef = useRef<string | null>(null);
+
   const loadProducts = useCallback(async () => {
     setLoading(true);
     const params = new URLSearchParams();
@@ -69,12 +80,53 @@ export default function ProductsPage() {
     setLoading(false);
   }, [search]);
 
+  const highlightParam = searchParams.get("highlight");
+  useEffect(() => {
+    if (highlightParam && products.length > 0) {
+      const matched = products.find(p => p.productId.toLowerCase() === highlightParam.toLowerCase());
+      if (matched) {
+        setHighlightId(matched.id);
+        const row = document.getElementById(`product-row-${matched.id}`);
+        if (row) {
+          row.scrollIntoView({ behavior: "smooth", block: "center" });
+          setTimeout(() => setHighlightId(null), 5000);
+        }
+      }
+    }
+  }, [products, highlightParam]);
+
   const loadCategories = useCallback(async () => {
     const res = await fetch("/api/categories");
     if (res.ok) {
       const data = await res.json();
       setCategories(data.categories ?? []);
     }
+  }, []);
+
+  const startMobileSession = useCallback(async () => {
+    const res = await fetch("/api/scan/products/session", { method: "POST" });
+    if (!res.ok) {
+      toast.error("Failed to start mobile session");
+      return;
+    }
+    const data: MobileSessionInfo = await res.json();
+    setMobileSession(data);
+    setMobileStatus("waiting");
+    processedScanRef.current = null;
+    setShowMobileModal(true);
+    try {
+      const QRCode = (await import("qrcode")).default;
+      const qr = await QRCode.toDataURL(data.mobileUrl, { width: 220, margin: 1 });
+      setMobileQr(qr);
+    } catch {
+      setMobileQr(null);
+    }
+  }, []);
+
+  const endMobileSession = useCallback(() => {
+    setMobileSession(null);
+    setMobileQr(null);
+    setShowMobileModal(false);
   }, []);
 
   useEffect(() => {
@@ -85,6 +137,50 @@ export default function ProductsPage() {
     const t = setTimeout(loadProducts, search ? 300 : 0);
     return () => clearTimeout(t);
   }, [loadProducts, search]);
+
+  useEffect(() => {
+    if (!mobileSession) return;
+    let cancelled = false;
+
+    async function poll() {
+      try {
+        const res = await fetch(`/api/scan/products/session/${mobileSession!.sessionId}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled) return;
+        setMobileStatus(data.status);
+        if (data.scannedCode && data.scannedCode !== processedScanRef.current) {
+          processedScanRef.current = data.scannedCode;
+          const code = data.scannedCode;
+          const match = products.find(
+            (p) =>
+              p.productId.toLowerCase() === code.toLowerCase() ||
+              (p.sku ?? "").toLowerCase() === code.toLowerCase() ||
+              p.name.toLowerCase() === code.toLowerCase()
+          );
+          if (match) {
+            setSearch(code);
+            setHighlightId(match.id);
+            const row = rowRefs.current.get(match.id);
+            if (row) row.scrollIntoView({ behavior: "smooth", block: "center" });
+            setTimeout(() => setHighlightId(null), 2000);
+            toast.success(`Found: ${match.name}`);
+          } else {
+            toast.error(`No product found for "${code}"`);
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    poll();
+    const interval = setInterval(poll, 1500);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [mobileSession, products]);
 
   function openCreate() {
     setEditing(null);
@@ -311,6 +407,24 @@ export default function ProductsPage() {
             }}
           />
         </form>
+        <button
+          onClick={startMobileSession}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "6px",
+            padding: "8px 12px",
+            borderRadius: "8px",
+            border: "1px solid var(--card-border)",
+            backgroundColor: "var(--card-bg)",
+            color: "var(--text-primary)",
+            fontSize: "13px",
+            cursor: "pointer",
+            marginLeft: "8px",
+          }}
+        >
+          <Smartphone size={14} /> Mobile Scan
+        </button>
       </div>
 
       <div
@@ -359,6 +473,7 @@ export default function ProductsPage() {
               filtered.map((p) => (
                 <tr
                   key={p.id}
+                  id={`product-row-${p.id}`}
                   ref={(el) => {
                     if (el) rowRefs.current.set(p.id, el);
                     else rowRefs.current.delete(p.id);
@@ -848,6 +963,117 @@ export default function ProductsPage() {
                 }}
               >
                 {deleteSubmitting ? "Submitting..." : "Submit Request"}
+              </button>
+            </div>
+          </div>
+</>
+      )}
+
+      {showMobileModal && mobileSession && (
+        <>
+          <div
+            onClick={endMobileSession}
+            style={{
+              position: "fixed",
+              inset: 0,
+              backgroundColor: "rgba(0,0,0,0.3)",
+              zIndex: 100,
+            }}
+          />
+          <div
+            style={{
+              position: "fixed",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              backgroundColor: "var(--card-bg)",
+              borderRadius: "12px",
+              padding: "20px",
+              width: "400px",
+              maxWidth: "90vw",
+              zIndex: 101,
+              border: "1px solid var(--card-border)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "12px",
+              }}
+            >
+              <h3
+                style={{
+                  fontSize: "15px",
+                  fontWeight: 600,
+                  color: "var(--text-primary)",
+                }}
+              >
+                Mobile Scanner Session
+              </h3>
+              <button
+                onClick={endMobileSession}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "var(--text-muted)",
+                }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div style={{ marginBottom: "12px" }}>
+              <div style={{ fontSize: "12px", color: "var(--text-secondary)", marginBottom: "4px" }}>
+                Session: <span style={{ fontFamily: "ui-monospace, monospace", fontWeight: 600 }}>{mobileSession.sessionId}</span>
+              </div>
+              <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+                {mobileStatus === "active" ? "Connected — waiting for scans…" : "Waiting for scan…"}
+              </div>
+            </div>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: "16px" }}>
+              {mobileQr && (
+                <QrDisplay value={mobileQr} alt="QR for mobile scanner" />
+              )}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+                  Open this URL on a phone:
+                </div>
+                <div
+                  style={{
+                    fontSize: "11px",
+                    fontFamily: "ui-monospace, monospace",
+                    wordBreak: "break-all",
+                    backgroundColor: "var(--input-bg)",
+                    padding: "8px 10px",
+                    borderRadius: "6px",
+                    marginTop: "4px",
+                  }}
+                >
+                  {mobileSession.mobileUrl}
+                </div>
+                <a
+                  href={mobileSession.mobileUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    marginTop: "8px",
+                    fontSize: "12px",
+                    color: "var(--brand)",
+                    textDecoration: "none",
+                  }}
+                >
+                  <ExternalLink size={12} /> Open Mobile Page
+                </a>
+              </div>
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "16px" }}>
+              <button onClick={endMobileSession} style={btnSecondary}>
+                End Session
               </button>
             </div>
           </div>

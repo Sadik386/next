@@ -34,7 +34,7 @@ export async function validateApiKey(key: string) {
 
   return {
     businessId: apiKey.businessId,
-    permissions: JSON.parse(apiKey.permissions) as string[],
+    permissions: JSON.parse(apiKey.permissions ?? '[]') as string[],
   };
 }
 

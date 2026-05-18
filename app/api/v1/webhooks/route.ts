@@ -30,8 +30,8 @@ export async function GET(req: NextRequest) {
     where: { businessId: auth.businessId },
   });
 
-  return apiResponse(webhooks.map(wh => ({
-    ...wh,
-    events: JSON.parse(wh.events),
-  })));
+  return apiResponse(webhooks.map(wh => {
+    const { secret: _s, ...rest } = wh;
+    return { ...rest, events: JSON.parse(wh.events ?? '[]') };
+  }));
 }

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useEffect, useState, use } from "react";
 import { ArrowLeft, Pencil } from "lucide-react";
 import { COUNTRIES } from "@/constants/countries";
+import { normalizePhoneString } from "@/lib/normalize";
 
 type Customer = {
   id: number;
@@ -114,7 +115,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
         <Card title="Contact Information">
           <Row label="Email" value={customer.email ?? "—"} />
-          <Row label="Mobile" value={customer.mobile} />
+          <Row label="Mobile" value={normalizePhoneString(customer.mobile)} />
           <Row label="Street Address" value={customer.streetAddress ?? "—"} />
           <Row label="City" value={customer.city ?? "—"} />
           <Row label="State" value={customer.state ?? "—"} />

@@ -1,28 +1,46 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requirePermission } from "@/lib/rbac";
 import { PERMISSIONS } from "@/constants/permissions";
-import { getExpenseById, updateExpense } from "@/services/expense.service";
+import { getExpenseById, getExpenses, updateExpense } from "@/services/expense.service";
+import { runWithBusinessContext } from "@/lib/business-context";
 
 export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const auth = await requirePermission(req, PERMISSIONS.VIEW_EXPENSES);
   if (auth instanceof NextResponse) return auth;
-  const { id } = await ctx.params;
-  const expense = await getExpenseById(Number(id));
-  if (!expense) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  return NextResponse.json({ expense });
+
+  return runWithBusinessContext({ ...auth.user, businessId: auth.businessId }, async () => {
+    const { id } = await ctx.params;
+    const numericId = Number(id);
+    if (Number.isInteger(numericId) && numericId > 0) {
+      const expense = await getExpenseById(numericId);
+      if (!expense) return NextResponse.json({ error: "Not found" }, { status: 404 });
+      return NextResponse.json({ expense });
+    }
+    const result = await getExpenses({ search: id, pageSize: 50 });
+    const expense = result.items.find(e => e.expenseId.toLowerCase() === id.toLowerCase());
+    if (!expense) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json({ expense });
+  });
 }
 
 export async function PUT(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const auth = await requirePermission(req, PERMISSIONS.EDIT_EXPENSE);
   if (auth instanceof NextResponse) return auth;
-  try {
-    const { id } = await ctx.params;
-    const body = await req.json();
-    const expense = await updateExpense(Number(id), body, auth.user.id);
-    if (!expense) return NextResponse.json({ error: "Expense not found" }, { status: 404 });
-    return NextResponse.json({ expense });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Server error";
-    return NextResponse.json({ error: message }, { status: 400 });
-  }
+
+  return runWithBusinessContext({ ...auth.user, businessId: auth.businessId }, async () => {
+    try {
+      const { id } = await ctx.params;
+      const body = await req.json();
+      const numericId = Number(id);
+      if (!Number.isInteger(numericId) || numericId <= 0) {
+        return NextResponse.json({ error: "Invalid expense ID" }, { status: 400 });
+      }
+      const expense = await updateExpense(numericId, body, auth.user.id);
+      if (!expense) return NextResponse.json({ error: "Expense not found" }, { status: 404 });
+      return NextResponse.json({ expense });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Server error";
+      return NextResponse.json({ error: message }, { status: 400 });
+    }
+  });
 }

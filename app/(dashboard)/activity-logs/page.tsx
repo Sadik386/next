@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { Search, Filter, ChevronLeft, ChevronRight, Activity } from "lucide-react";
+import DateRangePicker, { DateRangeValue, buildDateFilterParams } from "@/components/ui/DateRangePicker";
 
 type LogEntry = {
   id: number;
@@ -11,6 +12,8 @@ type LogEntry = {
   description: string;
   createdAt: string;
   user: { name: string; email: string };
+  ipAddress?: string;
+  userAgent?: string;
 };
 
 const ACTION_COLORS: Record<string, { bg: string; fg: string }> = {
@@ -26,6 +29,8 @@ const ACTION_COLORS: Record<string, { bg: string; fg: string }> = {
   activate: { bg: "#dcfce7", fg: "#166534" },
   deactivate: { bg: "#fee2e2", fg: "#991b1b" },
   change_role: { bg: "#f3e8ff", fg: "#6b21a8" },
+  login: { bg: "#dcfce7", fg: "#166534" },
+  logout: { bg: "#e0e7ff", fg: "#4338ca" },
 };
 
 const MODULES = [
@@ -34,9 +39,26 @@ const MODULES = [
 ];
 
 const ACTIONS = [
-  "All Actions", "Create", "Update", "Delete", "Delete_Request", 
-  "Approved", "Rejected", "Activate", "Deactivate", "Change_Role"
+  "All Actions", "Create", "Update", "Delete", "Delete_Request",
+  "Approved", "Rejected", "Activate", "Deactivate", "Change_Role",
+  "Login", "Logout"
 ];
+
+function parseUserAgent(ua: string): string {
+  if (!ua || ua === "unknown") return "—";
+  let browser = "Unknown";
+  if (ua.includes("Chrome") && !ua.includes("Edg")) browser = "Chrome";
+  else if (ua.includes("Firefox")) browser = "Firefox";
+  else if (ua.includes("Safari") && !ua.includes("Chrome")) browser = "Safari";
+  else if (ua.includes("Edg")) browser = "Edge";
+  let os = "Unknown";
+  if (ua.includes("Windows")) os = "Windows";
+  else if (ua.includes("Mac")) os = "Mac";
+  else if (ua.includes("Linux")) os = "Linux";
+  else if (ua.includes("Android")) os = "Android";
+  else if (ua.includes("iPhone") || ua.includes("iPad")) os = "iOS";
+  return `${browser} / ${os}`;
+}
 
 export default function ActivityLogPage() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -44,8 +66,10 @@ export default function ActivityLogPage() {
   const [module, setModule] = useState("");
   const [action, setAction] = useState("");
   const [search, setSearch] = useState("");
+  const [ipFilter, setIpFilter] = useState("");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [dateRange, setDateRange] = useState<DateRangeValue>({ from: null, to: null, preset: "this_month" });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -56,15 +80,16 @@ export default function ActivityLogPage() {
     if (module && module !== "All Modules") params.set("module", module.toLowerCase());
     if (action && action !== "All Actions") params.set("action", action.toLowerCase());
     if (search) params.set("search", search);
+    if (ipFilter) params.set("ipAddress", ipFilter);
 
-    const res = await fetch(`/api/activity-logs?${params}`);
+    const res = await fetch(`/api/activity-logs?${buildDateFilterParams(params, dateRange)}`);
     if (res.ok) {
       const data = await res.json();
       setLogs(data.items);
       setTotalPages(data.totalPages);
     }
     setLoading(false);
-  }, [module, action, search, page]);
+  }, [module, action, search, ipFilter, page, dateRange]);
 
   useEffect(() => {
     const timer = setTimeout(load, search ? 300 : 0);
@@ -75,7 +100,7 @@ export default function ActivityLogPage() {
     <div>
       <div style={{ marginBottom: "24px" }}>
         <h1 style={{ fontSize: "22px", fontWeight: 700, color: "var(--text-primary)" }}>
-          Activity Log
+          Activity Logs
         </h1>
         <p style={{ fontSize: "13px", color: "var(--text-secondary)", marginTop: "4px" }}>
           Complete audit trail of all system activities
@@ -108,6 +133,17 @@ export default function ActivityLogPage() {
         >
           {ACTIONS.map(a => <option key={a} value={a}>{a}</option>)}
         </select>
+
+        <div style={searchBox}>
+          <Search size={14} color="var(--text-muted)" />
+          <input
+            value={ipFilter}
+            onChange={(e) => { setIpFilter(e.target.value); setPage(1); }}
+            placeholder="Filter by IP..."
+            style={searchInput}
+          />
+        </div>
+        <DateRangePicker value={dateRange} onChange={(r) => { setDateRange(r); setPage(1); }} />
       </div>
 
       <div style={tableCard}>
@@ -118,14 +154,16 @@ export default function ActivityLogPage() {
               <Th>Module</Th>
               <Th>Description</Th>
               <Th>User</Th>
+              <Th>IP Address</Th>
+              <Th>Browser</Th>
               <Th>Time</Th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={5} style={emptyCell}>Loading logs...</td></tr>
+              <tr><td colSpan={7} style={emptyCell}>Loading logs...</td></tr>
             ) : logs.length === 0 ? (
-              <tr><td colSpan={5} style={emptyCell}>No activities found</td></tr>
+              <tr><td colSpan={7} style={emptyCell}>No activities found</td></tr>
             ) : (
               logs.map((log) => (
                 <tr key={log.id} style={{ borderBottom: "1px solid var(--card-border)" }}>
@@ -150,6 +188,20 @@ export default function ActivityLogPage() {
                   <td style={cellStyle}>
                     <div style={{ fontWeight: 500 }}>{log.user.name}</div>
                     <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>{log.user.email}</div>
+                  </td>
+                  <td style={cellStyle}>
+                    <span style={{
+                      fontFamily: "monospace",
+                      fontSize: "12px",
+                      color: log.ipAddress && log.ipAddress !== "unknown" ? "var(--text-primary)" : "var(--text-muted)"
+                    }}>
+                      {log.ipAddress || "—"}
+                    </span>
+                  </td>
+                  <td style={cellStyle}>
+                    <span style={{ fontSize: "12px" }}>
+                      {log.userAgent ? parseUserAgent(log.userAgent) : "—"}
+                    </span>
                   </td>
                   <td style={{ ...cellStyle, color: "var(--text-muted)", fontSize: "12px" }}>
                     {new Date(log.createdAt).toLocaleDateString()}

@@ -141,7 +141,7 @@ export default function ForgotPasswordPage() {
                   <code style={{ fontSize: "11px", wordBreak: "break-all" }}>{devToken}</code>
                   <a
                     href={`/reset-password?token=${devToken}`}
-                    style={{ display: "block", marginTop: "8px", color: "#C4973A", fontWeight: 500, fontSize: "12px" }}
+                    style={{ display: "block", marginTop: "8px", color: "var(--brand, #C4973A)", fontWeight: 500, fontSize: "12px" }}
                   >
                     Click here to reset password →
                   </a>

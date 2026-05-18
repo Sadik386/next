@@ -20,6 +20,7 @@ export class PrintManager {
     }
 
     // Check if running in Electron/Tauri
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if ((window as any).electronAPI) {
       return (window as any).electronAPI.print({ html, ...options });
     }

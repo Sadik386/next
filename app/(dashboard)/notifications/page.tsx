@@ -12,6 +12,7 @@ import {
   Trash2,
   XCircle,
 } from "lucide-react";
+import DateRangePicker, { DateRangeValue, buildDateFilterParams } from "@/components/ui/DateRangePicker";
 
 type Notification = {
   id: number;
@@ -50,6 +51,11 @@ export default function NotificationsPage() {
   const [items, setItems] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>("all");
+  const [dateRange, setDateRange] = useState<DateRangeValue>({
+    from: null,
+    to: null,
+    preset: "lifetime",
+  });
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
@@ -57,14 +63,14 @@ export default function NotificationsPage() {
     setLoading(true);
     const params = new URLSearchParams({ page: String(page), pageSize: "20" });
     if (filter !== "all") params.set("status", filter);
-    const res = await fetch(`/api/notifications?${params}`);
+    const res = await fetch(`/api/notifications?${buildDateFilterParams(params, dateRange)}`);
     if (res.ok) {
       const data = await res.json();
       setItems(data.items);
       setTotalPages(data.totalPages);
     }
     setLoading(false);
-  }, [filter, page]);
+  }, [filter, page, dateRange]);
 
   useEffect(() => {
     load();
@@ -99,7 +105,7 @@ export default function NotificationsPage() {
         </button>
       </div>
 
-      <div style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
+      <div style={{ display: "flex", gap: "8px", marginBottom: "16px", flexWrap: "wrap" }}>
         {(["all", "unread", "read"] as Filter[]).map((f) => (
           <button
             key={f}
@@ -117,6 +123,13 @@ export default function NotificationsPage() {
             {f.charAt(0).toUpperCase() + f.slice(1)}
           </button>
         ))}
+        <DateRangePicker
+          value={dateRange}
+          onChange={(next) => {
+            setDateRange(next);
+            setPage(1);
+          }}
+        />
       </div>
 
       <div style={tableCard}>

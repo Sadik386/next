@@ -30,5 +30,19 @@ export function apiResponse(data: any, status = 200) {
 }
 
 export function apiError(message: string, status = 400) {
-  return NextResponse.json({ error: message }, { status });
+  if (status === 401) {
+    return NextResponse.json(
+      { success: false, message: "Unauthorized" },
+      { status }
+    );
+  }
+
+  if (status === 403) {
+    return NextResponse.json(
+      { success: false, message: "Forbidden" },
+      { status }
+    );
+  }
+
+  return NextResponse.json({ success: false, message }, { status });
 }

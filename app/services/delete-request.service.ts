@@ -16,6 +16,8 @@ export async function notifyDeleteRequest(entityType: string, entityName: string
 export interface DeleteRequestFilters {
   status?: string;
   entityType?: string;
+  from?: Date;
+  to?: Date;
   page?: number;
   pageSize?: number;
 }
@@ -31,6 +33,11 @@ export async function getDeleteRequests(filters: DeleteRequestFilters = {}) {
   }
   if (filters.entityType) {
     where.entityType = filters.entityType;
+  }
+  if (filters.from || filters.to) {
+    where.createdAt = {};
+    if (filters.from) (where.createdAt as any).gte = filters.from;
+    if (filters.to) (where.createdAt as any).lte = filters.to;
   }
 
   const [items, total] = await Promise.all([
@@ -56,7 +63,7 @@ export async function getDeleteRequests(filters: DeleteRequestFilters = {}) {
     total,
     page,
     pageSize,
-    totalPages: Math.ceil(total / pageSize),
+    totalPages: Math.max(1, Math.ceil(total / pageSize)),
   };
 }
 
@@ -172,4 +179,36 @@ export async function rejectDeleteRequest(id: number, reviewerId: number) {
   });
 
   return { request: updatedRequest };
+}
+
+export async function approveBulkDeleteRequests(ids: number[], reviewerId: number) {
+  const results = [];
+  const errors = [];
+
+  for (const id of ids) {
+    const result = await approveDeleteRequest(id, reviewerId);
+    if (!("error" in result)) {
+      results.push({ id, success: true });
+    } else {
+      errors.push({ id, error: result.error });
+    }
+  }
+
+  return { approved: results.length, failed: errors.length, details: { results, errors } };
+}
+
+export async function rejectBulkDeleteRequests(ids: number[], reviewerId: number) {
+  const results = [];
+  const errors = [];
+
+  for (const id of ids) {
+    const result = await rejectDeleteRequest(id, reviewerId);
+    if (!("error" in result)) {
+      results.push({ id, success: true });
+    } else {
+      errors.push({ id, error: result.error });
+    }
+  }
+
+  return { rejected: results.length, failed: errors.length, details: { results, errors } };
 }

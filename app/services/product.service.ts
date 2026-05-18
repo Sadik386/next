@@ -8,6 +8,8 @@ export interface ProductFilters {
   search?: string;
   categoryId?: number;
   status?: string;
+  from?: Date;
+  to?: Date;
   page?: number;
   pageSize?: number;
 }
@@ -23,6 +25,8 @@ export interface ProductInput {
   description?: string | null;
   imageUrl?: string | null;
   status?: string;
+  openingStock?: number;
+  lowStockThreshold?: number;
 }
 
 export async function generateProductId(): Promise<string> {
@@ -38,19 +42,25 @@ export async function getProducts(filters: ProductFilters = {}) {
 
   const where: Prisma.ProductWhereInput = { deletedAt: null, businessId: getCurrentBusinessId() };
   if (filters.search) {
+    const searchLower = filters.search.toLowerCase().trim();
     where.OR = [
-      { name: { contains: filters.search } },
-      { productId: { contains: filters.search } },
-      { sku: { contains: filters.search } },
+      { name: { contains: searchLower } },
+      { productId: { contains: searchLower } },
+      { sku: { contains: searchLower } },
     ];
   }
   if (filters.categoryId) where.categoryId = filters.categoryId;
   if (filters.status) where.status = filters.status;
+  if (filters.from || filters.to) {
+    where.createdAt = {};
+    if (filters.from) (where.createdAt as any).gte = filters.from;
+    if (filters.to) (where.createdAt as any).lte = filters.to;
+  }
 
   const [items, total] = await Promise.all([
     prisma.product.findMany({
       where,
-      include: { category: true },
+      include: { category: true, stock: true },
       orderBy: { id: "desc" },
       skip,
       take: pageSize,
@@ -70,6 +80,22 @@ export async function getProducts(filters: ProductFilters = {}) {
 export async function getProductById(id: number) {
   return prisma.product.findFirst({
     where: { id, deletedAt: null, businessId: getCurrentBusinessId() },
+    include: { category: true },
+  });
+}
+
+export async function getProductByIdOrProductId(idOrProductId: string) {
+  const numId = Number(idOrProductId);
+  const isNumeric = !isNaN(numId) && isFinite(numId);
+
+  return prisma.product.findFirst({
+    where: {
+      deletedAt: null,
+      businessId: getCurrentBusinessId(),
+      OR: isNumeric
+        ? [{ id: numId }, { productId: idOrProductId }]
+        : [{ productId: idOrProductId }],
+    },
     include: { category: true },
   });
 }
@@ -94,9 +120,24 @@ export async function createProduct(data: ProductInput, userId: number) {
     include: { category: true },
   });
 
+  const openingStock = Math.max(0, Math.floor(Number(data.openingStock) || 0));
+  const threshold = Math.max(0, Math.floor(Number(data.lowStockThreshold) || 10));
+
   await prisma.stock.create({
-    data: { productId: product.id, quantity: 0, threshold: 10, businessId: getCurrentBusinessId() },
+    data: { productId: product.id, quantity: openingStock, threshold, businessId: getCurrentBusinessId() },
   });
+
+  if (openingStock > 0) {
+    await createLog({
+      userId,
+      action: "create",
+      module: "inventory",
+      entityId: String(product.id),
+      entityName: product.name,
+      description: `Initial stock: ${openingStock} units`,
+      metadata: { productId: product.productId, quantity: openingStock },
+    });
+  }
 
   await createLog({
     userId,
@@ -112,6 +153,12 @@ export async function createProduct(data: ProductInput, userId: number) {
 }
 
 export async function updateProduct(id: number, data: Partial<ProductInput>, userId: number) {
+  const existing = await prisma.product.findFirst({
+    where: { id, deletedAt: null, businessId: getCurrentBusinessId() },
+    select: { id: true },
+  });
+  if (!existing) return null;
+
   const update: Prisma.ProductUpdateInput = {};
   if (data.name !== undefined) update.name = data.name;
   if (data.sku !== undefined) update.sku = data.sku;
@@ -129,7 +176,7 @@ export async function updateProduct(id: number, data: Partial<ProductInput>, use
   if (data.status !== undefined) update.status = data.status;
 
   const product = await prisma.product.update({
-    where: { id },
+    where: { id: existing.id },
     data: update,
     include: { category: true },
   });
@@ -148,16 +195,18 @@ export async function updateProduct(id: number, data: Partial<ProductInput>, use
 }
 
 export async function requestDeleteProduct(id: number, reason: string, userId: number) {
-  const product = await prisma.product.findFirst({ where: { id, deletedAt: null } });
+  const businessId = getCurrentBusinessId();
+  const product = await prisma.product.findFirst({ where: { id, deletedAt: null, businessId } });
   if (!product) return null;
 
   const existing = await prisma.deleteRequest.findFirst({
-    where: { entityType: "product", entityId: String(id), status: "pending" },
+    where: { businessId, entityType: "product", entityId: String(id), status: "pending" },
   });
   if (existing) return existing;
 
   const request = await prisma.deleteRequest.create({
     data: {
+      businessId,
       entityType: "product",
       entityId: String(id),
       entityName: product.name,

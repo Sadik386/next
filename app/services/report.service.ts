@@ -9,22 +9,25 @@ function toNumber(value: Prisma.Decimal | number | string | null | undefined): n
 }
 
 function dateKey(d: Date): string {
-  return d.toISOString().slice(0, 10);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function monthKey(d: Date): string {
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
 function endOfDay(d: Date): Date {
   const end = new Date(d);
-  end.setUTCHours(23, 59, 59, 999);
+  end.setHours(23, 59, 59, 999);
   return end;
 }
 
 function startOfDay(d: Date): Date {
   const start = new Date(d);
-  start.setUTCHours(0, 0, 0, 0);
+  start.setHours(0, 0, 0, 0);
   return start;
 }
 
@@ -33,7 +36,7 @@ export async function getSalesReport(from: Date, to: Date) {
   const toDate = endOfDay(to);
 
   const sales = await prisma.sale.findMany({
-    where: { date: { gte: fromDate, lte: toDate }, businessId: getCurrentBusinessId() },
+    where: { date: { gte: fromDate, lte: toDate }, businessId: getCurrentBusinessId(), deletedAt: null },
     include: {
       customer: { select: { id: true, customerId: true, name: true } },
       product: { select: { id: true, productId: true, name: true } },
@@ -165,7 +168,7 @@ export async function getExpenseReport(from: Date, to: Date) {
   const toDate = endOfDay(to);
 
   const expenses = await prisma.expense.findMany({
-    where: { date: { gte: fromDate, lte: toDate }, businessId: getCurrentBusinessId() },
+    where: { date: { gte: fromDate, lte: toDate }, businessId: getCurrentBusinessId(), deletedAt: null },
     orderBy: { date: "asc" },
   });
 
@@ -244,11 +247,11 @@ export async function getProfitReport(from: Date, to: Date) {
 
   const [sales, expenses] = await Promise.all([
     prisma.sale.findMany({
-      where: { date: { gte: fromDate, lte: toDate }, businessId: getCurrentBusinessId() },
+      where: { date: { gte: fromDate, lte: toDate }, businessId: getCurrentBusinessId(), deletedAt: null },
       select: { date: true, totalAmount: true },
     }),
     prisma.expense.findMany({
-      where: { date: { gte: fromDate, lte: toDate }, businessId: getCurrentBusinessId() },
+      where: { date: { gte: fromDate, lte: toDate }, businessId: getCurrentBusinessId(), deletedAt: null },
       select: { date: true, amount: true },
     }),
   ]);

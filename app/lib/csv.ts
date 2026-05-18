@@ -51,29 +51,20 @@ export const SUPPLIER_COLUMNS = [
   "Company Name*",
   "Contact Name*",
   "Email",
-  "Mobile",
-  "Website",
+  "Mobile*",
+  "Payment Terms*",
+  "Currency*",
   "Tax ID",
-  "Payment Terms",
-  "Currency",
-  "Bank Name",
-  "Bank Account",
-  "Account Name",
-  "Branch Name",
-  "Routing Number",
-  "SWIFT Code",
-  "Bkash",
-  "Nagad",
-  "Rocket",
-  "Upay",
+  "Website",
   "Category",
   "Delivery Method",
   "Street Address",
   "City",
   "State",
   "Zip Code",
-  "Country",
+  "Country*",
   "Status*",
+  "Payment Methods",
 ] as const;
 
 export type CsvModule = "products" | "customers" | "orders" | "expenses" | "suppliers";
@@ -93,9 +84,30 @@ export function generateCsv<T extends Record<string, unknown>>(
   return Papa.unparse({ fields: columns as string[], data: rows.map((r) => columns.map((c) => r[c] ?? "")) });
 }
 
+const SAMPLE_SUPPLIER = {
+  "Company Name*": "ABC Supplies Ltd",
+  "Contact Name*": "John Doe",
+  "Email": "john@abcsupplies.com",
+  "Mobile*": "01712345678",
+  "Payment Terms*": "Net 30",
+  "Currency*": "BDT",
+  "Tax ID": "123456789",
+  "Website": "www.abcsupplies.com",
+  "Category": "Raw Materials",
+  "Delivery Method": "Courier",
+  "Street Address": "123 Main Road",
+  "City": "Chittagong",
+  "State": "Chittagong",
+  "Zip Code": "4000",
+  "Country*": "Bangladesh",
+  "Status*": "active",
+  "Payment Methods": '[{"type":"MFS","provider":"bKash","accountNumber":"01712345678"},{"type":"MFS","provider":"Nagad","accountNumber":"01812345678"},{"type":"BANK","bankName":"Dutch Bangla Bank","accountName":"ABC Supplies Ltd","accountNumber":"1234567890","branchName":"Chittagong","routingNumber":"","swiftCode":""}]',
+};
+
 export function generateTemplateCsv(module: CsvModule): string {
   const columns = TEMPLATE_COLUMNS[module];
-  return Papa.unparse({ fields: columns as string[], data: [] });
+  const data = module === "suppliers" ? [SAMPLE_SUPPLIER] : [];
+  return Papa.unparse({ fields: columns as string[], data });
 }
 
 export function parseCsv(text: string): Record<string, string>[] {

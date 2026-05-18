@@ -6,14 +6,16 @@ import {
   Sun,
   Bell,
   LogOut,
-  User,
   ChevronDown,
   ShoppingCart,
   AlertTriangle,
   PackageX,
   Trash2,
   XCircle,
+  Menu,
 } from "lucide-react";
+import { useSidebar } from "@/contexts/SidebarContext";
+import { UserAvatar } from "@/components/ui/UserAvatar";
 
 type Notification = {
   id: number;
@@ -47,11 +49,13 @@ function timeAgo(date: string) {
 export default function Topbar() {
   const router = useRouter();
   const pathname = usePathname();
+  const { toggleMobile } = useSidebar();
   const [isDark, setIsDark] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [showNotif, setShowNotif] = useState(false);
   const [unread, setUnread] = useState(0);
   const [recent, setRecent] = useState<Notification[]>([]);
+  const [user, setUser] = useState<{ name: string; role: string } | null>(null);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
@@ -82,13 +86,29 @@ export default function Topbar() {
     } catch {}
   }, []);
 
+  const fetchUser = useCallback(async () => {
+    try {
+      const res = await fetch("/api/auth/me");
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.user) {
+          setUser({
+            name: data.user.name || data.user.email || "User",
+            role: data.user.role || "staff",
+          });
+        }
+      }
+    } catch {}
+  }, []);
+
   useEffect(() => {
     fetchCount();
+    fetchUser();
     pollRef.current = setInterval(fetchCount, 30000);
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, [fetchCount]);
+  }, [fetchCount, fetchUser]);
 
   const toggleTheme = () => {
     const newDark = !isDark;
@@ -133,6 +153,7 @@ export default function Topbar() {
 
   return (
     <header
+      className="acc-topbar"
       style={{
         position: "fixed",
         top: 0,
@@ -149,11 +170,33 @@ export default function Topbar() {
         transition: "left 0.2s ease",
       }}
     >
-      <div>
-        <div style={{ fontSize: "14px", fontWeight: 600, color: "var(--text-primary)", lineHeight: 1.2 }}>
-          {pathLabel}
+      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+        <button
+          onClick={toggleMobile}
+          className="acc-mobile-menu-btn"
+          style={{
+            display: "none",
+            width: "32px",
+            height: "32px",
+            borderRadius: "6px",
+            border: "none",
+            backgroundColor: "transparent",
+            cursor: "pointer",
+            color: "var(--text-secondary)",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+          }}
+          title="Open menu"
+        >
+          <Menu size={18} />
+        </button>
+        <div>
+          <div className="acc-route-title" style={{ fontSize: "14px", fontWeight: 600, color: "var(--text-primary)", lineHeight: 1.2 }}>
+            {pathLabel}
+          </div>
+          <div className="acc-route-date" style={{ fontSize: "11px", color: "var(--text-muted)" }}>{today}</div>
         </div>
-        <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>{today}</div>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
         <button
@@ -410,21 +453,13 @@ export default function Topbar() {
               cursor: "pointer",
             }}
           >
-            <div
-              style={{
-                width: "26px",
-                height: "26px",
-                borderRadius: "7px",
-                backgroundColor: "var(--brand)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <User size={13} color="white" />
-            </div>
+            <UserAvatar 
+              name={user?.name} 
+              role={user?.role} 
+              size={26} 
+            />
             <span style={{ fontSize: "13px", fontWeight: 500, color: "var(--text-primary)" }}>
-              Admin
+              {user ? user.name.split(" ")[0] : "Admin"}
             </span>
             <ChevronDown size={12} color="var(--text-muted)" />
           </button>

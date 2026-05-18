@@ -7,6 +7,8 @@ import { getCurrentBusinessId } from "@/lib/business";
 export interface CustomerFilters {
   search?: string;
   status?: string;
+  from?: Date;
+  to?: Date;
   page?: number;
   pageSize?: number;
 }
@@ -47,6 +49,11 @@ export async function getCustomers(filters: CustomerFilters = {}) {
     ];
   }
   if (filters.status) where.status = filters.status;
+  if (filters.from || filters.to) {
+    where.createdAt = {};
+    if (filters.from) (where.createdAt as any).gte = filters.from;
+    if (filters.to) (where.createdAt as any).lte = filters.to;
+  }
 
   const [items, total] = await Promise.all([
     prisma.customer.findMany({
@@ -70,6 +77,21 @@ export async function getCustomers(filters: CustomerFilters = {}) {
 export async function getCustomerById(id: number) {
   return prisma.customer.findFirst({
     where: { id, deletedAt: null, businessId: getCurrentBusinessId() },
+  });
+}
+
+export async function getCustomerByIdOrCustomerId(idOrCustomerId: string) {
+  const numId = Number(idOrCustomerId);
+  const isNumeric = !isNaN(numId) && isFinite(numId);
+
+  return prisma.customer.findFirst({
+    where: {
+      deletedAt: null,
+      businessId: getCurrentBusinessId(),
+      OR: isNumeric
+        ? [{ id: numId }, { customerId: idOrCustomerId }]
+        : [{ customerId: idOrCustomerId }],
+    },
   });
 }
 

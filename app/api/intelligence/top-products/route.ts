@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requirePermission } from "@/lib/rbac";
 import { PERMISSIONS } from "@/constants/permissions";
 import { getTopProducts, TopProductMetric } from "@/services/intelligence.service";
+import { runWithBusinessContext, AuthenticatedUser } from "@/lib/business-context";
 
 function parseRange(req: NextRequest): { from: Date; to: Date } {
   const sp = req.nextUrl.searchParams;
@@ -15,16 +16,28 @@ function parseRange(req: NextRequest): { from: Date; to: Date } {
 export async function GET(req: NextRequest) {
   const auth = await requirePermission(req, PERMISSIONS.VIEW_REPORTS);
   if (auth instanceof NextResponse) return auth;
-  try {
-    const { from, to } = parseRange(req);
-    const sp = req.nextUrl.searchParams;
-    const limit = Math.min(50, Math.max(1, Number(sp.get("limit")) || 10));
-    const metricParam = sp.get("metric");
-    const metric: TopProductMetric = metricParam === "quantity" ? "quantity" : "revenue";
-    const items = await getTopProducts({ from, to, limit, metric });
-    return NextResponse.json({ items, metric });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Server error";
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
+
+  const authUser: AuthenticatedUser = {
+    id: auth.user.id,
+    businessId: auth.businessId,
+    role: auth.user.role,
+    name: auth.user.name,
+    email: auth.user.email,
+    username: auth.user.username,
+  };
+
+  return runWithBusinessContext(authUser, async () => {
+    try {
+      const { from, to } = parseRange(req);
+      const sp = req.nextUrl.searchParams;
+      const limit = Math.min(50, Math.max(1, Number(sp.get("limit")) || 10));
+      const metricParam = sp.get("metric");
+      const metric: TopProductMetric = metricParam === "quantity" ? "quantity" : "revenue";
+      const items = await getTopProducts({ from, to, limit, metric });
+      return NextResponse.json({ items, metric });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Server error";
+      return NextResponse.json({ error: message }, { status: 500 });
+    }
+  });
 }

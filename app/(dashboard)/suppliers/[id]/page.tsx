@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useEffect, useState, use } from "react";
 import { ArrowLeft, Pencil } from "lucide-react";
 import { COUNTRIES } from "@/constants/countries";
+import { normalizePhoneString } from "@/lib/normalize";
 
 type Supplier = {
   id: number;
@@ -17,6 +18,14 @@ type Supplier = {
   currency: string;
   bankName: string | null;
   bankAccount: string | null;
+  accountName: string | null;
+  branchName: string | null;
+  routingNumber: string | null;
+  swiftCode: string | null;
+  bkash: string | null;
+  nagad: string | null;
+  rocket: string | null;
+  upay: string | null;
   category: string | null;
   deliveryMethod: string | null;
   streetAddress: string | null;
@@ -121,7 +130,7 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
         <Card title="Contact Information">
           <Row label="Contact Name" value={supplier.contactName} />
           <Row label="Email" value={supplier.email ?? "—"} />
-          <Row label="Mobile" value={supplier.mobile ?? "—"} />
+          <Row label="Mobile" value={normalizePhoneString(supplier.mobile) ?? "—"} />
           <Row label="Website" value={supplier.website ?? "—"} />
         </Card>
 
@@ -131,6 +140,14 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
           <Row label="Tax ID / VAT" value={supplier.taxId ?? "—"} />
           <Row label="Bank Name" value={supplier.bankName ?? "—"} />
           <Row label="Bank Account" value={supplier.bankAccount ?? "—"} />
+          <Row label="Account Name" value={supplier.accountName ?? "—"} />
+          <Row label="Branch Name" value={supplier.branchName ?? "—"} />
+          <Row label="Routing Number" value={supplier.routingNumber ?? "—"} />
+          <Row label="SWIFT / BIC" value={supplier.swiftCode ?? "—"} />
+          <Row label="bKash" value={supplier.bkash ?? "—"} />
+          <Row label="Nagad" value={supplier.nagad ?? "—"} />
+          <Row label="Rocket" value={supplier.rocket ?? "—"} />
+          <Row label="Upay" value={supplier.upay ?? "—"} />
         </Card>
       </div>
 

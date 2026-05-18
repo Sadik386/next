@@ -1,33 +1,43 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Plus, X, Search, Pencil, Trash2, Receipt } from "lucide-react";
+import { toast } from "sonner";
 import { usePDF } from "@/hooks/usePDF";
 import { FloatingPopover } from "@/components/ui/FloatingPopover";
+import DateRangePicker, { DateRangeValue, buildDateFilterParams } from "@/components/ui/DateRangePicker";
+import { readErrorMessage } from "@/lib/read-error-message";
 
 type SaleListItem = {
   id: number;
+  orderId: number | null;
+  orderIdDisplay: string | null;
   saleId: string;
   date: string;
-  quantity: number;
-  unitPrice: string;
+  quantity?: number;
+  unitPrice?: string;
   totalAmount: string;
-  taxAmount: string;
-  discountAmount: string;
+  taxAmount?: string;
+  discountAmount?: string;
   paymentStatus: string;
   paymentMethod: string | null;
-  returnStatus: string;
-  productName: string | null;
-  productId: number | null;
+  returnStatus?: string;
+  productName?: string | null;
+  productId?: number | null;
   customerId: number | null;
   customer: { id: number; customerId: string; name: string } | null;
-  product: { id: number; productId: string; name: string; unit: string } | null;
-  shippingAddress: string | null;
-  billingAddress: string | null;
-  deliveryDate: string | null;
-  trackingNumber: string | null;
-  warrantyPeriod: string | null;
-  salesCommission: string;
-  notes: string | null;
+  product?: { id: number; productId: string; name: string; unit: string } | null;
+  shippingAddress?: string | null;
+  billingAddress?: string | null;
+  deliveryDate?: string | null;
+  trackingNumber?: string | null;
+  warrantyPeriod?: string | null;
+  salesCommission?: string;
+  notes?: string | null;
+  items?: number;
+  totalQuantity?: number;
+  paidAmount?: string;
+  dueAmount?: string;
 };
 
 type CustomerOption = {
@@ -76,10 +86,12 @@ const emptyForm = () => ({
 });
 
 export default function SalesPage() {
+  const searchParams = useSearchParams();
   const [sales, setSales] = useState<SaleListItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(searchParams.get("search") || "");
   const [paymentFilter, setPaymentFilter] = useState("");
+  const [dateRange, setDateRange] = useState<DateRangeValue>({ from: null, to: null, preset: "this_month" });
   const { downloadPDF, printPDF, isLoading } = usePDF();
 
   const [customers, setCustomers] = useState<CustomerOption[]>([]);
@@ -98,15 +110,16 @@ export default function SalesPage() {
   const load = useCallback(async () => {
     setLoading(true);
     const params = new URLSearchParams();
+    params.set("grouped", "true");
     if (search) params.set("search", search);
     if (paymentFilter) params.set("paymentStatus", paymentFilter);
-    const res = await fetch(`/api/sales?${params}`);
+    const res = await fetch(`/api/sales?${buildDateFilterParams(params, dateRange)}`);
     if (res.ok) {
       const data = await res.json();
       setSales(data.items ?? []);
     }
     setLoading(false);
-  }, [search, paymentFilter]);
+  }, [search, paymentFilter, dateRange]);
 
   useEffect(() => {
     const t = setTimeout(load, search ? 300 : 0);
@@ -142,10 +155,10 @@ export default function SalesPage() {
       date: s.date.slice(0, 10),
       customerId: s.customerId ?? "",
       productId: s.productId ?? "",
-      quantity: String(s.quantity),
-      unitPrice: s.unitPrice,
-      taxAmount: s.taxAmount,
-      discountAmount: s.discountAmount,
+      quantity: String(s.quantity ?? 1),
+      unitPrice: s.unitPrice ?? "",
+      taxAmount: s.taxAmount ?? "0",
+      discountAmount: s.discountAmount ?? "0",
       paymentStatus: s.paymentStatus,
       paymentMethod: s.paymentMethod ?? "Cash",
       shippingAddress: s.shippingAddress ?? "",
@@ -153,8 +166,8 @@ export default function SalesPage() {
       deliveryDate: s.deliveryDate ? s.deliveryDate.slice(0, 10) : "",
       trackingNumber: s.trackingNumber ?? "",
       warrantyPeriod: s.warrantyPeriod ?? "",
-      salesCommission: s.salesCommission,
-      returnStatus: s.returnStatus,
+      salesCommission: s.salesCommission ?? "0",
+      returnStatus: s.returnStatus ?? "none",
       notes: s.notes ?? "",
     });
     setError(null);
@@ -212,6 +225,7 @@ export default function SalesPage() {
     if (!form.unitPrice || Number(form.unitPrice) < 0) return setError("Valid unit price is required");
     if (!form.quantity || Number(form.quantity) < 1) return setError("Quantity must be at least 1");
 
+    const wasEditing = Boolean(editing);
     setSaving(true);
     const body = {
       date: form.date,
@@ -233,33 +247,48 @@ export default function SalesPage() {
       notes: form.notes || null,
     };
     const url = editing ? `/api/sales/${editing.id}` : "/api/sales";
-    const res = await fetch(url, {
-      method: editing ? "PUT" : "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    setSaving(false);
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      setError(data.error ?? "Save failed");
-      return;
+    try {
+      const res = await fetch(url, {
+        method: editing ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        setError(await readErrorMessage(res, "Save failed"));
+        return;
+      }
+      setDrawerOpen(false);
+      toast.success(wasEditing ? "Sale updated" : "Sale created");
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Save failed");
+    } finally {
+      setSaving(false);
     }
-    setDrawerOpen(false);
-    load();
   }
 
   async function submitDeleteRequest() {
     if (!deleteTarget || !deleteReason.trim()) return;
+    const targetName = deleteTarget.saleId;
     setDeleteSubmitting(true);
-    const res = await fetch(`/api/sales/${deleteTarget.id}/delete-request`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ reason: deleteReason.trim() }),
-    });
-    setDeleteSubmitting(false);
-    if (res.ok) {
+    try {
+      const res = await fetch(`/api/sales/${deleteTarget.id}/delete-request`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: deleteReason.trim() }),
+      });
+      if (!res.ok) {
+        toast.error(await readErrorMessage(res, "Delete request failed"));
+        return;
+      }
       setDeleteTarget(null);
       setDeleteReason("");
+      toast.success(`Delete request submitted for ${targetName}`);
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Delete request failed");
+    } finally {
+      setDeleteSubmitting(false);
     }
   }
 
@@ -299,18 +328,21 @@ export default function SalesPage() {
             </option>
           ))}
         </select>
+        <DateRangePicker value={dateRange} onChange={setDateRange} />
       </div>
 
       <div style={tableWrap}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
           <thead>
             <tr style={{ backgroundColor: "var(--input-bg)" }}>
-              <Th>Sale ID</Th>
+              <Th>Transaction</Th>
               <Th>Date</Th>
               <Th>Customer</Th>
-              <Th>Product</Th>
+              <Th align="right">Items</Th>
               <Th align="right">Qty</Th>
-              <Th align="right">Amount</Th>
+              <Th align="right">Total</Th>
+              <Th align="right">Paid</Th>
+              <Th align="right">Due</Th>
               <Th>Payment</Th>
               <Th>Status</Th>
               <Th align="right">Actions</Th>
@@ -332,7 +364,16 @@ export default function SalesPage() {
             ) : (
               sales.map((s) => (
                 <tr key={s.id} style={{ borderTop: "1px solid var(--card-border)" }}>
-                  <Td mono>{s.saleId}</Td>
+                  <Td mono>
+                    {s.orderIdDisplay ? (
+                      <span style={{ display: "flex", flexDirection: "column" }}>
+                        <span>{s.orderIdDisplay}</span>
+                        <span style={{ fontSize: "10px", color: "var(--text-muted)" }}>{s.saleId}</span>
+                      </span>
+                    ) : (
+                      s.saleId
+                    )}
+                  </Td>
                   <Td>{new Date(s.date).toLocaleDateString()}</Td>
                   <Td>
                     {s.customer ? (
@@ -346,14 +387,14 @@ export default function SalesPage() {
                       <span style={{ color: "var(--text-muted)" }}>—</span>
                     )}
                   </Td>
-                  <Td>{s.product?.name ?? s.productName ?? "—"}</Td>
-                  <Td align="right">{s.quantity}</Td>
+                  <Td align="right">{s.items ?? 1}</Td>
+                  <Td align="right">{s.totalQuantity ?? s.quantity ?? 1}</Td>
                   <Td align="right">{formatMoney(s.totalAmount)}</Td>
+                  <Td align="right">{formatMoney(s.paidAmount ?? s.totalAmount)}</Td>
+                  <Td align="right">{s.dueAmount && Number(s.dueAmount) > 0 ? formatMoney(s.dueAmount) : "—"}</Td>
+                  <Td>{s.paymentMethod ?? "—"}</Td>
                   <Td>
                     <PaymentBadge value={s.paymentStatus} />
-                  </Td>
-                  <Td>
-                    <ReturnBadge value={s.returnStatus} />
                   </Td>
                   <Td align="right">
                     <div style={{ display: "inline-flex", gap: "4px" }}>
@@ -373,7 +414,7 @@ export default function SalesPage() {
                                 <line x1="12" y1="15" x2="12" y2="3"/>
                               </svg>
                             ),
-                            onClick: () => downloadPDF(`/api/pdf/receipt/${s.id}`, `receipt-${s.saleId}.pdf`, `rec-dl-${s.id}`),
+                            onClick: () => downloadPDF(`/api/pdf/receipt/${s.orderId ?? s.id}`, `receipt-${s.orderIdDisplay ?? s.saleId}.pdf`, `rec-dl-${s.id}`),
                             disabled: isLoading(`rec-dl-${s.id}`),
                           },
                           {
@@ -385,24 +426,28 @@ export default function SalesPage() {
                                 <rect x="6" y="14" width="12" height="8"/>
                               </svg>
                             ),
-                            onClick: () => printPDF(`/api/pdf/receipt/${s.id}`, `rec-print-${s.id}`),
+                            onClick: () => printPDF(`/api/pdf/receipt/${s.orderId ?? s.id}`, `rec-print-${s.id}`),
                             disabled: isLoading(`rec-print-${s.id}`),
                           },
                         ]}
                       />
-                      <IconBtn onClick={() => openEdit(s)} title="Edit">
-                        <Pencil size={13} />
-                      </IconBtn>
-                      <IconBtn
-                        onClick={() => {
-                          setDeleteTarget(s);
-                          setDeleteReason("");
-                        }}
-                        title="Request delete"
-                        danger
-                      >
-                        <Trash2 size={13} />
-                      </IconBtn>
+                      {!s.orderId && (
+                        <>
+                          <IconBtn onClick={() => openEdit(s)} title="Edit">
+                            <Pencil size={13} />
+                          </IconBtn>
+                          <IconBtn
+                            onClick={() => {
+                              setDeleteTarget(s);
+                              setDeleteReason("");
+                            }}
+                            title="Request delete"
+                            danger
+                          >
+                            <Trash2 size={13} />
+                          </IconBtn>
+                        </>
+                      )}
                     </div>
                   </Td>
                 </tr>

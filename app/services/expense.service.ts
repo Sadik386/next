@@ -36,6 +36,8 @@ export interface ExpenseFilters {
   paymentMethod?: string;
   fromDate?: string;
   toDate?: string;
+  from?: Date;
+  to?: Date;
   page?: number;
   pageSize?: number;
 }
@@ -79,7 +81,7 @@ export async function getExpenses(filters: ExpenseFilters = {}) {
   const pageSize = Math.min(100, Math.max(1, filters.pageSize ?? 20));
   const skip = (page - 1) * pageSize;
 
-  const where: Prisma.ExpenseWhereInput = { businessId: getCurrentBusinessId() };
+  const where: Prisma.ExpenseWhereInput = { businessId: getCurrentBusinessId(), deletedAt: null };
   if (filters.search) {
     where.OR = [
       { expenseId: { contains: filters.search } },
@@ -94,6 +96,10 @@ export async function getExpenses(filters: ExpenseFilters = {}) {
     where.date = {};
     if (filters.fromDate) where.date.gte = new Date(filters.fromDate);
     if (filters.toDate) where.date.lte = new Date(filters.toDate);
+  } else if (filters.from || filters.to) {
+    where.date = {};
+    if (filters.from) where.date.gte = filters.from;
+    if (filters.to) where.date.lte = filters.to;
   }
 
   const [items, total, sumAgg] = await Promise.all([
@@ -120,8 +126,9 @@ export async function getExpenses(filters: ExpenseFilters = {}) {
 }
 
 export async function getExpenseById(id: number) {
-  return prisma.expense.findUnique({
-    where: { id },
+  const businessId = getCurrentBusinessId();
+  return prisma.expense.findFirst({
+    where: { id, businessId, deletedAt: null },
     include: {
       createdByUser: { select: { id: true, name: true, email: true } },
     },
@@ -134,10 +141,12 @@ export async function createExpense(data: ExpenseInput, userId: number) {
   if (!data.paymentMethod) throw new Error("Payment method is required");
   if (!data.vendor) throw new Error("Vendor is required");
 
+  const businessId = getCurrentBusinessId();
   const expenseId = await generateExpenseId();
 
   const expense = await prisma.expense.create({
     data: {
+      businessId,
       expenseId,
       date: toDate(data.date) ?? new Date(),
       amount: toDecimal(data.amount),
@@ -174,7 +183,7 @@ export async function createExpense(data: ExpenseInput, userId: number) {
 }
 
 export async function updateExpense(id: number, data: Partial<ExpenseInput>, userId: number) {
-  const existing = await prisma.expense.findUnique({ where: { id } });
+  const existing = await prisma.expense.findFirst({ where: { id, businessId: getCurrentBusinessId() } });
   if (!existing) return null;
 
   const update: Prisma.ExpenseUpdateInput = {};
@@ -207,16 +216,18 @@ export async function updateExpense(id: number, data: Partial<ExpenseInput>, use
 }
 
 export async function requestDeleteExpense(id: number, reason: string, userId: number) {
-  const expense = await prisma.expense.findUnique({ where: { id } });
+  const businessId = getCurrentBusinessId();
+  const expense = await prisma.expense.findFirst({ where: { id, businessId, deletedAt: null } });
   if (!expense) return null;
 
   const existing = await prisma.deleteRequest.findFirst({
-    where: { entityType: "expense", entityId: String(id), status: "pending" },
+    where: { businessId, entityType: "expense", entityId: String(id), status: "pending" },
   });
   if (existing) return existing;
 
   const request = await prisma.deleteRequest.create({
     data: {
+      businessId,
       entityType: "expense",
       entityId: String(id),
       entityName: expense.expenseId,

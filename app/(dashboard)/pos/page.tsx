@@ -562,10 +562,10 @@ export default function PosPage() {
   }, [cameraOpen, checkoutOpen, showHeldDrawer, mobileSession, cart, customerId, discountValue, notes, customers]);
 
   return (
-    <div style={{ display: "flex", gap: "16px", alignItems: "stretch", height: "calc(100vh - 96px)", overflow: "hidden" }}>
+    <div className="acc-pos-container" style={{ display: "flex", gap: "16px", alignItems: "stretch", height: "calc(100vh - 96px)", overflow: "hidden" }}>
       {/* LEFT */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "14px", minWidth: 0, overflowY: "auto" }}>
-        <div>
+      <div className="acc-pos-products" style={{ flex: 1, display: "flex", flexDirection: "column", gap: "14px", minWidth: 0, overflowY: "auto" }}>
+        <div className="acc-pos-header">
           <h1 style={pageTitle}>Point of Sale</h1>
           <p style={pageSubtitle}>
             Use scanner input or manual entry — tap items, scan barcodes, or pair a phone.
@@ -598,7 +598,7 @@ export default function PosPage() {
             <button
               type="button"
               onClick={mobileSession ? endMobileSession : startMobileSession}
-              style={{ ...iconAction, backgroundColor: mobileSession ? "rgba(196,151,58,0.18)" : undefined }}
+              style={{ ...iconAction, backgroundColor: mobileSession ? "color-mix(in srgb, var(--brand) 15%, transparent)" : undefined }}
               title="Pair phone"
             >
               <Smartphone size={14} /> Mobile
@@ -706,7 +706,7 @@ export default function PosPage() {
         </div>
 
         {/* Categories */}
-        <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+        <div className="acc-category-chips" style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
           <CategoryTab
             label="All"
             active={activeCategory === "all"}
@@ -726,6 +726,7 @@ export default function PosPage() {
         <div style={{ flex: 1, overflowY: "auto", paddingRight: "4px" }}>
           {viewMode === "grid" ? (
             <div
+              className="acc-product-grid"
               style={{
                 display: "grid",
                 gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
@@ -741,7 +742,6 @@ export default function PosPage() {
                     disabled={out}
                     style={{
                       ...productCard,
-                      opacity: out ? 0.5 : 1,
                       cursor: out ? "not-allowed" : "pointer",
                     }}
                   >
@@ -753,11 +753,22 @@ export default function PosPage() {
                           fill
                           style={{ objectFit: "cover" }}
                           sizes="80px"
+                          priority={false}
                         />
                       ) : (
                         <span style={{ fontSize: "20px", color: "var(--text-muted)" }}>
                           {p.name.slice(0, 1).toUpperCase()}
                         </span>
+                      )}
+                      {out && (
+                        <div
+                          style={{
+                            position: "absolute",
+                            inset: 0,
+                            backgroundColor: "rgba(0,0,0,0.1)",
+                            borderRadius: "8px",
+                          }}
+                        />
                       )}
                     </div>
                     <div style={{ fontSize: "12px", fontWeight: 600, color: "var(--text-primary)", marginTop: "6px" }}>
@@ -787,7 +798,7 @@ export default function PosPage() {
                     key={p.id}
                     onClick={() => !out && addToCart(p)}
                     disabled={out}
-                    style={{ ...productListRow, opacity: out ? 0.5 : 1, cursor: out ? "not-allowed" : "pointer" }}
+                    style={{ ...productListRow, cursor: out ? "not-allowed" : "pointer" }}
                   >
                     <div style={{ display: "flex", flexDirection: "column", textAlign: "left" }}>
                       <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-primary)" }}>
@@ -813,7 +824,7 @@ export default function PosPage() {
       </div>
 
       {/* RIGHT (cart) */}
-      <aside style={cartCol}>
+      <aside className="acc-pos-cart" style={cartCol}>
         <div
           style={{
             display: "flex",
@@ -1549,6 +1560,8 @@ const toggleBtn: React.CSSProperties = {
 const toggleActive: React.CSSProperties = {
   backgroundColor: "var(--brand)",
   color: "#fff",
+  borderWidth: "1px",
+  borderStyle: "solid",
   borderColor: "var(--brand)",
 };
 const productCard: React.CSSProperties = {
@@ -1562,6 +1575,7 @@ const productCard: React.CSSProperties = {
   backgroundColor: "var(--card-bg)",
 };
 const productThumb: React.CSSProperties = {
+  position: "relative",
   width: "100%",
   aspectRatio: "1/1",
   borderRadius: "8px",
@@ -1701,9 +1715,6 @@ const pill: React.CSSProperties = {
 const pillActive: React.CSSProperties = {
   backgroundColor: "var(--brand)",
   color: "#fff",
-  borderWidth: "1px",
-  borderStyle: "solid",
-  borderColor: "var(--brand)",
 };
 const checkoutBtn: React.CSSProperties = {
   marginTop: "14px",

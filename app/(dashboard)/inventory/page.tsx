@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { Pencil, Clock, Search, X } from "lucide-react";
+import DateRangePicker, { DateRangeValue, buildDateFilterParams } from "@/components/ui/DateRangePicker";
 
 type StockStatus = "in_stock" | "low" | "out_of_stock";
 
@@ -41,6 +42,11 @@ export default function InventoryPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StockStatus | "all">("all");
+  const [dateRange, setDateRange] = useState<DateRangeValue>({
+    from: null,
+    to: null,
+    preset: "lifetime",
+  });
 
   const [adjustTarget, setAdjustTarget] = useState<InventoryItem | null>(null);
   const [adjustType, setAdjustType] = useState<AdjustmentType>("add");
@@ -60,13 +66,13 @@ export default function InventoryPage() {
     const params = new URLSearchParams();
     if (search) params.set("search", search);
     if (statusFilter !== "all") params.set("status", statusFilter);
-    const res = await fetch(`/api/inventory?${params}`);
+    const res = await fetch(`/api/inventory?${buildDateFilterParams(params, dateRange)}`);
     if (res.ok) {
       const data = await res.json();
       setItems(data.items ?? []);
     }
     setLoading(false);
-  }, [search, statusFilter]);
+  }, [search, statusFilter, dateRange]);
 
   useEffect(() => {
     const t = setTimeout(load, search ? 300 : 0);
@@ -211,6 +217,7 @@ export default function InventoryPage() {
           <option value="low">Low</option>
           <option value="out_of_stock">Out of Stock</option>
         </select>
+        <DateRangePicker value={dateRange} onChange={setDateRange} />
       </div>
 
       <div

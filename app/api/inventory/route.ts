@@ -1,24 +1,37 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth } from "@/lib/rbac";
+import { getAuthUser } from "@/lib/auth"; // Import getAuthUser
 import { getInventory, type StockStatus } from "@/services/inventory.service";
+import { runWithBusinessContext } from "@/lib/business-context"; // Import the new helper
+import { parseDateRangeFromSearchParams } from "@/lib/date-filter";
 
 export async function GET(req: NextRequest) {
-  const auth = await requireAuth(req);
-  if (auth instanceof NextResponse) return auth;
+  const user = await getAuthUser();
 
-  const sp = req.nextUrl.searchParams;
-  const statusParam = sp.get("status");
-  const allowed: Array<StockStatus | "all"> = ["all", "in_stock", "low", "out_of_stock"];
-  const status = statusParam && (allowed as string[]).includes(statusParam)
-    ? (statusParam as StockStatus | "all")
-    : undefined;
+  // Check if user is authenticated AND has an active business context
+  if (!user || !user.businessId) {
+    return NextResponse.json({ error: "Access denied: Business context required." }, { status: 403 });
+  }
 
-  const result = await getInventory({
-    search: sp.get("search") ?? undefined,
-    status,
-    page: sp.get("page") ? Number(sp.get("page")) : undefined,
-    pageSize: sp.get("pageSize") ? Number(sp.get("pageSize")) : undefined,
+  // Wrap the service call within the business context
+  return runWithBusinessContext(user, async () => {
+    // Now getInventory() will have the correct AsyncLocalStorage context
+    const sp = req.nextUrl.searchParams;
+    const statusParam = sp.get("status");
+    const allowed: Array<StockStatus | "all"> = ["all", "in_stock", "low", "out_of_stock"];
+    const status = statusParam && (allowed as string[]).includes(statusParam)
+      ? (statusParam as StockStatus | "all")
+      : undefined;
+    const range = parseDateRangeFromSearchParams(sp);
+
+    const result = await getInventory({
+      search: sp.get("search") ?? undefined,
+      status,
+      from: range.startDate ?? undefined,
+      to: range.endDate ?? undefined,
+      page: sp.get("page") ? Number(sp.get("page")) : undefined,
+      pageSize: sp.get("pageSize") ? Number(sp.get("pageSize")) : undefined,
+    });
+
+    return NextResponse.json(result);
   });
-
-  return NextResponse.json(result);
 }

@@ -70,13 +70,17 @@ export async function appendScan(shortId: string, barcode: string) {
     return { error: "Session expired" as const };
   }
 
-  const trimmed = barcode.trim();
+  const trimmed = barcode.trim().toLowerCase();
   if (!trimmed) return { error: "Barcode is required" as const };
 
   const product = await prisma.product.findFirst({
     where: {
+      businessId: session.businessId,
       deletedAt: null,
-      OR: [{ sku: trimmed }, { productId: trimmed }],
+      OR: [
+        { sku: { contains: trimmed } },
+        { productId: { contains: trimmed } },
+      ],
     },
     select: { id: true, productId: true, name: true, sku: true, salePrice: true, unit: true },
   });
@@ -134,25 +138,27 @@ export async function checkoutPos(data: PosCheckoutInput, userId: number) {
     throw new Error("Cart is empty");
   }
 
+  const businessId = getCurrentBusinessId();
   const productIds = data.items.map((i) => i.productId);
   const products = await prisma.product.findMany({
-    where: { id: { in: productIds }, deletedAt: null },
+    where: { id: { in: productIds }, businessId, deletedAt: null },
   });
   const productMap = new Map(products.map((p) => [p.id, p]));
 
   let customer = null;
   if (data.customerId) {
     customer = await prisma.customer.findFirst({
-      where: { id: data.customerId, deletedAt: null },
+      where: { id: data.customerId, businessId, deletedAt: null },
     });
     if (!customer) throw new Error("Customer not found");
   } else {
     customer = await prisma.customer.findFirst({
-      where: { customerId: "WALK-IN", deletedAt: null },
+      where: { customerId: "WALK-IN", businessId, deletedAt: null },
     });
     if (!customer) {
       customer = await prisma.customer.create({
         data: {
+          businessId,
           customerId: "WALK-IN",
           name: "Walk-in customer",
           mobile: "—",
@@ -205,11 +211,11 @@ export async function checkoutPos(data: PosCheckoutInput, userId: number) {
         totalAmount,
         paidAmount,
         notes: data.notes ?? null,
-        businessId: getCurrentBusinessId(),
+        businessId,
       createdBy: userId,
         items: {
           create: itemRows.map((r) => ({
-            businessId: getCurrentBusinessId(),
+            businessId,
             productId: r.product.id,
             productName: r.product.name,
             quantity: r.qty,
@@ -241,7 +247,7 @@ export async function checkoutPos(data: PosCheckoutInput, userId: number) {
           paymentStatus,
           paymentMethod: data.paymentMethod ?? null,
           notes: data.notes ?? null,
-          businessId: getCurrentBusinessId(),
+          businessId,
       createdBy: userId,
         },
       });

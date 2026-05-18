@@ -9,6 +9,8 @@ export type StockStatus = "in_stock" | "low" | "out_of_stock";
 export interface InventoryFilters {
   search?: string;
   status?: StockStatus | "all";
+  from?: Date;
+  to?: Date;
   page?: number;
   pageSize?: number;
 }
@@ -80,9 +82,18 @@ export async function getInventory(filters: InventoryFilters = {}) {
     filters.status && filters.status !== "all"
       ? enriched.filter((e) => e.stockStatus === filters.status)
       : enriched;
+  const dateFiltered =
+    filters.from || filters.to
+      ? filtered.filter((e) => {
+          const updatedAt = e.updatedAt;
+          if (filters.from && updatedAt < filters.from) return false;
+          if (filters.to && updatedAt > filters.to) return false;
+          return true;
+        })
+      : filtered;
 
-  const total = filtered.length;
-  const items = filtered.slice(skip, skip + pageSize);
+  const total = dateFiltered.length;
+  const items = dateFiltered.slice(skip, skip + pageSize);
 
   return {
     items,

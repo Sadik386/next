@@ -1,18 +1,19 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
 @import "tailwindcss";
+@import "./styles/responsive.css";
 
 :root {
   --sidebar-width: 220px;
   --brand: #C4973A;
   --brand-hover: #a97e2e;
-  --brand-light: rgba(196,151,58,0.1);
+  --brand-light: color-mix(in srgb, #C4973A 12%, transparent);
+  --brand-text: #ffffff;
   --page-bg: #f7f7f9;
   --sidebar-bg: #ffffff;
   --sidebar-border: #eeeeee;
   --sidebar-text: #9ca3af;
   --sidebar-text-active: #111318;
   --sidebar-hover: #f9f9f9;
-  --sidebar-active-bg: #fdf6ea;
+  --sidebar-active-bg: color-mix(in srgb, var(--brand) 10%, transparent);
   --topbar-bg: #ffffff;
   --topbar-border: #f0f0f0;
   --card-bg: #ffffff;
@@ -25,14 +26,13 @@
 }
 
 .dark {
-  --brand: #C4973A;
+  --sidebar-active-bg: color-mix(in srgb, var(--brand) 15%, transparent);
   --page-bg: #0d0f18;
   --sidebar-bg: #0f1117;
   --sidebar-border: #1e2028;
   --sidebar-text: #6b7280;
   --sidebar-text-active: #ffffff;
   --sidebar-hover: #1a1d27;
-  --sidebar-active-bg: #1a1d27;
   --topbar-bg: #13151e;
   --topbar-border: #1e2028;
   --card-bg: #13151e;

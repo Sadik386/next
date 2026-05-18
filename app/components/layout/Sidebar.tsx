@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   ShoppingCart,
@@ -12,23 +12,31 @@ import {
   Truck,
   FileText,
   Settings,
-  Shield,
-  Trash2,
-  Activity,
   Bell,
-  Import,
   Brain,
   PanelLeftClose,
   PanelLeftOpen,
   Receipt,
-  User,
   Search,
   Command,
   UserCircle,
-  UserPlus,
+  X,
+  Loader2,
+  ArrowRight,
+  ShieldCheck,
 } from "lucide-react";
+import Image from "next/image";
 import { useSidebar } from "@/contexts/SidebarContext";
-import { useEffect, useState } from "react";
+import { useSettings } from "@/contexts/SettingsContext";
+import { UserAvatar } from "@/components/ui/UserAvatar";
+import { useEffect, useState, useRef, useCallback } from "react";
+import { canAccessPlatform } from "@/lib/platform-client";
+
+const searchShortcutStyle = `
+  .search-shortcut {
+    display: none !important;
+  }
+`;
 
 const navGroups = [
   {
@@ -60,8 +68,8 @@ const navGroups = [
   {
     label: "System",
     items: [
-      { label: "System", href: "/system", icon: Settings },
-      { label: "Activity Log", href: "/activity-logs", icon: Activity },
+      { label: "System", href: "/system", navTarget: "/system/settings", icon: Settings },
+      { label: "All Logs", href: "/logs", icon: FileText },
       { label: "My Profile", href: "/profile", icon: UserCircle },
       { label: "Notifications", href: "/notifications", icon: Bell },
     ],
@@ -74,7 +82,7 @@ function NavItem({
   isExpanded,
   badge,
 }: {
-  item: { label: string; href: string; icon: React.ElementType };
+  item: { label: string; href: string; navTarget?: string; icon: React.ElementType; indent?: boolean };
   active: boolean;
   isExpanded: boolean;
   badge?: number;
@@ -82,13 +90,13 @@ function NavItem({
   const Icon = item.icon;
   return (
     <Link
-      href={item.href}
+      href={item.navTarget || item.href}
       title={!isExpanded ? item.label : undefined}
       style={{
         display: "flex",
         alignItems: "center",
         justifyContent: isExpanded ? "space-between" : "center",
-        padding: isExpanded ? "0 10px" : "0",
+        padding: isExpanded ? (item.indent ? "0 10px 0 30px" : "0 10px") : "0",
         height: "36px",
         borderRadius: "8px",
         textDecoration: "none",
@@ -144,15 +152,146 @@ function NavItem({
   );
 }
 
-type UserInfo = { name: string; email: string } | null;
+type UserInfo = { name: string; email: string; role: string } | null;
 
 export default function Sidebar() {
   const pathname = usePathname();
   const { isCollapsed, isMobileOpen, closeMobile, isHovered, setIsHovered, isExpanded, toggleSidebar } = useSidebar();
-  const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
+  const { settings } = useSettings();
+  
+  // Refined isActive to handle consolidated logs and nested paths
+  const isActive = (href: string) => {
+    if (pathname === href) return true;
+    
+    // Special case: "All Logs" highlights for its tabs and standalone log pages
+    if (href === "/logs" && (
+      pathname === "/activity-logs" || 
+      pathname.startsWith("/activity-logs/") ||
+      pathname.startsWith("/logs?")
+    )) {
+      return true;
+    }
+
+    if (pathname.startsWith(href + "/")) {
+      // Check if there's a more specific match in any nav group
+      const hasSpecificMatch = navGroups.some(group => 
+        group.items.some(item => 
+          item.href !== href && 
+          item.href.startsWith(href + "/") && 
+          (pathname === item.href || pathname.startsWith(item.href + "/"))
+        )
+      );
+      return !hasSpecificMatch;
+    }
+    return false;
+  };
+
   const [user, setUser] = useState<UserInfo | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [pendingRegCount, setPendingRegCount] = useState(0);
+
+  // Global search state
+  const router = useRouter();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<Record<string, unknown[]> | null>(null);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const performSearch = useCallback(async (query: string) => {
+    if (query.trim().length < 2) {
+      setSearchResults(null);
+      return;
+    }
+    setSearchLoading(true);
+    try {
+      const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+      const data = await res.json();
+      if (data.results) {
+        setSearchResults(data.results);
+      } else {
+        setSearchResults(null);
+      }
+    } catch {
+      setSearchResults(null);
+    } finally {
+      setSearchLoading(false);
+    }
+  }, []);
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    setSearchOpen(value.length > 0);
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    if (value.trim().length >= 2) {
+      searchTimeoutRef.current = setTimeout(() => performSearch(value), 300);
+    } else {
+      setSearchResults(null);
+    }
+  };
+
+  const handleResultClick = (type: string, id: number, code?: string) => {
+    setSearchOpen(false);
+    const searchParam = searchQuery.trim();
+    const highlightParam = code || searchParam;
+    switch (type) {
+      case "product":
+        router.push(`/products?search=${encodeURIComponent(searchParam)}&highlight=${encodeURIComponent(highlightParam)}`);
+        break;
+      case "order":
+        router.push(`/orders/${encodeURIComponent(code || id)}`);
+        break;
+      case "sale":
+        router.push(`/sales?search=${encodeURIComponent(searchParam)}&highlight=${encodeURIComponent(highlightParam)}`);
+        break;
+      case "customer":
+        router.push(`/customers/${encodeURIComponent(code || id)}`);
+        break;
+      case "supplier":
+        router.push(`/suppliers/${encodeURIComponent(code || id)}`);
+        break;
+      case "expense":
+        router.push(`/expenses?search=${encodeURIComponent(searchParam)}&highlight=${encodeURIComponent(highlightParam)}`);
+        break;
+      default:
+        break;
+    }
+  };
+
+  const closeSearch = () => {
+    setSearchOpen(false);
+    setSearchQuery("");
+    setSearchResults(null);
+  };
+
+  // Keyboard shortcut for search (Ctrl+K or Cmd+K)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+      if (e.key === "Escape" && searchOpen) {
+        closeSearch();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [searchOpen]);
+
+  // Click outside to close search
+  useEffect(() => {
+    if (!searchOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.search-popup') && !target.closest('.search-input')) {
+        closeSearch();
+      }
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [searchOpen]);
 
   // Show skeleton placeholder until loaded - prevents layout shift
   const showUser = loaded && user !== null;
@@ -162,7 +301,11 @@ export default function Sidebar() {
       .then((r) => r.ok ? r.json() : null)
       .then((data) => {
         if (data?.user) {
-          setUser({ name: data.user.name || data.user.email || "User", email: data.user.email || "" });
+          setUser({ 
+            name: data.user.name || data.user.email || "User", 
+            email: data.user.email || "",
+            role: data.user.role || "staff"
+          });
         } else {
           setUser(null);
         }
@@ -182,6 +325,7 @@ export default function Sidebar() {
 
   return (
     <>
+      <style dangerouslySetInnerHTML={{ __html: searchShortcutStyle }} />
       {isMobileOpen && <div className="sidebar-backdrop" onClick={closeMobile} />}
       <aside
         className="app-sidebar"
@@ -211,61 +355,224 @@ export default function Sidebar() {
             transition: "padding 0.2s",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: "9px" }}>
-            <div
-              style={{
-                width: "32px",
-                height: "32px",
-                borderRadius: "8px",
-                backgroundColor: "var(--brand)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "14px",
-                fontWeight: 700,
-                color: "white",
-                flexShrink: 0,
-              }}
-            >
-              A
+          <Link href="/dashboard" style={{ textDecoration: "none" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "9px" }}>
+              {settings?.logoUrl ? (
+                <div
+                  style={{
+                    width: "32px",
+                    height: "32px",
+                    borderRadius: "8px",
+                    backgroundColor: "white",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    overflow: "hidden",
+                    flexShrink: 0,
+                  }}
+                >
+                  <Image 
+                    src={settings.logoUrl} 
+                    alt="Logo" 
+                    width={32} 
+                    height={32} 
+                    style={{ objectFit: "contain" }}
+                    unoptimized
+                  />
+                </div>
+              ) : (
+                <div
+                  style={{
+                    width: "32px",
+                    height: "32px",
+                    borderRadius: "8px",
+                    backgroundColor: "var(--brand)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "14px",
+                    fontWeight: 700,
+                    color: "white",
+                    flexShrink: 0,
+                  }}
+                >
+                  A
+                </div>
+              )}
+              {isExpanded && (
+                <span style={{ fontSize: "14px", fontWeight: 600, color: "var(--sidebar-text-active)" }}>
+                  Accoraze
+                </span>
+              )}
             </div>
-            {isExpanded && (
-              <span style={{ fontSize: "14px", fontWeight: 600, color: "var(--sidebar-text-active)" }}>
-                Accoraze
-              </span>
-            )}
-          </div>
+          </Link>
 
           {/* Decorative search */}
           {isExpanded && (
-            <div
-              style={{
-                marginTop: "10px",
-                height: "32px",
-                borderRadius: "8px",
-                border: "1px solid var(--input-border)",
-                backgroundColor: "var(--input-bg)",
-                display: "flex",
-                alignItems: "center",
-                padding: "0 10px",
-                gap: "8px",
-              }}
-            >
-              <Search size={12} color="var(--text-muted)" strokeWidth={2} />
-              <span style={{ flex: 1, fontSize: "12px", color: "var(--text-muted)" }}>Search...</span>
+            <div style={{ position: "relative" }}>
               <div
+                className="search-input"
                 style={{
-                  backgroundColor: "var(--card-border)",
-                  borderRadius: "4px",
-                  padding: "2px 5px",
+                  marginTop: "10px",
+                  height: "32px",
+                  borderRadius: "8px",
+                  border: "1px solid var(--input-border)",
+                  backgroundColor: "var(--input-bg)",
                   display: "flex",
                   alignItems: "center",
-                  gap: "2px",
+                  padding: "0 10px",
+                  gap: "8px",
                 }}
               >
-                <Command size={9} color="var(--text-muted)" />
-                <span style={{ fontSize: "9px", color: "var(--text-muted)" }}>K</span>
+                <Search size={12} color="var(--text-muted)" strokeWidth={2} />
+                <input
+                  ref={searchInputRef}
+                  value={searchQuery}
+                  onChange={(e) => handleSearchChange(e.target.value)}
+                  onFocus={() => searchQuery.length > 0 && setSearchOpen(true)}
+                  placeholder="Search..."
+                  style={{
+                    flex: 1,
+                    border: "none",
+                    outline: "none",
+                    background: "transparent",
+                    fontSize: "12px",
+                    color: "var(--text-primary)",
+                  }}
+                />
+                {searchQuery && (
+                  <X
+                    size={12}
+                    color="var(--text-muted)"
+                    style={{ cursor: "pointer" }}
+                    onClick={() => handleSearchChange("")}
+                  />
+                )}
+                <div
+                  className="search-shortcut"
+                  style={{
+                    backgroundColor: "var(--card-border)",
+                    borderRadius: "4px",
+                    padding: "2px 5px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "2px",
+                  }}
+                >
+                  <Command size={9} color="var(--text-muted)" />
+                  <span style={{ fontSize: "9px", color: "var(--text-muted)" }}>K</span>
+                </div>
               </div>
+
+              {/* Search Results Popup */}
+              {searchOpen && (
+                <div
+                  className="search-popup"
+                  style={{
+                    position: "absolute",
+                    top: "100%",
+                    left: 0,
+                    right: 0,
+                    marginTop: "4px",
+                    backgroundColor: "var(--card-bg)",
+                    border: "1px solid var(--card-border)",
+                    borderRadius: "8px",
+                    maxHeight: "400px",
+                    overflowY: "auto",
+                    zIndex: 100,
+                    boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                  }}
+                >
+                  {searchLoading ? (
+                    <div style={{ padding: "16px", textAlign: "center", color: "var(--text-muted)" }}>
+                      <Loader2 size={16} style={{ animation: "spin 1s linear infinite", display: "inline" }} />
+                    </div>
+                  ) : searchQuery.trim().length < 2 ? (
+                    <div style={{ padding: "16px", textAlign: "center", color: "var(--text-muted)", fontSize: "12px" }}>
+                      Type at least 2 characters
+                    </div>
+                  ) : searchResults && Object.keys(searchResults).length === 0 ? (
+                    <div style={{ padding: "16px", textAlign: "center", color: "var(--text-muted)", fontSize: "12px" }}>
+                      No results found
+                    </div>
+                  ) : searchResults ? (
+                    <div>
+                      {searchResults.products && searchResults.products.length > 0 && (
+                        <SearchSection title="Products" onClickMore={() => { closeSearch(); router.push("/products"); }}>
+                          {searchResults.products.slice(0, 3).map((p: any) => (
+                            <SearchResultItem
+                              key={`product-${p.id}`}
+                              label={p.name}
+                              subLabel={p.sku || p.productId}
+                              onClick={() => handleResultClick("product", p.id, p.productId)}
+                            />
+                          ))}
+                        </SearchSection>
+                      )}
+                      {searchResults.orders && searchResults.orders.length > 0 && (
+                        <SearchSection title="Orders" onClickMore={() => { closeSearch(); router.push("/orders"); }}>
+                          {searchResults.orders.slice(0, 3).map((o: any) => (
+                            <SearchResultItem
+                              key={`order-${o.id}`}
+                              label={o.orderId}
+                              subLabel={o.customerName || o.paymentStatus}
+                              onClick={() => handleResultClick("order", o.id, o.orderId)}
+                            />
+                          ))}
+                        </SearchSection>
+                      )}
+                      {searchResults.customers && searchResults.customers.length > 0 && (
+                        <SearchSection title="Customers" onClickMore={() => { closeSearch(); router.push("/customers"); }}>
+                          {searchResults.customers.slice(0, 3).map((c: any) => (
+                            <SearchResultItem
+                              key={`customer-${c.id}`}
+                              label={c.name}
+                              subLabel={c.mobile}
+                              onClick={() => handleResultClick("customer", c.id, c.customerId)}
+                            />
+                          ))}
+                        </SearchSection>
+                      )}
+                      {searchResults.suppliers && searchResults.suppliers.length > 0 && (
+                        <SearchSection title="Suppliers" onClickMore={() => { closeSearch(); router.push("/suppliers"); }}>
+                          {searchResults.suppliers.slice(0, 3).map((s: any) => (
+                            <SearchResultItem
+                              key={`supplier-${s.id}`}
+                              label={s.companyName}
+                              subLabel={s.contactName || s.mobile}
+                              onClick={() => handleResultClick("supplier", s.id, s.supplierId)}
+                            />
+                          ))}
+                        </SearchSection>
+                      )}
+                      {searchResults.sales && searchResults.sales.length > 0 && (
+                        <SearchSection title="Sales" onClickMore={() => { closeSearch(); router.push("/sales"); }}>
+                          {searchResults.sales.slice(0, 3).map((s: any) => (
+                            <SearchResultItem
+                              key={`sale-${s.id}`}
+                              label={s.saleId}
+                              subLabel={s.productName || s.customerName || ""}
+                              onClick={() => handleResultClick("sale", s.id, s.saleId)}
+                            />
+                          ))}
+                        </SearchSection>
+                      )}
+                      {searchResults.expenses && searchResults.expenses.length > 0 && (
+                        <SearchSection title="Expenses" onClickMore={() => { closeSearch(); router.push("/expenses"); }}>
+                          {searchResults.expenses.slice(0, 3).map((e: any) => (
+                            <SearchResultItem
+                              key={`expense-${e.id}`}
+                              label={`${e.category} - ${e.vendor || e.expenseId}`}
+                              subLabel={`$${e.amount}`}
+                              onClick={() => handleResultClick("expense", e.id, e.expenseId)}
+                            />
+                          ))}
+                        </SearchSection>
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -295,6 +602,28 @@ export default function Sidebar() {
               ))}
             </div>
           ))}
+
+          {canAccessPlatform(user) && (
+            <div>
+              <p style={{
+                fontSize: "10px",
+                color: "var(--brand)",
+                fontWeight: 700,
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                padding: "12px 10px 4px",
+                opacity: isExpanded ? 1 : 0,
+                transition: "opacity 0.15s",
+              }}>
+                Platform
+              </p>
+              <NavItem 
+                item={{ label: "Platform Admin", href: "/platform", icon: ShieldCheck }}
+                active={pathname.startsWith("/platform")}
+                isExpanded={isExpanded}
+              />
+            </div>
+          )}
         </nav>
 
         {/* Toggle button */}
@@ -350,20 +679,11 @@ export default function Sidebar() {
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: "9px" }}>
-            <div
-              style={{
-                width: "32px",
-                height: "32px",
-                borderRadius: "8px",
-                backgroundColor: "var(--brand)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-              }}
-            >
-              <User size={13} color="white" />
-            </div>
+            <UserAvatar 
+              name={user?.name} 
+              role={user?.role} 
+              size={32} 
+            />
             {isExpanded && (
               <div style={{ flex: 1, minWidth: 0 }}>
               {showUser ? (
@@ -387,5 +707,81 @@ export default function Sidebar() {
         </div>
       </aside>
     </>
+  );
+}
+
+function SearchSection({
+  title,
+  children,
+  onClickMore,
+}: {
+  title: string;
+  children: React.ReactNode;
+  onClickMore: () => void;
+}) {
+  return (
+    <div style={{ borderBottom: "1px solid var(--card-border)" }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          padding: "8px 12px 4px",
+        }}
+      >
+        <span style={{ fontSize: "10px", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+          {title}
+        </span>
+        <button
+          onClick={onClickMore}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "2px",
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            color: "var(--brand)",
+            fontSize: "10px",
+            padding: "2px 4px",
+          }}
+        >
+          More <ArrowRight size={10} />
+        </button>
+      </div>
+      <div>{children}</div>
+    </div>
+  );
+}
+
+function SearchResultItem({
+  label,
+  subLabel,
+  onClick,
+}: {
+  label: string;
+  subLabel: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        width: "100%",
+        padding: "8px 12px",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "flex-start",
+        background: "none",
+        border: "none",
+        cursor: "pointer",
+        textAlign: "left",
+      }}
+      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = "var(--sidebar-hover)"; }}
+      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = "transparent"; }}
+    >
+      <span style={{ fontSize: "12px", color: "var(--text-primary)", fontWeight: 500 }}>{label}</span>
+      {subLabel && <span style={{ fontSize: "10px", color: "var(--text-muted)" }}>{subLabel}</span>}
+    </button>
   );
 }

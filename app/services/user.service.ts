@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { hashPassword, verifyPassword } from "@/lib/password";
-import { RoleName } from "@/constants/roles";
+import { getCurrentBusinessId } from "@/lib/business";
 
 // Profile functions
 export async function getProfile(userId: number) {
@@ -10,6 +10,10 @@ export async function getProfile(userId: number) {
   });
 
   if (!user) return null;
+
+  const totalLogins = await prisma.activityLog.count({
+    where: { userId, action: "login" },
+  });
 
   return {
     id: user.id,
@@ -23,6 +27,9 @@ export async function getProfile(userId: number) {
     role: user.role.name,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
+    lastLoginAt: user.lastLoginAt,
+    lastLoginIp: user.lastLoginIp,
+    totalLogins,
   };
 }
 
@@ -101,6 +108,7 @@ export async function updatePassword(userId: number, currentPassword: string, ne
 // Users functions
 export async function getUsers({ search, role, status, page = 1, limit = 20 }: { search?: string; role?: string; status?: string; page?: number; limit?: number }) {
   const where: Record<string, unknown> = {};
+  const businessId = getCurrentBusinessId();
   
   if (search) {
     where.OR = [
@@ -112,6 +120,9 @@ export async function getUsers({ search, role, status, page = 1, limit = 20 }: {
   if (status === "active") where.isActive = true;
   if (status === "inactive") where.isActive = false;
   where.deletedAt = null;
+  where.businessMemberships = {
+    some: { businessId, status: "active" },
+  };
 
   const [items, total] = await Promise.all([
     prisma.user.findMany({
@@ -132,6 +143,7 @@ export async function getUsers({ search, role, status, page = 1, limit = 20 }: {
       phone: u.phone,
       role: u.role.name,
       isActive: u.isActive,
+      isFounder: u.isFounder,
       createdAt: u.createdAt,
     })),
     total,
@@ -141,8 +153,14 @@ export async function getUsers({ search, role, status, page = 1, limit = 20 }: {
 }
 
 export async function getUserById(id: number) {
-  const user = await prisma.user.findUnique({
-    where: { id },
+  const businessId = getCurrentBusinessId();
+  const user = await prisma.user.findFirst({
+    where: {
+      id,
+      businessMemberships: {
+        some: { businessId, status: "active" },
+      },
+    },
     include: { role: true },
   });
   if (!user || user.deletedAt) return null;
@@ -158,12 +176,18 @@ export async function getUserById(id: number) {
     role: user.role.name,
     roleId: user.roleId,
     isActive: user.isActive,
+    isFounder: user.isFounder,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   };
 }
 
-export async function createUser(data: { name: string; email: string; password: string; roleName: string }, _role?: string, _userId?: number) {
+export async function createUser(
+  data: { name: string; email: string; password: string; roleName: string },
+  _role?: string,
+  _userId?: number,
+  businessId = getCurrentBusinessId()
+) {
   const existing = await prisma.user.findUnique({ where: { email: data.email } });
   if (existing) return { error: "Email already in use" };
 
@@ -171,15 +195,28 @@ export async function createUser(data: { name: string; email: string; password: 
   const username = data.email.split("@")[0];
   const roleRecord = await prisma.role.findUnique({ where: { name: data.roleName } });
   if (!roleRecord) return { error: "Role not found" };
-  const user = await prisma.user.create({
-    data: {
-      name: data.name,
-      email: data.email,
-      username,
-      password: hashedPassword,
-      roleId: roleRecord.id,
-    },
-    include: { role: true },
+  const user = await prisma.$transaction(async (tx) => {
+    const createdUser = await tx.user.create({
+      data: {
+        name: data.name,
+        email: data.email,
+        username,
+        password: hashedPassword,
+        roleId: roleRecord.id,
+      },
+      include: { role: true },
+    });
+
+    await tx.businessMember.create({
+      data: {
+        userId: createdUser.id,
+        businessId,
+        isDefault: true,
+        status: "active",
+      },
+    });
+
+    return createdUser;
   });
 
   return {
@@ -193,11 +230,24 @@ export async function createUser(data: { name: string; email: string; password: 
   };
 }
 
-export async function changeRole(userId: number, newRoleName: string, _currentRole?: string, _requesterId?: number) {
+export async function changeRole(userId: number, newRoleName: string, _currentRole?: string, requesterId?: number) {
+  const businessId = getCurrentBusinessId();
   const roleRecord = await prisma.role.findUnique({ where: { name: newRoleName } });
   if (!roleRecord) return { error: "Role not found" };
-  const user = await prisma.user.findUnique({ where: { id: userId } });
+  const user = await prisma.user.findFirst({
+    where: {
+      id: userId,
+      businessMemberships: {
+        some: { businessId, status: "active" },
+      },
+    },
+  });
   if (!user) return { error: "User not found" };
+
+  // Founder protection: User #1 (isFounder) cannot be modified by anyone else
+  if (user.isFounder && requesterId !== userId) {
+    return { error: "Cannot modify the founder account" };
+  }
 
   await prisma.user.update({
     where: { id: userId },
@@ -207,9 +257,22 @@ export async function changeRole(userId: number, newRoleName: string, _currentRo
   return { success: true };
 }
 
-export async function changeStatus(userId: number, isActive: boolean, _currentRole?: string, _requesterId?: number) {
-  const user = await prisma.user.findUnique({ where: { id: userId } });
+export async function changeStatus(userId: number, isActive: boolean, _currentRole?: string, requesterId?: number) {
+  const businessId = getCurrentBusinessId();
+  const user = await prisma.user.findFirst({
+    where: {
+      id: userId,
+      businessMemberships: {
+        some: { businessId, status: "active" },
+      },
+    },
+  });
   if (!user) return { error: "User not found" };
+
+  // Founder protection: User #1 (isFounder) cannot be deactivated by anyone else
+  if (user.isFounder && requesterId !== userId) {
+    return { error: "Cannot deactivate the founder account" };
+  }
 
   await prisma.user.update({
     where: { id: userId },

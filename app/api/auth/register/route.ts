@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/password";
+import { checkRateLimit, getRateLimitResponse } from "@/lib/rate-limit";
+import { getRequestInfo } from "@/lib/request-info";
 
 export async function POST(req: NextRequest) {
+  const { ip } = getRequestInfo(req);
+  if (!checkRateLimit(ip, { windowMs: 60 * 60 * 1000, maxRequests: 5 })) {
+    return NextResponse.json(getRateLimitResponse("Too many registration attempts. Try again in an hour."), { status: 429 });
+  }
   try {
     const { name, username, email, phone, password, gender, dob, address } = await req.json();
 
@@ -54,19 +60,37 @@ export async function POST(req: NextRequest) {
       where: {
         role: { name: { in: ["super_admin", "admin"] } },
         isActive: true,
+        businessMemberships: {
+          some: { status: "active", business: { isActive: true } },
+        },
       },
-      select: { id: true },
+      select: {
+        id: true,
+        businessMemberships: {
+          where: { status: "active", business: { isActive: true } },
+          orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
+          take: 1,
+          select: { businessId: true },
+        },
+      },
     });
 
-    if (adminUsers.length > 0) {
+    const notifications = adminUsers.flatMap((admin) => {
+      const businessId = admin.businessMemberships[0]?.businessId;
+      if (!businessId) return [];
+      return [{
+        businessId,
+        userId: admin.id,
+        type: "registration",
+        title: "New Registration Request",
+        message: `New registration request from ${name} (${email})`,
+        link: "/system/registrations",
+      }];
+    });
+
+    if (notifications.length > 0) {
       await prisma.notification.createMany({
-        data: adminUsers.map((admin) => ({
-          userId: admin.id,
-          type: "registration",
-          title: "New Registration Request",
-          message: `New registration request from ${name} (${email})`,
-          link: "/admin/registrations",
-        })),
+        data: notifications,
       });
     }
 

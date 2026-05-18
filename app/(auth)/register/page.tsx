@@ -152,14 +152,14 @@ export default function RegisterPage() {
                 Request Submitted!
               </h3>
               <p style={{ fontSize: "13px", color: "#6b7280", marginBottom: "20px", lineHeight: 1.5 }}>
-                Your account is pending administrator approval.<br/>You'll be notified once approved.
+                Your account is pending administrator approval.<br/>You&apos;ll be notified once approved.
               </p>
               <Link
                 href="/login"
                 style={{
                   display: "inline-block",
                   padding: "10px 20px",
-                  backgroundColor: "#C4973A",
+                  backgroundColor: "var(--brand, #C4973A)",
                   color: "white",
                   borderRadius: "8px",
                   textDecoration: "none",
@@ -483,7 +483,7 @@ export default function RegisterPage() {
             style={{
               width: "100%",
               padding: "10px",
-              backgroundColor: "#C4973A",
+              backgroundColor: "var(--brand, #C4973A)",
               color: "white",
               borderRadius: "8px",
               border: "none",

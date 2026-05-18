@@ -5,11 +5,13 @@ export interface BusinessInfo {
   email?: string
   taxId?: string
   logoUrl?: string
+  brandColor?: string
   invoiceFooter?: string
 }
 
 export interface InvoiceData {
   invoiceNumber: string
+  orderId?: string
   date: string
   dueDate?: string
   business: BusinessInfo
@@ -29,8 +31,10 @@ export interface InvoiceData {
   subtotal: number
   tax?: number
   discount?: number
+  shippingCharge?: number
   total: number
   paymentMethod?: string
+  paymentStatus?: string
   paidAmount?: number
   balanceDue?: number
   notes?: string
@@ -72,6 +76,7 @@ export interface ExpenseSlipData {
   receiptId?: string
   referenceNo?: string
   taxAmount?: number
+  taxPercent?: number
   description?: string
   notes?: string
   preparedBy: string

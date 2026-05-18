@@ -1,10 +1,14 @@
 "use client";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Plus, X, Search, Eye, Trash2, Pencil, ScanLine, FileText, Truck } from "lucide-react";
+import { toast } from "sonner";
 import BarcodeDisplay from "@/components/ui/BarcodeDisplay";
 import { usePDF } from "@/hooks/usePDF";
 import { FloatingPopover } from "@/components/ui/FloatingPopover";
+import DateRangePicker, { DateRangeValue, buildDateFilterParams } from "@/components/ui/DateRangePicker";
+import { readErrorMessage } from "@/lib/read-error-message";
 
 type OrderListItem = {
   id: number;
@@ -57,11 +61,17 @@ const newItem = (): OrderItemDraft => ({
 });
 
 export default function OrdersPage() {
+  const searchParams = useSearchParams();
+  const initialSearch = searchParams.get("search") || "";
+  const highlightOrderId = searchParams.get("highlight") || "";
+
   const [orders, setOrders] = useState<OrderListItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(initialSearch);
+  const [highlightedId, setHighlightedId] = useState<string | null>(highlightOrderId);
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [paymentFilter, setPaymentFilter] = useState<string>("");
+  const [dateRange, setDateRange] = useState<DateRangeValue>({ from: null, to: null, preset: "this_month" });
   const { downloadPDF, printPDF, isLoading } = usePDF();
 
   const [createOpen, setCreateOpen] = useState(false);
@@ -97,18 +107,29 @@ export default function OrdersPage() {
     if (search) params.set("search", search);
     if (statusFilter) params.set("status", statusFilter);
     if (paymentFilter) params.set("paymentStatus", paymentFilter);
-    const res = await fetch(`/api/orders?${params}`);
+    const res = await fetch(`/api/orders?${buildDateFilterParams(params, dateRange)}`);
     if (res.ok) {
       const data = await res.json();
       setOrders(data.items ?? []);
     }
     setLoading(false);
-  }, [search, statusFilter, paymentFilter]);
+  }, [search, statusFilter, paymentFilter, dateRange]);
 
   useEffect(() => {
     const t = setTimeout(load, search ? 300 : 0);
     return () => clearTimeout(t);
   }, [load, search]);
+
+  useEffect(() => {
+    if (highlightedId && orders.length > 0) {
+      const row = document.querySelector(`[data-order-id="${highlightedId}"]`);
+      if (row) {
+        row.scrollIntoView({ behavior: "smooth", block: "center" });
+        const timer = setTimeout(() => setHighlightedId(null), 5000);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [orders, highlightedId]);
 
   async function loadOptions() {
     const [cRes, pRes] = await Promise.all([
@@ -206,19 +227,24 @@ export default function OrdersPage() {
         unitPrice: Number(i.unitPrice),
       })),
     };
-    const res = await fetch("/api/orders", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    setSaving(false);
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      setError(data.error ?? "Save failed");
-      return;
+    try {
+      const res = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        setError(await readErrorMessage(res, "Save failed"));
+        return;
+      }
+      setCreateOpen(false);
+      toast.success("Order created");
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Save failed");
+    } finally {
+      setSaving(false);
     }
-    setCreateOpen(false);
-    load();
   }
 
   function openEdit(o: OrderListItem) {
@@ -231,50 +257,71 @@ export default function OrdersPage() {
   async function submitEdit() {
     if (!editTarget) return;
     setEditSaving(true);
-    if (editStatus !== editTarget.status) {
-      await fetch(`/api/orders/${editTarget.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: editStatus }),
-      });
+    try {
+      let changed = false;
+      if (editStatus !== editTarget.status) {
+        const res = await fetch(`/api/orders/${editTarget.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: editStatus }),
+        });
+        if (!res.ok) throw new Error(await readErrorMessage(res, "Status update failed"));
+        changed = true;
+      }
+      if (
+        editPaymentStatus !== editTarget.paymentStatus ||
+        Number(editPaidAmount) !== Number(editTarget.paidAmount)
+      ) {
+        const res = await fetch(`/api/orders/${editTarget.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            paymentStatus: editPaymentStatus,
+            paidAmount: Number(editPaidAmount) || 0,
+          }),
+        });
+        if (!res.ok) throw new Error(await readErrorMessage(res, "Payment update failed"));
+        changed = true;
+      }
+      setEditTarget(null);
+      if (changed) toast.success("Order updated");
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Order update failed");
+    } finally {
+      setEditSaving(false);
     }
-    if (
-      editPaymentStatus !== editTarget.paymentStatus ||
-      Number(editPaidAmount) !== Number(editTarget.paidAmount)
-    ) {
-      await fetch(`/api/orders/${editTarget.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          paymentStatus: editPaymentStatus,
-          paidAmount: Number(editPaidAmount) || 0,
-        }),
-      });
-    }
-    setEditSaving(false);
-    setEditTarget(null);
-    load();
   }
 
   async function submitDeleteRequest() {
     if (!deleteTarget) return;
     if (!deleteReason.trim()) return;
+    const targetName = deleteTarget.orderId;
     setDeleteSubmitting(true);
-    const res = await fetch(`/api/orders/${deleteTarget.id}/delete-request`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ reason: deleteReason.trim() }),
-    });
-    setDeleteSubmitting(false);
-    if (res.ok) {
+    try {
+      const res = await fetch(`/api/orders/${deleteTarget.id}/delete-request`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: deleteReason.trim() }),
+      });
+      if (!res.ok) {
+        toast.error(await readErrorMessage(res, "Delete request failed"));
+        return;
+      }
       setDeleteTarget(null);
       setDeleteReason("");
+      toast.success(`Delete request submitted for ${targetName}`);
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Delete request failed");
+    } finally {
+      setDeleteSubmitting(false);
     }
   }
 
   return (
     <div>
-      <div style={pageHeader}>
+      <div className="acc-page-header" style={pageHeader}>
         <div>
           <h1 style={{ fontSize: "22px", fontWeight: 700, color: "var(--text-primary)" }}>Orders</h1>
           <p style={{ fontSize: "13px", color: "var(--text-secondary)", marginTop: "2px" }}>
@@ -286,7 +333,7 @@ export default function OrdersPage() {
         </button>
       </div>
 
-      <div style={{ display: "flex", gap: "8px", marginBottom: "12px", flexWrap: "wrap" }}>
+      <div className="acc-filters" style={{ display: "flex", gap: "8px", marginBottom: "12px", flexWrap: "wrap" }}>
         <div style={searchBox}>
           <Search size={14} color="var(--text-muted)" />
           <input
@@ -320,9 +367,10 @@ export default function OrdersPage() {
             </option>
           ))}
         </select>
+        <DateRangePicker value={dateRange} onChange={setDateRange} />
       </div>
 
-      <div style={tableWrap}>
+      <div className="acc-table-wrap" style={tableWrap}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
           <thead>
             <tr style={{ backgroundColor: "var(--input-bg)" }}>
@@ -350,8 +398,18 @@ export default function OrdersPage() {
                 </td>
               </tr>
             ) : (
-              orders.map((o) => (
-                <tr key={o.id} style={{ borderTop: "1px solid var(--card-border)" }}>
+              orders.map((o) => {
+                const isHighlighted = highlightedId === o.orderId;
+                return (
+                <tr 
+                  key={o.id} 
+                  data-order-id={o.orderId}
+                  style={{ 
+                    borderTop: "1px solid var(--card-border)",
+                    backgroundColor: isHighlighted ? "rgba(59, 130, 246, 0.1)" : undefined,
+                    transition: "background-color 0.3s",
+                  }}
+                >
                   <Td mono>{o.orderId}</Td>
                   <Td>
                     <div style={{ display: "flex", flexDirection: "column" }}>
@@ -462,7 +520,8 @@ export default function OrdersPage() {
                     </div>
                   </Td>
                 </tr>
-              ))
+              );
+              })
             )}
           </tbody>
         </table>

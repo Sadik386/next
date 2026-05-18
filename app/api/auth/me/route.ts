@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyToken } from "@/lib/jwt";
+import { requireAuth } from "@/lib/rbac";
 
 export async function GET(req: NextRequest) {
-  const token = req.cookies.get("auth_token")?.value;
-  if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const payload = await verifyToken(token);
-  if (!payload) return NextResponse.json({ error: "Invalid token" }, { status: 401 });
-  return NextResponse.json({ user: payload });
+  const auth = await requireAuth(req);
+  if (auth instanceof NextResponse) return auth;
+  return NextResponse.json({
+    success: true,
+    user: auth.user,
+    businessId: auth.businessId,
+    data: {
+      user: auth.user,
+      businessId: auth.businessId,
+    },
+  });
 }

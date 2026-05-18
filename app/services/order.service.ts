@@ -11,6 +11,8 @@ export interface OrderFilters {
   status?: string;
   paymentStatus?: string;
   customerId?: number;
+  from?: Date;
+  to?: Date;
   page?: number;
   pageSize?: number;
 }
@@ -59,6 +61,11 @@ export async function getOrders(filters: OrderFilters = {}) {
   if (filters.status) where.status = filters.status;
   if (filters.paymentStatus) where.paymentStatus = filters.paymentStatus;
   if (filters.customerId) where.customerId = filters.customerId;
+  if (filters.from || filters.to) {
+    where.createdAt = {};
+    if (filters.from) (where.createdAt as any).gte = filters.from;
+    if (filters.to) (where.createdAt as any).lte = filters.to;
+  }
 
   const [items, total] = await Promise.all([
     prisma.order.findMany({
@@ -85,7 +92,32 @@ export async function getOrders(filters: OrderFilters = {}) {
 
 export async function getOrderById(id: number) {
   return prisma.order.findFirst({
-    where: { id, deletedAt: null },
+    where: { id, deletedAt: null, businessId: getCurrentBusinessId() },
+    include: {
+      customer: true,
+      createdByUser: { select: { id: true, name: true, email: true } },
+      items: {
+        include: {
+          product: { select: { id: true, productId: true, name: true, unit: true, imageUrl: true } },
+        },
+        orderBy: { id: "asc" },
+      },
+    },
+  });
+}
+
+export async function getOrderByIdOrOrderId(idOrOrderId: string) {
+  const numId = Number(idOrOrderId);
+  const isNumeric = !isNaN(numId) && isFinite(numId);
+
+  return prisma.order.findFirst({
+    where: {
+      deletedAt: null,
+      businessId: getCurrentBusinessId(),
+      OR: isNumeric
+        ? [{ id: numId }, { orderId: idOrOrderId }]
+        : [{ orderId: idOrOrderId }],
+    },
     include: {
       customer: true,
       createdByUser: { select: { id: true, name: true, email: true } },
@@ -226,11 +258,11 @@ export async function updateOrderStatus(id: number, status: string, userId: numb
   if (!ORDER_STATUSES.includes(status as (typeof ORDER_STATUSES)[number])) {
     throw new Error("Invalid status");
   }
-  const order = await prisma.order.findFirst({ where: { id, deletedAt: null } });
+  const order = await prisma.order.findFirst({ where: { id, deletedAt: null, businessId: getCurrentBusinessId() } });
   if (!order) return null;
 
   const updated = await prisma.order.update({
-    where: { id },
+    where: { id, businessId: getCurrentBusinessId() },
     data: { status },
   });
 
@@ -265,7 +297,7 @@ export async function updatePaymentStatus(
   if (!PAYMENT_STATUSES.includes(paymentStatus as (typeof PAYMENT_STATUSES)[number])) {
     throw new Error("Invalid payment status");
   }
-  const order = await prisma.order.findFirst({ where: { id, deletedAt: null } });
+  const order = await prisma.order.findFirst({ where: { id, deletedAt: null, businessId: getCurrentBusinessId() } });
   if (!order) return null;
 
   let nextPaid: Prisma.Decimal;
@@ -280,7 +312,7 @@ export async function updatePaymentStatus(
   }
 
   const updated = await prisma.order.update({
-    where: { id },
+    where: { id, businessId: getCurrentBusinessId() },
     data: { paymentStatus, paidAmount: nextPaid },
   });
 
@@ -303,16 +335,18 @@ export async function updatePaymentStatus(
 }
 
 export async function requestDeleteOrder(id: number, reason: string, userId: number) {
-  const order = await prisma.order.findFirst({ where: { id, deletedAt: null } });
+  const businessId = getCurrentBusinessId();
+  const order = await prisma.order.findFirst({ where: { id, deletedAt: null, businessId } });
   if (!order) return null;
 
   const existing = await prisma.deleteRequest.findFirst({
-    where: { entityType: "order", entityId: String(id), status: "pending" },
+    where: { businessId, entityType: "order", entityId: String(id), status: "pending" },
   });
   if (existing) return existing;
 
   const request = await prisma.deleteRequest.create({
     data: {
+      businessId,
       entityType: "order",
       entityId: String(id),
       entityName: order.orderId,

@@ -1,8 +1,13 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Plus, X, Search, Pencil, Trash2, Receipt } from "lucide-react";
+import { toast } from "sonner";
 import { usePDF } from "@/hooks/usePDF";
 import { FloatingPopover } from "@/components/ui/FloatingPopover";
+import DateRangePicker, { DateRangeValue, buildDateFilterParams } from "@/components/ui/DateRangePicker";
+import { useCurrency } from "@/contexts/CurrencyContext";
+import { readErrorMessage } from "@/lib/read-error-message";
 
 type Expense = {
   id: number;
@@ -37,7 +42,7 @@ const EXPENSE_CATEGORIES = [
   "Other",
 ] as const;
 
-const PAYMENT_METHODS = ["Cash", "bKash", "Nagad", "Rocket", "Upay", "Bank", "Card"] as const;
+const PAYMENT_METHODS = ["Cash", "bKash", "Nagad", "Rocket", "Upay", "Bank", "Card", "Check"] as const;
 const CURRENCIES = ["BDT", "USD", "EUR", "GBP", "INR"] as const;
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
@@ -58,11 +63,14 @@ const emptyForm = () => ({
 });
 
 export default function ExpensesPage() {
+  const searchParams = useSearchParams();
+  const { format: formatCurrency } = useCurrency();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [totalAmount, setTotalAmount] = useState("0");
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(searchParams.get("search") || "");
   const [categoryFilter, setCategoryFilter] = useState("");
+  const [dateRange, setDateRange] = useState<DateRangeValue>({ from: null, to: null, preset: "this_month" });
   const { downloadPDF, printPDF, isLoading } = usePDF();
 
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -80,14 +88,14 @@ export default function ExpensesPage() {
     const params = new URLSearchParams();
     if (search) params.set("search", search);
     if (categoryFilter) params.set("category", categoryFilter);
-    const res = await fetch(`/api/expenses?${params}`);
+    const res = await fetch(`/api/expenses?${buildDateFilterParams(params, dateRange)}`);
     if (res.ok) {
       const data = await res.json();
       setExpenses(data.items ?? []);
       setTotalAmount(data.totalAmount ?? "0");
     }
     setLoading(false);
-  }, [search, categoryFilter]);
+  }, [search, categoryFilter, dateRange]);
 
   useEffect(() => {
     const t = setTimeout(load, search ? 300 : 0);
@@ -137,6 +145,7 @@ export default function ExpensesPage() {
     if (!form.vendor.trim()) return setError("Vendor is required");
     if (!form.receiptId.trim()) return setError("Receipt ID is required");
 
+    const wasEditing = Boolean(editing);
     setSaving(true);
     const body = {
       date: form.date,
@@ -153,33 +162,48 @@ export default function ExpensesPage() {
       notes: form.notes.trim() || null,
     };
     const url = editing ? `/api/expenses/${editing.id}` : "/api/expenses";
-    const res = await fetch(url, {
-      method: editing ? "PUT" : "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    setSaving(false);
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      setError(data.error ?? "Save failed");
-      return;
+    try {
+      const res = await fetch(url, {
+        method: editing ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        setError(await readErrorMessage(res, "Save failed"));
+        return;
+      }
+      setDrawerOpen(false);
+      toast.success(wasEditing ? "Expense updated" : "Expense created");
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Save failed");
+    } finally {
+      setSaving(false);
     }
-    setDrawerOpen(false);
-    load();
   }
 
   async function submitDeleteRequest() {
     if (!deleteTarget || !deleteReason.trim()) return;
+    const targetName = deleteTarget.expenseId;
     setDeleteSubmitting(true);
-    const res = await fetch(`/api/expenses/${deleteTarget.id}/delete-request`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ reason: deleteReason.trim() }),
-    });
-    setDeleteSubmitting(false);
-    if (res.ok) {
+    try {
+      const res = await fetch(`/api/expenses/${deleteTarget.id}/delete-request`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: deleteReason.trim() }),
+      });
+      if (!res.ok) {
+        toast.error(await readErrorMessage(res, "Delete request failed"));
+        return;
+      }
       setDeleteTarget(null);
       setDeleteReason("");
+      toast.success(`Delete request submitted for ${targetName}`);
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Delete request failed");
+    } finally {
+      setDeleteSubmitting(false);
     }
   }
 
@@ -202,7 +226,7 @@ export default function ExpensesPage() {
           Total Expenses
         </span>
         <span style={{ fontSize: "20px", fontWeight: 700, color: "var(--text-primary)" }}>
-          ৳{formatMoney(totalAmount)}
+          {formatCurrency(Number(totalAmount))}
         </span>
         <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
           (filtered period)
@@ -231,6 +255,7 @@ export default function ExpensesPage() {
             </option>
           ))}
         </select>
+        <DateRangePicker value={dateRange} onChange={setDateRange} />
       </div>
 
       <div style={tableWrap}>

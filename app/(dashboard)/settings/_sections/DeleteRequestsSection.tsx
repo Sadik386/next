@@ -1,6 +1,9 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { Check, X, Clock } from "lucide-react";
+import { toast } from "sonner";
+import DateRangePicker, { DateRangeValue, buildDateFilterParams } from "@/components/ui/DateRangePicker";
+import { readErrorMessage } from "@/lib/read-error-message";
 
 type DeleteRequest = {
   id: number;
@@ -35,21 +38,37 @@ export default function DeleteRequestsSection() {
   const [requests, setRequests] = useState<DeleteRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<string>("pending");
+  const [dateRange, setDateRange] = useState<DateRangeValue>({
+    from: null,
+    to: null,
+    preset: "lifetime",
+  });
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [processingId, setProcessingId] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const params = new URLSearchParams({ status, page: page.toString(), pageSize: "15" });
-    const res = await fetch(`/api/delete-requests?${params}`);
-    if (res.ok) {
-      const data = await res.json();
-      setRequests(data.items);
-      setTotalPages(data.totalPages);
+    try {
+      const params = new URLSearchParams({ status, page: page.toString(), pageSize: "15" });
+      const res = await fetch(`/api/delete-requests?${buildDateFilterParams(params, dateRange)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setRequests(data.items ?? []);
+        setTotalPages(data.totalPages ?? 1);
+      } else {
+        toast.error(await readErrorMessage(res, "Failed to load delete requests"));
+        setRequests([]);
+        setTotalPages(1);
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to load delete requests");
+      setRequests([]);
+      setTotalPages(1);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-  }, [status, page]);
+  }, [status, page, dateRange]);
 
   useEffect(() => {
     load();
@@ -61,10 +80,10 @@ export default function DeleteRequestsSection() {
     const res = await fetch(`/api/delete-requests/${id}/${action}`, { method: "POST" });
     setProcessingId(null);
     if (res.ok) {
+      toast.success(`Delete request ${action}d`);
       load();
     } else {
-      const data = await res.json();
-      alert(data.error || "Action failed");
+      toast.error(await readErrorMessage(res, "Action failed"));
     }
   }
 
@@ -75,7 +94,7 @@ export default function DeleteRequestsSection() {
         <p style={{ fontSize: "13px", color: "var(--text-secondary)" }}>Review and approve deletion requests from staff</p>
       </div>
 
-      <div style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
+      <div style={{ display: "flex", gap: "8px", marginBottom: "16px", flexWrap: "wrap" }}>
         {STATUS_TABS.map((tab) => (
           <button
             key={tab.value}
@@ -94,6 +113,13 @@ export default function DeleteRequestsSection() {
             {tab.label}
           </button>
         ))}
+        <DateRangePicker
+          value={dateRange}
+          onChange={(next) => {
+            setDateRange(next);
+            setPage(1);
+          }}
+        />
       </div>
 
       <div style={tableCard}>
@@ -113,7 +139,7 @@ export default function DeleteRequestsSection() {
             {loading ? (
               <tr><td colSpan={7} style={emptyCell}>Loading...</td></tr>
             ) : requests.length === 0 ? (
-              <tr><td colSpan={7} style={emptyCell}>No requests found</td></tr>
+              <tr><td colSpan={7} style={emptyCell}>{emptyMessage(status, dateRange)}</td></tr>
             ) : (
               requests.map((req) => (
                 <tr key={req.id} style={{ borderBottom: "1px solid var(--card-border)" }}>
@@ -198,6 +224,13 @@ function entityBadge(type: string): React.CSSProperties {
     backgroundColor: `${ENTITY_COLORS[type.toLowerCase()] || "#6b7280"}15`,
     color: ENTITY_COLORS[type.toLowerCase()] || "#6b7280",
   };
+}
+
+function emptyMessage(status: string, dateRange: DateRangeValue) {
+  if (status !== "all" || dateRange.preset !== "lifetime") {
+    return "No delete requests match the current filters.";
+  }
+  return "No delete requests yet.";
 }
 
 const tableCard: React.CSSProperties = {

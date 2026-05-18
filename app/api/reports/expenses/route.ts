@@ -1,26 +1,39 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requirePermission } from "@/lib/rbac";
+import { getAuthUser } from "@/lib/auth";
 import { PERMISSIONS } from "@/constants/permissions";
 import { getExpenseReport } from "@/services/report.service";
+import { runWithBusinessContext } from "@/lib/business-context";
+import { hasPermission } from "@/lib/rbac";
+import { RoleName } from "@/constants/roles";
+import { endOfDay, parseDateRangeFromSearchParams } from "@/lib/date-filter";
 
 function parseRange(req: NextRequest): { from: Date; to: Date } {
   const sp = req.nextUrl.searchParams;
-  const fromParam = sp.get("from");
-  const toParam = sp.get("to");
-  const to = toParam ? new Date(toParam) : new Date();
-  const from = fromParam ? new Date(fromParam) : new Date(to.getTime() - 29 * 86400_000);
+  const range = parseDateRangeFromSearchParams(sp, { defaultPreset: "last_28_days" });
+  const to = range.endDate ?? endOfDay(new Date());
+  const from = range.startDate ?? new Date(0);
   return { from, to };
 }
 
 export async function GET(req: NextRequest) {
-  const auth = await requirePermission(req, PERMISSIONS.VIEW_REPORTS);
-  if (auth instanceof NextResponse) return auth;
-  try {
-    const { from, to } = parseRange(req);
-    const report = await getExpenseReport(from, to);
-    return NextResponse.json(report);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Server error";
-    return NextResponse.json({ error: message }, { status: 500 });
+  const user = await getAuthUser();
+
+  if (!user || !user.businessId) {
+    return NextResponse.json({ error: "Access denied: Business context required." }, { status: 403 });
   }
+
+  if (!user.role || !hasPermission(user.role as RoleName, PERMISSIONS.VIEW_REPORTS)) {
+    return NextResponse.json({ error: "Forbidden: Insufficient permissions." }, { status: 403 });
+  }
+
+  return runWithBusinessContext(user, async () => {
+    try {
+      const { from, to } = parseRange(req);
+      const report = await getExpenseReport(from, to);
+      return NextResponse.json(report);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Server error";
+      return NextResponse.json({ error: message }, { status: 500 });
+    }
+  });
 }

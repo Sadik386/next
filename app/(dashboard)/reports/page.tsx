@@ -1,6 +1,13 @@
 "use client";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Download, Printer, RefreshCw } from "lucide-react";
+import DateFilter, { type DateFilterValue } from "@/components/filters/DateFilter";
+import {
+  buildDateQueryParams,
+  formatDateInput,
+  getDateRangeFromPreset,
+} from "@/lib/date-filter";
+import { useCurrency } from "@/contexts/CurrencyContext";
 import {
   Bar,
   BarChart,
@@ -82,19 +89,23 @@ type ProfitReport = {
 
 type Tab = "sales" | "expenses" | "profit";
 
-const todayISO = () => new Date().toISOString().slice(0, 10);
-const daysAgoISO = (days: number) => {
-  const d = new Date();
-  d.setDate(d.getDate() - days);
-  return d.toISOString().slice(0, 10);
-};
+const DEFAULT_REPORT_PRESET = "last_28_days" as const;
+const todayISO = () => formatDateInput(new Date());
+
+function getDefaultReportRange(): DateFilterValue {
+  const range = getDateRangeFromPreset(DEFAULT_REPORT_PRESET);
+  return { preset: DEFAULT_REPORT_PRESET, ...range };
+}
+
+function formatShowing(range: DateFilterValue): string {
+  if (!range.startDate && !range.endDate) return "All time";
+  return `${formatDateInput(range.startDate) || "Any"} - ${formatDateInput(range.endDate) || "Any"}`;
+}
 
 export default function ReportsPage() {
+  const { format: formatCurrency } = useCurrency();
   const [tab, setTab] = useState<Tab>("sales");
-  const [from, setFrom] = useState(daysAgoISO(29));
-  const [to, setTo] = useState(todayISO());
-  const [appliedFrom, setAppliedFrom] = useState(from);
-  const [appliedTo, setAppliedTo] = useState(to);
+  const [dateRange, setDateRange] = useState<DateFilterValue>(() => getDefaultReportRange());
 
   const [sales, setSales] = useState<SalesReport | null>(null);
   const [expenses, setExpenses] = useState<ExpenseReport | null>(null);
@@ -105,7 +116,7 @@ export default function ReportsPage() {
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const qs = `from=${appliedFrom}&to=${appliedTo}`;
+    const qs = buildDateQueryParams(new URLSearchParams(), dateRange).toString();
     try {
       const [sRes, eRes, pRes] = await Promise.all([
         fetch(`/api/reports/sales?${qs}`),
@@ -122,33 +133,14 @@ export default function ReportsPage() {
       setError(e instanceof Error ? e.message : "Failed to load reports");
     }
     setLoading(false);
-  }, [appliedFrom, appliedTo]);
+  }, [dateRange]);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  function applyRange() {
-    setAppliedFrom(from);
-    setAppliedTo(to);
-  }
-
   function resetRange() {
-    const f = daysAgoISO(29);
-    const t = todayISO();
-    setFrom(f);
-    setTo(t);
-    setAppliedFrom(f);
-    setAppliedTo(t);
-  }
-
-  function quickRange(days: number) {
-    const t = todayISO();
-    const f = days === 0 ? t : daysAgoISO(days - 1);
-    setFrom(f);
-    setTo(t);
-    setAppliedFrom(f);
-    setAppliedTo(t);
+    setDateRange(getDefaultReportRange());
   }
 
   return (
@@ -166,49 +158,13 @@ export default function ReportsPage() {
 
       <div className="no-print" style={filterBar}>
         <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
-          <div>
-            <Label>From</Label>
-            <input
-              type="date"
-              value={from}
-              onChange={(e) => setFrom(e.target.value)}
-              style={dateInput}
-            />
-          </div>
-          <div>
-            <Label>To</Label>
-            <input
-              type="date"
-              value={to}
-              onChange={(e) => setTo(e.target.value)}
-              style={dateInput}
-            />
-          </div>
-          <div style={{ display: "flex", gap: "6px", alignItems: "flex-end" }}>
-            <button onClick={() => quickRange(0)} style={quickBtn}>
-              Today
-            </button>
-            <button onClick={() => quickRange(7)} style={quickBtn}>
-              7d
-            </button>
-            <button onClick={() => quickRange(30)} style={quickBtn}>
-              30d
-            </button>
-            <button onClick={() => quickRange(90)} style={quickBtn}>
-              90d
-            </button>
-          </div>
-          <div style={{ display: "flex", gap: "6px", alignItems: "flex-end" }}>
-            <button onClick={applyRange} style={btnPrimary}>
-              Apply
-            </button>
-            <button onClick={resetRange} style={btnSecondary}>
-              <RefreshCw size={13} /> Reset
-            </button>
-          </div>
+          <DateFilter value={dateRange} onChange={setDateRange} />
+          <button onClick={resetRange} style={btnSecondary}>
+            <RefreshCw size={13} /> Reset
+          </button>
         </div>
         <div style={{ fontSize: "12px", color: "var(--text-muted)" }}>
-          Showing: {appliedFrom} — {appliedTo}
+          Showing: {formatShowing(dateRange)}
         </div>
       </div>
 
@@ -240,14 +196,15 @@ export default function ReportsPage() {
 }
 
 function SalesTab({ data }: { data: SalesReport }) {
+  const { format: formatCurrency } = useCurrency();
   const { summary, chartData, records } = data;
   return (
     <div style={{ display: "grid", gap: "16px" }}>
       <div style={cardGrid}>
-        <SummaryCard label="Total Revenue" value={`৳${formatMoney(summary.totalRevenue)}`} />
-        <SummaryCard label="Avg Order Value" value={`৳${formatMoney(summary.avgOrderValue)}`} />
-        <SummaryCard label="Tax / VAT Collected" value={`৳${formatMoney(summary.taxCollected)}`} />
-        <SummaryCard label="Total Discounts" value={`৳${formatMoney(summary.totalDiscounts)}`} />
+        <SummaryCard label="Total Revenue" value={formatCurrency(summary.totalRevenue)} />
+        <SummaryCard label="Avg Order Value" value={formatCurrency(summary.avgOrderValue)} />
+        <SummaryCard label="Tax / VAT Collected" value={formatCurrency(summary.taxCollected)} />
+        <SummaryCard label="Total Discounts" value={formatCurrency(summary.totalDiscounts)} />
       </div>
 
       <ChartCard
@@ -373,13 +330,14 @@ function SalesTab({ data }: { data: SalesReport }) {
 }
 
 function ExpensesTab({ data }: { data: ExpenseReport }) {
+  const { format: formatCurrency } = useCurrency();
   const { summary, chartData, records } = data;
   return (
     <div style={{ display: "grid", gap: "16px" }}>
       <div style={cardGrid}>
-        <SummaryCard label="Total Expenses" value={`৳${formatMoney(summary.totalExpenses)}`} />
-        <SummaryCard label="Avg Expense" value={`৳${formatMoney(summary.avgExpense)}`} />
-        <SummaryCard label="Total Tax" value={`৳${formatMoney(summary.totalTax)}`} />
+        <SummaryCard label="Total Expenses" value={formatCurrency(summary.totalExpenses)} />
+        <SummaryCard label="Avg Expense" value={formatCurrency(summary.avgExpense)} />
+        <SummaryCard label="Total Tax" value={formatCurrency(summary.totalTax)} />
         <SummaryCard label="Total Transactions" value={String(summary.totalTransactions)} />
       </div>
 
@@ -444,6 +402,7 @@ function ExpensesTab({ data }: { data: ExpenseReport }) {
 }
 
 function ProfitTab({ data }: { data: ProfitReport }) {
+  const { format: formatCurrency } = useCurrency();
   const { summary, chartData } = data;
   const profitColor = summary.grossProfit >= 0 ? COLORS.success : COLORS.danger;
   const csvRows = chartData.monthly.map((m) => ({
@@ -455,11 +414,11 @@ function ProfitTab({ data }: { data: ProfitReport }) {
   return (
     <div style={{ display: "grid", gap: "16px" }}>
       <div style={cardGrid}>
-        <SummaryCard label="Total Revenue" value={`৳${formatMoney(summary.totalRevenue)}`} />
-        <SummaryCard label="Total Expenses" value={`৳${formatMoney(summary.totalExpenses)}`} />
+        <SummaryCard label="Total Revenue" value={formatCurrency(summary.totalRevenue)} />
+        <SummaryCard label="Total Expenses" value={formatCurrency(summary.totalExpenses)} />
         <SummaryCard
           label="Gross Profit"
-          value={`৳${formatMoney(summary.grossProfit)}`}
+          value={formatCurrency(summary.grossProfit)}
           valueColor={profitColor}
         />
         <SummaryCard
@@ -618,6 +577,7 @@ function MoneyTooltip({
   label?: string | number;
   nameKey?: string;
 }) {
+  const { format: formatCurrency } = useCurrency();
   if (!active || !payload || !payload.length) return null;
   return (
     <div
@@ -638,10 +598,10 @@ function MoneyTooltip({
           nameKey && p.payload
             ? String((p.payload as Record<string, unknown>)[nameKey] ?? p.name ?? "")
             : String(p.name ?? "");
-        const value = typeof p.value === "number" ? formatMoney(p.value) : String(p.value ?? "");
+        const value = typeof p.value === "number" ? formatCurrency(p.value) : String(p.value ?? "");
         return (
           <div key={i} style={{ color: p.color ?? "#111318" }}>
-            {displayName}: ৳{value}
+            {displayName}: {value}
           </div>
         );
       })}
@@ -674,22 +634,6 @@ function TabBtn({
     >
       {children}
     </button>
-  );
-}
-
-function Label({ children }: { children: React.ReactNode }) {
-  return (
-    <label
-      style={{
-        display: "block",
-        fontSize: "11px",
-        fontWeight: 500,
-        color: "var(--text-muted)",
-        marginBottom: "4px",
-      }}
-    >
-      {children}
-    </label>
   );
 }
 
@@ -771,39 +715,6 @@ const chartHeader: React.CSSProperties = {
   alignItems: "center",
   padding: "12px 16px",
   borderBottom: "1px solid var(--card-border)",
-};
-
-const dateInput: React.CSSProperties = {
-  padding: "7px 10px",
-  borderRadius: "7px",
-  border: "1px solid var(--input-border)",
-  backgroundColor: "var(--input-bg)",
-  fontSize: "13px",
-  color: "var(--text-primary)",
-};
-
-const quickBtn: React.CSSProperties = {
-  padding: "7px 10px",
-  borderRadius: "7px",
-  border: "1px solid var(--input-border)",
-  backgroundColor: "var(--card-bg)",
-  fontSize: "12px",
-  color: "var(--text-secondary)",
-  cursor: "pointer",
-};
-
-const btnPrimary: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: "6px",
-  padding: "7px 14px",
-  borderRadius: "7px",
-  border: "none",
-  backgroundColor: "var(--brand)",
-  color: "white",
-  fontSize: "13px",
-  fontWeight: 500,
-  cursor: "pointer",
 };
 
 const btnSecondary: React.CSSProperties = {

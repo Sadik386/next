@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requirePermission } from "@/lib/rbac";
+import { forbiddenResponse, requirePermission } from "@/lib/rbac";
 import { PERMISSIONS } from "@/constants/permissions";
 import { ROLES, ROLE_HIERARCHY, RoleName } from "@/constants/roles";
 import { prisma } from "@/lib/prisma";
@@ -10,11 +10,11 @@ export async function GET(req: NextRequest) {
   if (auth instanceof NextResponse) return auth;
 
   if (ROLE_HIERARCHY[auth.user.role as RoleName] < ROLE_HIERARCHY[ROLES.MANAGER]) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return forbiddenResponse();
   }
 
   const products = await prisma.product.findMany({
-    where: { deletedAt: null, status: "active" },
+    where: { deletedAt: null, status: "active", businessId: auth.businessId },
     include: { category: true, stock: true },
     orderBy: { id: "asc" },
   });

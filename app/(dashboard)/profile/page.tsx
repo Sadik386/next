@@ -3,6 +3,8 @@ import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Shield, Save, Loader2, Eye, EyeOff, User, Lock, Clock } from "lucide-react";
+import { UserAvatar } from "@/components/ui/UserAvatar";
+import { ROLE_LABELS, RoleName } from "@/constants/roles";
 
 type UserProfile = {
   id: number;
@@ -40,10 +42,6 @@ function getPasswordStrength(password: string): { level: string; color: string; 
   if (score <= 1) return { level: "Weak", color: "#dc2626", score };
   if (score <= 2) return { level: "Medium", color: "#f59e0b", score };
   return { level: "Strong", color: "#16a34a", score };
-}
-
-function getInitials(name: string): string {
-  return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
 }
 
 function ProfileContent() {
@@ -199,13 +197,22 @@ function ProfileContent() {
         {activeTab === "profile" && (
           <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
             <div style={cardStyle}>
-              <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "20px" }}>
-                <div style={avatarStyle}>{getInitials(formData.name)}</div>
-                <div>
-                  <div style={{ fontSize: "16px", fontWeight: 600, color: "var(--text-primary)" }}>{user?.name}</div>
+              <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "24px" }}>
+                <UserAvatar 
+                  name={user?.name} 
+                  role={user?.role} 
+                  size={64} 
+                />
+                <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                  <div style={{ fontSize: "18px", fontWeight: 700, color: "var(--text-primary)" }}>{user?.name}</div>
                   <div style={{ fontSize: "14px", color: "var(--text-muted)" }}>{user?.email}</div>
                 </div>
-                <span style={roleBadgeStyle}><Shield size={12} /> {user?.role}</span>
+                <div style={{ marginLeft: "auto", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "6px" }}>
+                  <span style={roleBadgeStyle}>
+                    <Shield size={12} />
+                    {ROLE_LABELS[user?.role as RoleName] || user?.role}
+                  </span>
+                </div>
               </div>
 
               <form onSubmit={handleSubmit}>
@@ -374,19 +381,6 @@ const cardStyle: React.CSSProperties = {
   border: "1px solid var(--card-border)",
   borderRadius: "12px",
   padding: "20px",
-};
-
-const avatarStyle: React.CSSProperties = {
-  width: "56px",
-  height: "56px",
-  borderRadius: "50%",
-  background: "var(--brand)",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  fontSize: "20px",
-  fontWeight: 700,
-  color: "white",
 };
 
 const roleBadgeStyle: React.CSSProperties = {

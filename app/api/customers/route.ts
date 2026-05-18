@@ -1,35 +1,64 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth, requirePermission } from "@/lib/rbac";
+import { getAuthUser } from "@/lib/auth";
 import { PERMISSIONS } from "@/constants/permissions";
 import { getCustomers, createCustomer } from "@/services/customer.service";
+import { runWithBusinessContext } from "@/lib/business-context";
+import { hasPermission } from "@/lib/rbac";
+import { RoleName } from "@/constants/roles";
+import { parseDateRangeFromSearchParams } from "@/lib/date-filter";
 
 export async function GET(req: NextRequest) {
-  const auth = await requireAuth(req);
-  if (auth instanceof NextResponse) return auth;
-  const sp = req.nextUrl.searchParams;
-  const result = await getCustomers({
-    search: sp.get("search") ?? undefined,
-    status: sp.get("status") ?? undefined,
-    page: sp.get("page") ? Number(sp.get("page")) : undefined,
-    pageSize: sp.get("pageSize") ? Number(sp.get("pageSize")) : undefined,
+  const user = await getAuthUser();
+
+  // Check if user is authenticated AND has an active business context
+  if (!user || !user.businessId) {
+    return NextResponse.json({ error: "Access denied: Business context required." }, { status: 403 });
+  }
+
+  return runWithBusinessContext(user, async () => {
+    const sp = req.nextUrl.searchParams;
+    const range = parseDateRangeFromSearchParams(sp);
+    const result = await getCustomers({
+      search: sp.get("search") ?? undefined,
+      status: sp.get("status") ?? undefined,
+      from: range.startDate ?? undefined,
+      to: range.endDate ?? undefined,
+      page: sp.get("page") ? Number(sp.get("page")) : undefined,
+      pageSize: sp.get("pageSize") ? Number(sp.get("pageSize")) : undefined,
+    });
+    return NextResponse.json(result);
   });
-  return NextResponse.json(result);
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await requirePermission(req, PERMISSIONS.CREATE_CUSTOMER);
-  if (auth instanceof NextResponse) return auth;
-  try {
-    const body = await req.json();
-    if (!body.name || !body.mobile) {
-      return NextResponse.json(
-        { error: "Name and mobile are required" },
-        { status: 400 }
-      );
-    }
-    const customer = await createCustomer(body, auth.user.id);
-    return NextResponse.json({ customer });
-  } catch {
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+  const user = await getAuthUser();
+
+  if (!user || !user.businessId) {
+    return NextResponse.json({ error: "Access denied: Business context required." }, { status: 403 });
   }
+
+  if (!user.role || !hasPermission(user.role as RoleName, PERMISSIONS.CREATE_CUSTOMER)) {
+    return NextResponse.json({ error: "Forbidden: Insufficient permissions." }, { status: 403 });
+  }
+
+  return runWithBusinessContext(user, async () => {
+    try {
+      const body = await req.json();
+      if (!body.name || !body.mobile) {
+        return NextResponse.json(
+          { error: "Name and mobile are required" },
+          { status: 400 }
+        );
+      }
+      const customer = await createCustomer(body, user.id);
+      return NextResponse.json({ customer });
+    } catch (error) {
+      console.error("Error creating customer:", error);
+      const message =
+        error instanceof Error && process.env.NODE_ENV !== "production"
+          ? error.message
+          : "Failed to create customer";
+      return NextResponse.json({ error: message }, { status: 500 });
+    }
+  });
 }

@@ -30,6 +30,7 @@ model User {
   address        String?    @db.Text
   roleId         Int
   isActive       Boolean    @default(true)
+  isFounder      Boolean    @default(false)
   resetToken     String?    @db.VarChar(255)
   resetTokenExpiry DateTime?
   createdAt     DateTime   @default(now())
@@ -47,13 +48,16 @@ model User {
   heldOrders             HeldOrder[]
   notifications          Notification[]
   notificationReads      NotificationRead[]
+  businessMemberships    BusinessMember[]
   reviewedRegistrations  RegistrationRequest[]
   passwordResetTokens    PasswordResetToken[]
+  lastLoginAt           DateTime?
+  lastLoginIp           String?    @db.VarChar(45)
 }
 
 model Notification {
   id         Int                @id @default(autoincrement())
-  businessId Int                @default(1)
+  businessId Int
   userId     Int?
   type       String             @db.VarChar(50)
   title      String             @db.VarChar(255)
@@ -67,7 +71,7 @@ model Notification {
 
 model NotificationRead {
   id             Int          @id @default(autoincrement())
-  businessId     Int          @default(1)
+  businessId     Int
   notificationId Int
   userId         Int
   readAt         DateTime     @default(now())
@@ -79,7 +83,7 @@ model NotificationRead {
 model PosSession {
   id            String   @id
   shortId       String   @unique @db.VarChar(20)
-  businessId    Int      @default(1)
+  businessId    Int
   createdBy     Int
   status        String   @default("active")
   scans         String?  @db.Text
@@ -90,7 +94,7 @@ model PosSession {
 
 model HeldOrder {
   id            Int      @id @default(autoincrement())
-  businessId    Int      @default(1)
+  businessId    Int
   createdBy     Int
   items         String   @db.Text
   customerData  String?  @db.Text
@@ -102,7 +106,7 @@ model HeldOrder {
 
 model Category {
   id         Int       @id @default(autoincrement())
-  businessId Int       @default(1)
+  businessId Int
   name       String    @db.VarChar(100)
   createdAt  DateTime  @default(now())
   products   Product[]
@@ -112,7 +116,7 @@ model Category {
 model Product {
   id          Int        @id @default(autoincrement())
   productId   String     @unique @db.VarChar(20)
-  businessId  Int        @default(1)
+  businessId  Int
   name        String     @db.VarChar(255)
   sku         String?    @db.VarChar(100)
   categoryId  Int?
@@ -135,7 +139,7 @@ model Product {
 
 model Stock {
   id         Int        @id @default(autoincrement())
-  businessId Int        @default(1)
+  businessId Int
   productId  Int        @unique
   quantity   Int        @default(0)
   threshold  Int        @default(10)
@@ -147,7 +151,7 @@ model Stock {
 
 model StockLog {
   id            Int      @id @default(autoincrement())
-  businessId    Int      @default(1)
+  businessId    Int
   stockId       Int
   productId     Int
   type          String   @db.VarChar(20)
@@ -164,7 +168,7 @@ model StockLog {
 
 model DeleteRequest {
   id          Int       @id @default(autoincrement())
-  businessId  Int       @default(1)
+  businessId  Int
   entityType  String    @db.VarChar(50)
   entityId    String    @db.VarChar(50)
   entityName  String    @db.VarChar(255)
@@ -180,13 +184,15 @@ model DeleteRequest {
 
 model ActivityLog {
   id          Int      @id @default(autoincrement())
-  businessId  Int      @default(1)
+  businessId  Int
   userId      Int
   action      String   @db.VarChar(50)
   module      String   @db.VarChar(50)
   entityId    String?  @db.VarChar(50)
   entityName  String?  @db.VarChar(255)
   description String   @db.Text
+  ipAddress   String?  @db.VarChar(45)
+  userAgent   String?  @db.VarChar(500)
   metadata    Json?
   createdAt   DateTime @default(now())
   user        User     @relation(fields: [userId], references: [id])
@@ -195,7 +201,7 @@ model ActivityLog {
 model Customer {
   id              Int       @id @default(autoincrement())
   customerId      String    @unique @db.VarChar(20)
-  businessId      Int       @default(1)
+  businessId      Int
   name            String    @db.VarChar(150)
   email           String?   @db.VarChar(150)
   mobile          String    @db.VarChar(30)
@@ -217,7 +223,7 @@ model Customer {
 model Supplier {
   id              Int       @id @default(autoincrement())
   supplierId      String    @unique @db.VarChar(20)
-  businessId      Int      @default(1)
+  businessId      Int
   companyName     String    @db.VarChar(255)
   contactName    String    @db.VarChar(150)
   email          String?   @db.VarChar(150)
@@ -236,6 +242,7 @@ model Supplier {
   nagad         String?   @db.VarChar(30)
   rocket        String?   @db.VarChar(30)
   upay         String?   @db.VarChar(30)
+  paymentMethods Json?
   category      String?   @db.VarChar(100)
   deliveryMethod String? @db.VarChar(100)
   streetAddress  String?   @db.Text
@@ -251,7 +258,7 @@ model Supplier {
 
 model Setting {
   id            Int      @id @default(autoincrement())
-  businessId    Int      @default(1)
+  businessId    Int
   businessName  String   @db.VarChar(150)
   tagline       String?  @db.VarChar(255)
   email         String?  @db.VarChar(150)
@@ -263,12 +270,33 @@ model Setting {
   state         String?  @db.VarChar(100)
   zipCode       String?  @db.VarChar(20)
   country       String?  @db.VarChar(100)
-  logoUrl       String?  @db.VarChar(500)
-  printLogoUrl String?  @db.VarChar(500)
-  brandColor    String?  @db.VarChar(20)
+  logoUrl            String?  @db.VarChar(500)
+  printLogoUrl       String?  @db.VarChar(500)
+  emailHeaderLogoUrl String?  @db.VarChar(500)
+  brandColor         String?  @db.VarChar(20)
   invoiceFooter String?  @db.Text
+  isSetupComplete Boolean  @default(false)
   currency      String   @default("BDT") @db.VarChar(10)
   weekStartDay  Int      @default(0)
+  // SMTP Settings
+  smtpProvider               String?  @db.VarChar(50)
+  smtpHost                  String?  @db.VarChar(255)
+  smtpPort                  Int?     @default(587)
+  smtpUsername              String?  @db.VarChar(150)
+  smtpPassword              String?  @db.VarChar(500)
+  smtpEncryption            String?  @db.VarChar(10)
+  smtpFromEmail             String?  @db.VarChar(150)
+  smtpFromName              String?  @db.VarChar(100)
+  smtpReplyTo               String?  @db.VarChar(150)
+  supportEmail              String?  @db.VarChar(150)
+  emailFooterText           String?  @db.Text
+  companyAddressFooter      String?  @db.Text
+  emailOrderConfirmationEnabled Boolean @default(true)
+  emailInvoiceEnabled       Boolean  @default(true)
+  emailPasswordResetEnabled  Boolean  @default(true)
+  emailUserRegistrationEnabled Boolean @default(true)
+  emailLowStockEnabled       Boolean  @default(true)
+  emailDailySummaryEnabled   Boolean  @default(false)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   @@unique([businessId])
@@ -277,7 +305,7 @@ model Setting {
 model Order {
   id              Int         @id @default(autoincrement())
   orderId         String      @unique @db.VarChar(20)
-  businessId      Int         @default(1)
+  businessId      Int
   customerId      Int
   status          String      @default("pending") @db.VarChar(20)
   paymentStatus   String      @default("unpaid") @db.VarChar(20)
@@ -302,7 +330,7 @@ model Order {
 
 model OrderItem {
   id          Int      @id @default(autoincrement())
-  businessId  Int      @default(1)
+  businessId  Int
   orderId     Int
   productId   Int
   productName String   @db.VarChar(255)
@@ -316,7 +344,7 @@ model OrderItem {
 model Sale {
   id              Int       @id @default(autoincrement())
   saleId          String    @unique @db.VarChar(20)
-  businessId      Int       @default(1)
+  businessId      Int
   orderId         Int?
   customerId      Int?
   productId       Int?
@@ -350,7 +378,7 @@ model Sale {
 model Expense {
   id            Int       @id @default(autoincrement())
   expenseId     String    @unique @db.VarChar(20)
-  businessId    Int       @default(1)
+  businessId    Int
   date          DateTime  @default(now())
   amount        Decimal   @db.Decimal(10, 2)
   currency      String    @default("BDT") @db.VarChar(10)
@@ -377,6 +405,27 @@ model Business {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  members   BusinessMember[]
+  subscription Subscription?
+  usages    Usage[]
+  usageOverrides UsageOverride[]
+}
+
+model BusinessMember {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  businessId Int
+  isDefault  Boolean  @default(false)
+  status     String   @default("active") @db.VarChar(20)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, businessId])
+  @@index([userId, status])
+  @@index([businessId, status])
+  @@index([userId, isDefault])
 }
 
 model ApiKey {
@@ -471,5 +520,76 @@ model PasswordResetToken {
   usedAt    DateTime?
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model SubscriptionPlan {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique @db.VarChar(50)
+  label       String    @db.VarChar(100)
+  description String?   @db.VarChar(255)
+  priceMonthly Decimal  @db.Decimal(10, 2)
+  priceYearly  Decimal  @db.Decimal(10, 2)
+  maxUsers    Int       @default(1)
+  maxProducts Int       @default(-1) // -1 = unlimited
+  features    String    // JSON object of feature flags
+  usageLimits String    // JSON object of usage limits
+  isActive    Boolean   @default(true)
+  isTrial     Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id            Int       @id @default(autoincrement())
+  businessId    Int       @unique
+  planId        Int
+  status        String    @default("trialing") @db.VarChar(20) // trialing, active, paused, canceled, expired
+  billingCycle  String    @default("monthly") @db.VarChar(20) // monthly, yearly
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+  cancelAtPeriodEnd   Boolean   @default(false)
+  canceledAt    DateTime?
+  pausedAt      DateTime?
+  resumedAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  business      Business          @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  plan          SubscriptionPlan  @relation(fields: [planId], references: [id])
+}
+
+model Usage {
+  id            Int      @id @default(autoincrement())
+  businessId    Int
+  key           String   @db.VarChar(50) // usage key name
+  value         Int      @default(0)
+  periodStart   DateTime
+  periodEnd     DateTime
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  business      Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  @@unique([businessId, key, periodStart])
+}
+
+model UsageOverride {
+  id          Int      @id @default(autoincrement())
+  businessId  Int
+  key         String   @db.VarChar(50)
+  value       Int      @default(-1) // -1 = unlimited
+  reason      String?  @db.VarChar(255)
+  createdBy   Int?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  @@unique([businessId, key])
+}
+
+model FeatureFlag {
+  id          Int       @id @default(autoincrement())
+  key         String    @unique @db.VarChar(50)
+  name        String    @db.VarChar(100)
+  description String?   @db.VarChar(255)
+  defaultValue Boolean  @default(false)
+  createdAt   DateTime  @default(now())
 }
 

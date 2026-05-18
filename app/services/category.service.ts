@@ -30,13 +30,15 @@ export async function createCategory(name: string, userId: number) {
 }
 
 export async function deleteCategory(id: number, userId: number) {
-  const category = await prisma.category.findUnique({ where: { id } });
+  const businessId = getCurrentBusinessId();
+  const category = await prisma.category.findFirst({ where: { id, businessId } });
   if (!category) throw new Error("Category not found");
 
   await prisma.category.delete({ where: { id } });
 
   await prisma.activityLog.create({
     data: {
+      businessId,
       userId,
       action: "DELETE",
       module: "category",

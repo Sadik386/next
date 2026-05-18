@@ -1,0 +1,438 @@
+@media (max-width: 767px) {
+  /* ============================================
+     DASHBOARD SHELL / SIDEBAR / TOPBAR
+     ============================================ */
+  .acc-dashboard-shell > main {
+    margin-left: 0 !important;
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+
+  .acc-dashboard-shell > header,
+  .acc-topbar {
+    left: 0 !important;
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+
+  /* Ensure main content takes full width on mobile */
+  .acc-main-content {
+    margin-left: 0 !important;
+    padding-top: 60px !important;
+  }
+
+  /* Mobile hamburger button */
+  .acc-mobile-menu-btn {
+    display: flex !important;
+  }
+
+  /* Hide route title slug on mobile, keep date */
+  .acc-route-title {
+    display: none !important;
+  }
+
+  .acc-route-date {
+    font-size: 11px !important;
+  }
+
+  /* Mobile sidebar drawer */
+  .app-sidebar {
+    position: fixed !important;
+    transform: translateX(-100%) !important;
+    transition: transform 0.25s ease !important;
+    z-index: 40 !important;
+  }
+
+  .app-sidebar[data-mobile-open="true"] {
+    transform: translateX(0) !important;
+  }
+
+  .sidebar-backdrop {
+    position: fixed !important;
+    inset: 0 !important;
+    backgroundColor: rgba(0, 0, 0, 0.4) !important;
+    z-index: 35 !important;
+  }
+
+  /* ============================================
+     PAGE HEADERS, FILTERS, ACTION BUTTONS
+     ============================================ */
+  .acc-page-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 12px !important;
+  }
+
+  .acc-page-header > div:first-child {
+    width: 100% !important;
+  }
+
+  .acc-page-header .acc-header-actions {
+    width: 100% !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+
+  .acc-page-header .acc-header-actions button,
+  .acc-page-header .acc-header-actions a {
+    flex: 1 1 calc(50% - 4px) !important;
+    min-width: 120px !important;
+    max-width: 100% !important;
+  }
+
+  .acc-page-header h1 {
+    font-size: 18px !important;
+    line-height: 1.3 !important;
+  }
+
+  .acc-page-header p {
+    font-size: 12px !important;
+  }
+
+  /* Filter controls */
+  .acc-filters {
+    flex-direction: column !important;
+    gap: 10px !important;
+  }
+
+  .acc-filters > div,
+  .acc-filters input,
+  .acc-filters select {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Search inputs in filter divs - prevent huge height */
+  .acc-filters div:has(input),
+  .acc-filters div:has(div input),
+  .acc-filters form {
+    flex: 1 1 100% !important;
+    max-width: 100% !important;
+    padding: 6px 12px !important;
+    min-height: 40px !important;
+  }
+
+  .acc-filters input {
+    padding: 0 !important;
+    min-height: auto !important;
+    height: auto !important;
+  }
+
+  /* Search input wrapper styling fix */
+  .acc-filters > div:has(input),
+  .acc-filters > form:has(input) {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    background-color: var(--card-bg) !important;
+    border: 1px solid var(--card-border) !important;
+    border-radius: 8px !important;
+    flex: 1 1 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Scan input form fix */
+  .acc-filters form:has(input) {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    background-color: var(--card-bg) !important;
+    border: 1px solid var(--card-border) !important;
+    border-radius: 8px !important;
+    flex: 1 1 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* ============================================
+     TABLES / LISTS
+     ============================================ */
+  .acc-table-wrap {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    max-width: 100% !important;
+    margin: 0 -12px !important;
+    padding: 0 12px !important;
+    width: calc(100% + 24px) !important;
+  }
+
+  .acc-table-wrap table {
+    min-width: 550px !important;
+    font-size: 11px !important;
+    width: 100% !important;
+  }
+
+  .acc-table-wrap th,
+  .acc-table-wrap td {
+    padding: 6px 8px !important;
+    white-space: nowrap !important;
+  }
+
+  .acc-table-wrap .acc-action-cell {
+    display: flex !important;
+    gap: 4px !important;
+  }
+
+  /* Make action buttons in tables more tappable on mobile */
+  .acc-table-wrap td button,
+  .acc-table-wrap td a {
+    padding: 4px 8px !important;
+    min-width: 28px !important;
+    min-height: 28px !important;
+  }
+
+  /* Card list alternative for tables */
+  .acc-card-list {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+  }
+
+  .acc-card-list .acc-list-item {
+    background: var(--card-bg) !important;
+    border: 1px solid var(--card-border) !important;
+    border-radius: 8px !important;
+    padding: 12px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+
+  /* ============================================
+     POS PAGE
+     ============================================ */
+  .acc-pos-container {
+    flex-direction: column !important;
+    padding: 12px !important;
+  }
+
+  .acc-pos-products {
+    width: 100% !important;
+    order: 1 !important;
+  }
+
+  .acc-pos-cart {
+    width: 100% !important;
+    order: 2 !important;
+    margin-top: 16px !important;
+    max-height: none !important;
+    min-height: auto !important;
+  }
+
+  /* POS header with search and scanner */
+  .acc-pos-header {
+    flex-direction: column !important;
+    gap: 10px !important;
+  }
+
+  .acc-pos-search-row {
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+
+  .acc-pos-search-row > * {
+    width: 100% !important;
+  }
+
+  /* Product grid on mobile */
+  .acc-product-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+  }
+
+  .acc-product-card {
+    padding: 10px !important;
+  }
+
+  .acc-product-card img {
+    height: 80px !important;
+  }
+
+  /* Category chips */
+  .acc-category-chips {
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+  }
+
+  .acc-category-chips button {
+    padding: 6px 10px !important;
+    font-size: 11px !important;
+  }
+
+  /* Cart items */
+  .acc-cart-items {
+    max-height: 200px !important;
+  }
+
+  .acc-cart-item {
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+  }
+
+  .acc-cart-item-info {
+    width: 100% !important;
+  }
+
+  /* Checkout button */
+  .acc-checkout-bar {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    padding: 12px !important;
+    z-index: 50 !important;
+  }
+
+  /* ============================================
+     MOBILE SCANNER PAGE
+     ============================================ */
+  .acc-mobile-scanner {
+    padding: 12px !important;
+  }
+
+  .acc-mobile-scanner header {
+    padding: 12px !important;
+  }
+
+  .acc-mobile-scanner main {
+    padding: 12px !important;
+  }
+
+  .acc-camera-section {
+    width: 100% !important;
+    aspect-ratio: 1 !important;
+  }
+
+  .acc-manual-input-form {
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+
+  .acc-manual-input-form input {
+    width: 100% !important;
+  }
+
+  .acc-manual-input-form button {
+    width: 100% !important;
+  }
+
+  /* ============================================
+     SYSTEM PAGES
+     ============================================ */
+  .acc-system-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .acc-settings-section {
+    padding: 12px !important;
+  }
+
+  /* ============================================
+     DASHBOARD CARDS
+     ============================================ */
+  .acc-dashboard-cards {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  .acc-stat-card {
+    padding: 16px !important;
+  }
+
+  .acc-stat-card .acc-stat-value {
+    font-size: 24px !important;
+  }
+
+  /* ============================================
+     OVERFLOW FIXES
+     ============================================ */
+  body {
+    overflow-x: hidden !important;
+  }
+
+  .acc-overflow-hidden {
+    overflow-x: hidden !important;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  /* ============================================
+     DASHBOARD SHELL / SIDEBAR / TOPBAR
+     ============================================ */
+  .acc-dashboard-shell > main {
+    margin-left: 0 !important;
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+
+  .acc-dashboard-shell > header,
+  .acc-topbar {
+    left: 0 !important;
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+
+  /* ============================================
+     PAGE HEADERS
+     ============================================ */
+  .acc-page-header {
+    flex-wrap: wrap !important;
+    gap: 12px !important;
+  }
+
+  .acc-page-header .acc-header-actions {
+    flex: 1 1 100% !important;
+  }
+
+  .acc-page-header .acc-header-actions button,
+  .acc-page-header .acc-header-actions a {
+    flex: 0 0 auto !important;
+    min-width: 140px !important;
+  }
+
+  /* ============================================
+     TABLES
+     ============================================ */
+  .acc-table-wrap {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  .acc-table-wrap table {
+    min-width: 700px !important;
+  }
+
+  /* ============================================
+     POS PAGE
+     ============================================ */
+  .acc-pos-container {
+    flex-direction: column !important;
+  }
+
+  .acc-pos-products {
+    width: 100% !important;
+  }
+
+  .acc-pos-cart {
+    width: 100% !important;
+    margin-top: 16px !important;
+  }
+
+  .acc-product-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+
+  /* ============================================
+     DASHBOARD CARDS
+     ============================================ */
+  .acc-dashboard-cards {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* ============================================
+     SYSTEM PAGES
+     ============================================ */
+  .acc-system-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}

@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
   if (auth instanceof NextResponse) return auth;
 
   const suppliers = await prisma.supplier.findMany({
-    where: { deletedAt: null },
+    where: { deletedAt: null, businessId: auth.businessId },
     orderBy: { id: "asc" },
   });
 
@@ -17,29 +17,20 @@ export async function GET(req: NextRequest) {
     "Company Name*": s.companyName,
     "Contact Name*": s.contactName,
     Email: s.email ?? "",
-    Mobile: s.mobile ?? "",
-    Website: s.website ?? "",
+    "Mobile*": s.mobile ?? "",
+    "Payment Terms*": s.paymentTerms ?? "",
+    "Currency*": s.currency,
     "Tax ID": s.taxId ?? "",
-    "Payment Terms": s.paymentTerms ?? "",
-    Currency: s.currency,
-    "Bank Name": s.bankName ?? "",
-    "Bank Account": s.bankAccount ?? "",
-    "Account Name": s.accountName ?? "",
-    "Branch Name": s.branchName ?? "",
-    "Routing Number": s.routingNumber ?? "",
-    "SWIFT Code": s.swiftCode ?? "",
-    Bkash: s.bkash ?? "",
-    Nagad: s.nagad ?? "",
-    Rocket: s.rocket ?? "",
-    Upay: s.upay ?? "",
+    Website: s.website ?? "",
     Category: s.category ?? "",
     "Delivery Method": s.deliveryMethod ?? "",
     "Street Address": s.streetAddress ?? "",
     City: s.city ?? "",
     State: s.state ?? "",
     "Zip Code": s.zipCode ?? "",
-    Country: s.country ?? "",
+    "Country*": s.country ?? "",
     "Status*": s.status,
+    "Payment Methods": s.paymentMethods ? JSON.stringify(s.paymentMethods) : "",
   }));
 
   const csv = generateCsv(rows, SUPPLIER_COLUMNS);
