@@ -1,5 +1,6 @@
 "use client";
 
+import { PageWrapper } from "@/components/layout/PageWrapper";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -45,29 +46,31 @@ export default function SupportPage() {
   if (loading) return <div className="p-4">Loading...</div>;
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Support Requests</h1>
-      
-      {requests.length === 0 ? (
-        <Card className="p-10 text-center text-muted-foreground">No support requests yet.</Card>
-      ) : (
-        <div className="grid gap-4">
-          {requests.map((request) => (
-            <Card key={request.id} className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => router.push(`/system/support/${request.id}`)}>
-              <CardContent className="p-4 flex items-center justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold">{getTypeLabel(request.type)}</p>
-                  <p className="text-sm text-muted-foreground truncate">{request.message}</p>
-                </div>
-                <div className="flex items-center gap-4">
-                  <StatusBadge status={getStatusLabel(request.status)} />
-                  <span className="text-sm text-muted-foreground">{new Date(request.createdAt).toLocaleDateString()}</span>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
-    </div>
+    <PageWrapper>
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold">Support Requests</h1>
+        
+        {requests.length === 0 ? (
+          <Card className="p-10 text-center text-muted-foreground">No support requests yet.</Card>
+        ) : (
+          <div className="grid gap-4">
+            {requests.map((request) => (
+              <Card key={request.id} className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => router.push(`/system/support/${request.id}`)}>
+                <CardContent className="p-4 flex items-center justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold">{getTypeLabel(request.type)}</p>
+                    <p className="text-sm text-muted-foreground truncate">{request.message}</p>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <StatusBadge status={getStatusLabel(request.status)} />
+                    <span className="text-sm text-muted-foreground">{new Date(request.createdAt).toLocaleDateString()}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+    </PageWrapper>
   );
 }

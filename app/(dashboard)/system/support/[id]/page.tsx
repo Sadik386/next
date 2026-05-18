@@ -1,5 +1,6 @@
 "use client";
 
+import { PageWrapper } from "@/components/layout/PageWrapper";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -85,60 +86,62 @@ export default function RequestConversationPage() {
   if (!request) return <div>Request not found</div>;
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
-      <Button variant="ghost" className="pl-0" onClick={() => router.back()}>
-        <ArrowLeft size={16} className="mr-2" /> Back to Support
-      </Button>
-
-      <Card className="border-primary/20 shadow-md">
-        <CardHeader className="flex flex-row items-center justify-between pb-2 bg-muted/20">
-          <CardTitle className="text-xl">Request #{request.id}</CardTitle>
-          <StatusBadge status={getStatusLabel(request.status)} className="text-sm px-3 py-1" />
-        </CardHeader>
-        <CardContent className="pt-6 space-y-4">
-            <div className="flex gap-6 text-sm text-muted-foreground border-b pb-4">
-                <p><span className="font-semibold text-foreground">Type:</span> {getTypeLabel(request.type)}</p>
-                {request.requestedPlan && (
-                    <p><span className="font-semibold text-foreground">Requested Plan:</span> {getPlanLabel(request.requestedPlan)}</p>
-                )}
-            </div>
-            <div>
-                <p className="font-semibold text-foreground mb-2">Original Request</p>
-                <div className="p-4 bg-muted/30 rounded-xl text-muted-foreground italic border-l-4 border-primary/50">
-                    {request.message}
-                </div>
-            </div>
-        </CardContent>
-      </Card>
-
+    <PageWrapper>
       <div className="space-y-6">
-        <h3 className="font-semibold flex items-center gap-2 text-lg"><MessageCircle size={20} className="text-primary"/> Conversation History</h3>
-        {request.notes.filter(n => n.visibility === 'public').map((note) => (
-          <div key={note.id} className="flex flex-col gap-1 items-start">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground ml-1">
-                <span className="font-bold text-foreground">{note.user.name}</span>
-                <span>{new Date(note.createdAt).toLocaleString()}</span>
-            </div>
-            <div className="bg-primary/10 text-primary-foreground p-4 rounded-2xl rounded-tl-sm text-sm max-w-[85%] shadow-sm">
-                {note.note}
-            </div>
-          </div>
-        ))}
-      </div>
+        <Button variant="ghost" className="pl-0" onClick={() => router.back()}>
+          <ArrowLeft size={16} className="mr-2" /> Back to Support
+        </Button>
 
-      <Card className="shadow-md border-primary/20">
-        <CardContent className="pt-6">
-            <Textarea 
-                value={reply} 
-                onChange={(e) => setReply(e.target.value)} 
-                placeholder="Type your reply to our team..."
-                className="mb-4 min-h-[120px] focus:ring-primary/50"
-            />
-            <Button onClick={handleReply} disabled={submitting} className="w-full sm:w-auto px-6">
-                <Send size={16} className="mr-2" /> Send Message
-            </Button>
-        </CardContent>
-      </Card>
-    </div>
+        <Card className="border-primary/20 shadow-md">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 bg-muted/20">
+            <CardTitle className="text-xl">Request #{request.id}</CardTitle>
+            <StatusBadge status={getStatusLabel(request.status)} className="text-sm px-3 py-1" />
+          </CardHeader>
+          <CardContent className="pt-6 space-y-4">
+              <div className="flex gap-6 text-sm text-muted-foreground border-b pb-4">
+                  <p><span className="font-semibold text-foreground">Type:</span> {getTypeLabel(request.type)}</p>
+                  {request.requestedPlan && (
+                      <p><span className="font-semibold text-foreground">Requested Plan:</span> {getPlanLabel(request.requestedPlan)}</p>
+                  )}
+              </div>
+              <div>
+                  <p className="font-semibold text-foreground mb-2">Original Request</p>
+                  <div className="p-4 bg-muted/30 rounded-xl text-muted-foreground italic border-l-4 border-primary/50">
+                      {request.message}
+                  </div>
+              </div>
+          </CardContent>
+        </Card>
+
+        <div className="space-y-6">
+          <h3 className="font-semibold flex items-center gap-2 text-lg"><MessageCircle size={20} className="text-primary"/> Conversation History</h3>
+          {request.notes.filter(n => n.visibility === 'public').map((note) => (
+            <div key={note.id} className="flex flex-col gap-1 items-start">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground ml-1">
+                  <span className="font-bold text-foreground">{note.user.name}</span>
+                  <span>{new Date(note.createdAt).toLocaleString()}</span>
+              </div>
+              <div className="bg-primary/10 text-primary-foreground p-4 rounded-2xl rounded-tl-sm text-sm max-w-[85%] shadow-sm">
+                  {note.note}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <Card className="shadow-md border-primary/20">
+          <CardContent className="pt-6">
+              <Textarea 
+                  value={reply} 
+                  onChange={(e) => setReply(e.target.value)} 
+                  placeholder="Type your reply to our team..."
+                  className="mb-4 min-h-[120px] focus:ring-primary/50"
+              />
+              <Button onClick={handleReply} disabled={submitting} className="w-full sm:w-auto px-6">
+                  <Send size={16} className="mr-2" /> Send Message
+              </Button>
+          </CardContent>
+        </Card>
+      </div>
+    </PageWrapper>
   );
 }
