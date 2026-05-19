@@ -7,7 +7,6 @@ import { toast } from "sonner";
 import { getPlanLabel, getStatusLabel, getTypeLabel } from "@/lib/ui-labels";
 import { ChevronRight, Clock, MessageSquare, CheckCircle2, AlertCircle, XCircle, Inbox, Layers, Plus, Loader2 } from "lucide-react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { X } from "lucide-react";
 
 type SubscriptionRequest = {
   id: number;
