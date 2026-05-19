@@ -5,7 +5,9 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { getPlanLabel, getStatusLabel, getTypeLabel } from "@/lib/ui-labels";
-import { ChevronRight, Clock, MessageSquare, CheckCircle2, AlertCircle, XCircle, Inbox, Layers } from "lucide-react";
+import { ChevronRight, Clock, MessageSquare, CheckCircle2, AlertCircle, XCircle, Inbox, Layers, Plus, Loader2 } from "lucide-react";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
+import { X } from "lucide-react";
 
 type SubscriptionRequest = {
   id: number;
@@ -24,6 +26,15 @@ export default function SupportPage() {
   const [requests, setRequests] = useState<SubscriptionRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formData, setFormData] = useState({
+    type: "support",
+    subject: "",
+    message: "",
+    requestedPlan: "",
+  });
 
   async function fetchRequests() {
     try {
@@ -44,6 +55,45 @@ export default function SupportPage() {
   useEffect(() => {
     fetchRequests();
   }, []);
+
+  async function handleSubmitRequest(e: React.FormEvent) {
+    e.preventDefault();
+    if (!formData.message.trim()) {
+      toast.error("Please enter a message");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const res = await fetch("/api/support/requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: formData.type,
+          subject: formData.subject,
+          message: formData.message,
+          requestedPlan: formData.requestedPlan || undefined,
+        }),
+      });
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        toast.success(data.message || "Request created successfully");
+        setIsModalOpen(false);
+        setFormData({ type: "support", subject: "", message: "", requestedPlan: "" });
+        await fetchRequests();
+        if (data.data?.id) {
+          router.push(`/system/support/${data.data.id}`);
+        }
+      } else {
+        toast.error(data.message || "Failed to create request");
+      }
+    } catch {
+      toast.error("Failed to create request");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
 
   const filteredRequests = requests.filter((r) => {
     const status = r.status.toLowerCase();
@@ -101,6 +151,31 @@ export default function SupportPage() {
           }}>
             Manage subscription questions and support follow-ups from a clean, centralized inbox.
           </p>
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "20px" }}>
+          <button
+            type="button"
+            onClick={() => setIsModalOpen(true)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "9px 16px",
+              backgroundColor: "var(--brand)",
+              color: "#fff",
+              border: "none",
+              borderRadius: "8px",
+              fontSize: "13px",
+              fontWeight: 600,
+              cursor: "pointer",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+              transition: "all 0.2s ease",
+            }}
+          >
+            <Plus size={16} strokeWidth={2.5} />
+            New Request
+          </button>
         </div>
 
         <div style={{ 
@@ -225,6 +300,259 @@ export default function SupportPage() {
           </InboxContainer>
         )}
       </div>
+
+      <DialogPrimitive.Root open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogPrimitive.Portal>
+          <DialogPrimitive.Overlay style={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.6)",
+            zIndex: 50,
+          }} />
+          <DialogPrimitive.Content style={{
+            position: "fixed",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: "90%",
+            maxWidth: "480px",
+            maxHeight: "calc(100vh - 80px)",
+            height: "fit-content",
+            display: "flex",
+            flexDirection: "column",
+            backgroundColor: "var(--card-bg)",
+            border: "1px solid var(--card-border)",
+            borderRadius: "14px",
+            boxShadow: "0 20px 40px rgba(0, 0, 0, 0.25)",
+            padding: 0,
+            zIndex: 51,
+          }}>
+            <div style={{
+              padding: "24px 24px 0",
+              flexShrink: 0,
+            }}>
+<div style={{ marginBottom: "20px" }}>
+              <DialogPrimitive.Title style={{
+                fontSize: "18px",
+                fontWeight: 700,
+                color: "var(--text-primary)",
+                letterSpacing: "-0.3px",
+                display: "block",
+              }}>
+                New Support Request
+              </DialogPrimitive.Title>
+              <DialogPrimitive.Description style={{
+                fontSize: "13px",
+                color: "var(--text-muted)",
+                marginTop: "4px",
+                display: "block",
+              }}>
+                Submit a new support request. We&apos;ll get back to you shortly.
+              </DialogPrimitive.Description>
+            </div>
+            </div>
+
+            <div style={{
+              flex: 1,
+              overflowY: "auto",
+              padding: "0 24px",
+            }}>
+              <form onSubmit={handleSubmitRequest} id="new-request-form">
+                <div style={{ display: "flex", flexDirection: "column", gap: "16px", paddingBottom: "16px" }}>
+                  <div>
+                    <label style={{
+                      display: "block",
+                      fontSize: "12px",
+                      fontWeight: 600,
+                      color: "var(--text-secondary)",
+                      marginBottom: "6px",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.4px",
+                    }}>
+                      Request Type
+                    </label>
+                    <select
+                      value={formData.type}
+                      onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                      style={{
+                        width: "100%",
+                        padding: "10px 12px",
+                        fontSize: "14px",
+                        backgroundColor: "var(--input-bg)",
+                        border: "1px solid var(--card-border)",
+                        borderRadius: "8px",
+                        color: "var(--text-primary)",
+                        cursor: "pointer",
+                        outline: "none",
+                      }}
+                    >
+                      <option value="support">Support</option>
+                      <option value="billing">Billing</option>
+                      <option value="upgrade">Upgrade</option>
+                      <option value="contact_sales">Contact Sales</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{
+                      display: "block",
+                      fontSize: "12px",
+                      fontWeight: 600,
+                      color: "var(--text-secondary)",
+                      marginBottom: "6px",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.4px",
+                    }}>
+                      Subject
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.subject}
+                      onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                      placeholder="Brief description of your request"
+                      style={{
+                        width: "100%",
+                        padding: "10px 12px",
+                        fontSize: "14px",
+                        backgroundColor: "var(--input-bg)",
+                        border: "1px solid var(--card-border)",
+                        borderRadius: "8px",
+                        color: "var(--text-primary)",
+                        outline: "none",
+                      }}
+                    />
+                  </div>
+
+                  {(formData.type === "upgrade" || formData.type === "contact_sales") && (
+                    <div>
+                      <label style={{
+                        display: "block",
+                        fontSize: "12px",
+                        fontWeight: 600,
+                        color: "var(--text-secondary)",
+                        marginBottom: "6px",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.4px",
+                      }}>
+                        Related Plan
+                      </label>
+                      <select
+                        value={formData.requestedPlan}
+                        onChange={(e) => setFormData({ ...formData, requestedPlan: e.target.value })}
+                        style={{
+                          width: "100%",
+                          padding: "10px 12px",
+                          fontSize: "14px",
+                          backgroundColor: "var(--input-bg)",
+                          border: "1px solid var(--card-border)",
+                          borderRadius: "8px",
+                          color: "var(--text-primary)",
+                          cursor: "pointer",
+                          outline: "none",
+                        }}
+                      >
+                        <option value="">Select a plan (optional)</option>
+                        <option value="basic">Basic</option>
+                        <option value="pro">Pro</option>
+                        <option value="business">Business</option>
+                        <option value="custom">Custom</option>
+                      </select>
+                    </div>
+                  )}
+
+                  <div>
+                    <label style={{
+                      display: "block",
+                      fontSize: "12px",
+                      fontWeight: 600,
+                      color: "var(--text-secondary)",
+                      marginBottom: "6px",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.4px",
+                    }}>
+                      Message <span style={{ color: "#ef4444" }}>*</span>
+                    </label>
+                    <textarea
+                      value={formData.message}
+                      onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                      placeholder="Describe your issue or question in detail..."
+                      rows={5}
+                      style={{
+                        width: "100%",
+                        padding: "10px 12px",
+                        fontSize: "14px",
+                        backgroundColor: "var(--input-bg)",
+                        border: "1px solid var(--card-border)",
+                        borderRadius: "8px",
+                        color: "var(--text-primary)",
+                        outline: "none",
+                        resize: "vertical",
+                        minHeight: "100px",
+                        fontFamily: "inherit",
+                      }}
+                    />
+                  </div>
+                </div>
+              </form>
+            </div>
+
+            <div style={{
+              padding: "16px 24px 24px",
+              flexShrink: 0,
+              borderTop: "1px solid var(--card-border)",
+              backgroundColor: "var(--card-bg)",
+            }}>
+              <div style={{
+                display: "flex",
+                gap: "10px",
+                justifyContent: "flex-end",
+              }}>
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  disabled={isSubmitting}
+                  style={{
+                    padding: "10px 18px",
+                    fontSize: "13px",
+                    fontWeight: 600,
+                    backgroundColor: "transparent",
+                    color: "var(--text-secondary)",
+                    border: "1px solid var(--card-border)",
+                    borderRadius: "8px",
+                    cursor: isSubmitting ? "not-allowed" : "pointer",
+                    opacity: isSubmitting ? 0.6 : 1,
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  form="new-request-form"
+                  disabled={isSubmitting}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    padding: "10px 18px",
+                    fontSize: "13px",
+                    fontWeight: 600,
+                    backgroundColor: "var(--brand)",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "8px",
+                    cursor: isSubmitting ? "not-allowed" : "pointer",
+                    opacity: isSubmitting ? 0.7 : 1,
+                  }}
+                >
+                  {isSubmitting && <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} />}
+                  {isSubmitting ? "Submitting..." : "Submit Request"}
+                </button>
+              </div>
+            </div>
+          </DialogPrimitive.Content>
+        </DialogPrimitive.Portal>
+      </DialogPrimitive.Root>
+
       <style>{`
         @keyframes spin {
           from { transform: rotate(0deg); }
