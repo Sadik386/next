@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { getPlanLabel, getStatusLabel, getTypeLabel } from "@/lib/ui-labels";
-import { ChevronRight, Clock, Inbox, MessageSquare, CheckCircle2, AlertCircle, XCircle } from "lucide-react";
+import { ChevronRight, Clock, MessageSquare, CheckCircle2, AlertCircle, XCircle, Inbox, Layers } from "lucide-react";
 
 type SubscriptionRequest = {
   id: number;
@@ -62,192 +62,191 @@ export default function SupportPage() {
 
   return (
     <PageWrapper>
-      <div style={{ maxWidth: "1180px", margin: "0 auto", width: "100%" }}>
-        <div style={{ marginBottom: "20px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
-            <span style={{
+      <div style={{ maxWidth: "1120px", margin: "0 auto", width: "100%", padding: "0 4px" }}>
+        <div style={{ marginBottom: "28px", paddingTop: "4px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "12px" }}>
+            <div style={{
               display: "inline-flex",
               alignItems: "center",
               gap: "6px",
-              padding: "4px 10px",
-              borderRadius: "999px",
+              padding: "5px 10px",
+              borderRadius: "5px",
               fontSize: "11px",
               fontWeight: 600,
               textTransform: "uppercase",
               letterSpacing: "0.5px",
-              backgroundColor: "color-mix(in srgb, var(--brand) 12%, transparent)",
+              backgroundColor: "color-mix(in srgb, var(--brand) 8%, var(--card-bg))",
               color: "var(--brand)",
-              border: "1px solid color-mix(in srgb, var(--brand) 20%, transparent)",
+              border: "1px solid color-mix(in srgb, var(--brand) 15%, var(--card-border))",
             }}>
-              <MessageSquare size={12} />
+              <Layers size={11} strokeWidth={2.5} />
               Support Center
-            </span>
+            </div>
           </div>
-          <h1 style={{ fontSize: "22px", fontWeight: 700, color: "var(--text-primary)" }}>
+          <h1 style={{ 
+            fontSize: "27px", 
+            fontWeight: 700, 
+            color: "var(--text-primary)", 
+            letterSpacing: "-0.5px",
+            lineHeight: 1.2,
+            marginBottom: "10px",
+          }}>
             Support Requests
           </h1>
-          <p style={{ fontSize: "13px", color: "var(--text-secondary)", marginTop: "4px" }}>
-            Manage your subscription questions and support follow-ups from one clean inbox.
+          <p style={{ 
+            fontSize: "14px", 
+            color: "var(--text-secondary)", 
+            maxWidth: "460px",
+            lineHeight: 1.5,
+          }}>
+            Manage subscription questions and support follow-ups from a clean, centralized inbox.
           </p>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px", marginBottom: "16px" }}>
-          <StatCard
-            icon={<Inbox size={16} />}
-            label="Total Requests"
+        <div style={{ 
+          display: "flex", 
+          gap: "12px", 
+          marginBottom: "24px",
+        }}>
+          <FilterButton
+            label="All"
             value={requests.length}
-            color="#687386"
             isActive={activeFilter === "all"}
             onClick={() => handleFilterClick("all")}
+            color="var(--text-secondary)"
           />
-          <StatCard
-            icon={<AlertCircle size={16} />}
+          <FilterButton
             label="Open"
             value={openCount}
-            color="#f59e0b"
             isActive={activeFilter === "open"}
             onClick={() => handleFilterClick("open")}
+            color="#f59e0b"
           />
-          <StatCard
-            icon={<CheckCircle2 size={16} />}
+          <FilterButton
             label="Resolved"
             value={resolvedCount}
-            color="#22c55e"
             isActive={activeFilter === "resolved"}
             onClick={() => handleFilterClick("resolved")}
+            color="#22c55e"
           />
         </div>
 
         {loading ? (
-          <div style={cardStyle}>
-            <div style={{ padding: "32px", textAlign: "center", color: "var(--text-muted)", fontSize: "14px" }}>
-              Loading requests...
-            </div>
-          </div>
-        ) : filteredRequests.length === 0 ? (
-          <div style={cardStyle}>
-            <div style={{ padding: "40px 20px", textAlign: "center" }}>
+          <InboxContainer isEmpty>
+            <div style={{ 
+              padding: "48px", 
+              textAlign: "center", 
+              color: "var(--text-muted)", 
+              fontSize: "14px",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: "12px",
+            }}>
               <div style={{
-                width: "48px",
-                height: "48px",
-                borderRadius: "10px",
-                backgroundColor: "color-mix(in srgb, var(--brand) 10%, transparent)",
-                color: "var(--brand)",
-                display: "inline-flex",
+                width: "40px",
+                height: "40px",
+                borderRadius: "8px",
+                backgroundColor: "var(--input-bg)",
+                display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                marginBottom: "14px",
               }}>
-                <MessageSquare size={20} />
+                <div style={{
+                  width: "16px",
+                  height: "16px",
+                  border: "2px solid var(--card-border)",
+                  borderTopColor: "var(--brand)",
+                  borderRadius: "50%",
+                  animation: "spin 1s linear infinite",
+                }} />
               </div>
-              <h2 style={{ fontSize: "15px", fontWeight: 600, color: "var(--text-primary)", marginBottom: "4px" }}>
+              Loading requests...
+            </div>
+          </InboxContainer>
+        ) : filteredRequests.length === 0 ? (
+          <InboxContainer isEmpty>
+            <div style={{ padding: "48px 24px", textAlign: "center" }}>
+              <div style={{
+                width: "52px",
+                height: "52px",
+                borderRadius: "12px",
+                backgroundColor: "color-mix(in srgb, var(--brand) 8%, var(--card-bg))",
+                color: "var(--brand)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                margin: "0 auto 16px",
+                border: "1px solid var(--card-border)",
+              }}>
+                <Inbox size={22} strokeWidth={1.5} />
+              </div>
+              <h2 style={{ 
+                fontSize: "15px", 
+                fontWeight: 600, 
+                color: "var(--text-primary)", 
+                marginBottom: "6px" 
+              }}>
                 No {activeFilter === "all" ? "" : activeFilter} requests
               </h2>
-              <p style={{ fontSize: "12px", color: "var(--text-muted)", maxWidth: "280px", margin: "0 auto", lineHeight: 1.5 }}>
+              <p style={{ 
+                fontSize: "13px", 
+                color: "var(--text-muted)", 
+                maxWidth: "300px", 
+                margin: "0 auto",
+                lineHeight: 1.5 
+              }}>
                 {activeFilter === "all" 
-                  ? "There are currently no support requests to display."
+                  ? "There are no support requests at the moment."
                   : `No ${activeFilter} requests match this filter.`
                 }
               </p>
             </div>
-          </div>
+          </InboxContainer>
         ) : (
-          <div style={cardStyle}>
-            <div style={{ padding: "12px 20px", borderBottom: "1px solid var(--card-border)", opacity: 0.7 }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                  <div style={{
-                    width: "32px",
-                    height: "32px",
-                    borderRadius: "6px",
-                    backgroundColor: "color-mix(in srgb, var(--brand) 10%, transparent)",
-                    color: "var(--brand)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}>
-                    <Inbox size={15} />
-                  </div>
-                  <div>
-                    <h2 style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-primary)" }}>
-                      Request Inbox
-                    </h2>
-                    <p style={{ fontSize: "10px", color: "var(--text-muted)", marginTop: "1px" }}>
-                      {filteredRequests.length} {filteredRequests.length === 1 ? "request" : "requests"}
-                    </p>
-                  </div>
-                </div>
-                {activeFilter !== "all" && (
-                  <button
-                    onClick={() => setActiveFilter("all")}
-                    style={{
-                      padding: "4px 8px",
-                      borderRadius: "4px",
-                      fontSize: "10px",
-                      fontWeight: 500,
-                      backgroundColor: "var(--input-bg)",
-                      color: "var(--text-muted)",
-                      border: "1px solid var(--card-border)",
-                      cursor: "pointer",
-                    }}
-                  >
-                    Clear filter
-                  </button>
-                )}
-              </div>
-            </div>
+          <InboxContainer>
+            <InboxHeader 
+              count={filteredRequests.length} 
+              activeFilter={activeFilter}
+              onClear={() => setActiveFilter("all")}
+            />
 
-            <div style={{ backgroundColor: "var(--page-bg)" }}>
-              <div style={{ display: "flex", flexDirection: "column" }}>
-                {filteredRequests.map((request, index) => (
-                  <RequestRow
-                    key={request.id}
-                    request={request}
-                    onClick={() => router.push(`/system/support/${request.id}`)}
-                    isLast={index === filteredRequests.length - 1}
-                  />
-                ))}
-              </div>
-            </div>
+            <RequestList>
+              {filteredRequests.map((request) => (
+                <RequestRow
+                  key={request.id}
+                  request={request}
+                  onClick={() => router.push(`/system/support/${request.id}`)}
+                />
+              ))}
+            </RequestList>
 
-            <div style={{
-              padding: "12px 20px",
-              borderTop: "1px solid var(--card-border)",
-              opacity: 0.7,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              flexWrap: "wrap",
-              gap: "8px",
-            }}>
-              <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
-                Open a request to view the conversation.
-              </span>
-              <span style={{ fontSize: "10px", color: "var(--text-muted)" }}>
-                Updated from support requests
-              </span>
-            </div>
-          </div>
+            <InboxFooter />
+          </InboxContainer>
         )}
       </div>
+      <style>{`
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </PageWrapper>
   );
 }
 
-function StatCard({
-  icon,
+function FilterButton({
   label,
   value,
-  color,
   isActive,
   onClick,
+  color,
 }: {
-  icon: React.ReactNode;
   label: string;
   value: number;
-  color: string;
   isActive: boolean;
   onClick: () => void;
+  color: string;
 }) {
   const [isHovered, setIsHovered] = useState(false);
 
@@ -258,60 +257,201 @@ function StatCard({
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       style={{
-        ...cardStyle,
-        padding: "12px 14px",
         display: "flex",
         alignItems: "center",
-        gap: "10px",
+        gap: "8px",
+        padding: "8px 14px",
         cursor: "pointer",
-        border: isActive 
-          ? "1px solid color-mix(in srgb, var(--brand) 40%, transparent)"
-          : "1px solid var(--card-border)",
-        backgroundColor: isActive 
-          ? "color-mix(in srgb, var(--brand) 6%, var(--card-bg))"
-          : "var(--card-bg)",
-        boxShadow: isActive 
-          ? "0 2px 8px rgba(196,151,58,0.1)" 
-          : isHovered 
-            ? "0 2px 6px rgba(0,0,0,0.04)" 
-            : "none",
-        transition: "all 0.15s ease",
+        borderRadius: "7px",
+        border: isActive ? "1px solid color-mix(in srgb, var(--brand) 25%, var(--card-border))" : "1px solid transparent",
+        backgroundColor: isActive ? "var(--card-bg)" : "transparent",
+        boxShadow: isActive ? "0 2px 6px rgba(0,0,0,0.05), 0 1px 3px rgba(0,0,0,0.03)" : "none",
+        transition: "all 0.2s ease",
         textAlign: "left",
       }}
     >
-      <div style={{
-        width: "32px",
-        height: "32px",
-        borderRadius: "6px",
-        backgroundColor: isActive ? `${color}20` : `${color}12`,
-        color: color,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        flexShrink: 0,
+      <span style={{ 
+        fontSize: "13px", 
+        fontWeight: 600, 
+        color: isActive ? "var(--text-primary)" : isHovered ? "var(--text-secondary)" : "var(--text-muted)",
+        transition: "color 0.15s ease",
       }}>
-        {icon}
-      </div>
-      <div>
-        <div style={{ fontSize: "16px", fontWeight: 600, color: "var(--text-primary)", lineHeight: 1.2 }}>
-          {value}
-        </div>
-        <div style={{ fontSize: "10px", color: "var(--text-muted)", marginTop: "1px" }}>
-          {label}
-        </div>
-      </div>
+        {value}
+      </span>
+      <span style={{ 
+        fontSize: "12px", 
+        fontWeight: 500,
+        color: isActive ? color : "var(--text-muted)",
+        opacity: isActive ? 1 : 0.7,
+        transition: "all 0.15s ease",
+      }}>
+        {label}
+      </span>
     </button>
+  );
+}
+
+function InboxContainer({ 
+  children, 
+  isEmpty = false 
+}: { 
+  children: React.ReactNode; 
+  isEmpty?: boolean;
+}) {
+  return (
+    <div style={{
+      backgroundColor: "var(--card-bg)",
+      border: "1px solid var(--card-border)",
+      borderRadius: "12px",
+      boxShadow: isEmpty 
+        ? "0 1px 3px rgba(0,0,0,0.04)" 
+        : "0 4px 12px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.04), 0 0 0 1px rgba(0,0,0,0.02)",
+      overflow: "hidden",
+      position: "relative",
+    }}>
+      <div style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        height: "2px",
+        background: "linear-gradient(90deg, color-mix(in srgb, var(--brand) 50%, #e5e7eb) 0%, color-mix(in srgb, var(--brand) 20%, #f3f4f6) 50%, transparent 100%)",
+        opacity: 0.9,
+      }} />
+      {children}
+    </div>
+  );
+}
+
+function InboxHeader({ 
+  count, 
+  activeFilter, 
+  onClear 
+}: { 
+  count: number; 
+  activeFilter: FilterType;
+  onClear: () => void;
+}) {
+  return (
+    <div style={{ 
+      padding: "16px 20px", 
+      borderBottom: "1px solid var(--card-border)",
+      backgroundColor: "var(--card-bg)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: "14px",
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+        <div style={{
+          width: "34px",
+          height: "34px",
+          borderRadius: "8px",
+          backgroundColor: "color-mix(in srgb, var(--brand) 10%, var(--card-bg))",
+          color: "var(--brand)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          border: "1px solid color-mix(in srgb, var(--brand) 20%, var(--card-border))",
+        }}>
+          <Inbox size={16} strokeWidth={2} />
+        </div>
+        <div>
+          <h2 style={{ 
+            fontSize: "14px", 
+            fontWeight: 600, 
+            color: "var(--text-primary)", 
+            letterSpacing: "-0.1px" 
+          }}>
+            Request Inbox
+          </h2>
+          <p style={{ 
+            fontSize: "11px", 
+            color: "var(--text-muted)", 
+            marginTop: "2px",
+            display: "flex",
+            alignItems: "center",
+            gap: "5px",
+          }}>
+            {count} {count === 1 ? "request" : "requests"}
+            {activeFilter !== "all" && (
+              <>
+                <span style={{ color: "var(--card-border)" }}>·</span>
+                <span style={{ color: "var(--brand)", fontWeight: 500 }}>{activeFilter}</span>
+              </>
+            )}
+          </p>
+        </div>
+      </div>
+      {activeFilter !== "all" && (
+        <button
+          onClick={onClear}
+          style={{
+            padding: "5px 10px",
+            borderRadius: "5px",
+            fontSize: "11px",
+            fontWeight: 500,
+            backgroundColor: "color-mix(in srgb, var(--brand) 8%, var(--card-bg))",
+            color: "var(--brand)",
+            border: "1px solid color-mix(in srgb, var(--brand) 20%, var(--card-border))",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            gap: "4px",
+            transition: "all 0.15s ease",
+          }}
+        >
+          <span style={{ fontSize: "13px", lineHeight: 1 }}>×</span>
+          Clear
+        </button>
+      )}
+    </div>
+  );
+}
+
+function RequestList({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ 
+      backgroundColor: "var(--page-bg)",
+      padding: "14px 14px 18px",
+      display: "flex", 
+      flexDirection: "column",
+      gap: "10px",
+    }}>
+      {children}
+    </div>
+  );
+}
+
+function InboxFooter() {
+  return (
+    <div style={{
+      padding: "12px 20px",
+      borderTop: "1px solid var(--card-border)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      backgroundColor: "var(--card-bg)",
+      flexWrap: "wrap",
+      gap: "6px",
+    }}>
+      <span style={{ fontSize: "11px", color: "var(--text-muted)", display: "flex", alignItems: "center", gap: "5px" }}>
+        <MessageSquare size={11} strokeWidth={1.5} />
+        Open a request to view the conversation
+      </span>
+      <span style={{ fontSize: "10px", color: "var(--text-muted)", opacity: 0.6 }}>
+        Updated from support requests
+      </span>
+    </div>
   );
 }
 
 function RequestRow({
   request,
   onClick,
-  isLast,
 }: {
   request: SubscriptionRequest;
   onClick: () => void;
-  isLast: boolean;
 }) {
   const [isHovered, setIsHovered] = useState(false);
 
@@ -325,37 +465,46 @@ function RequestRow({
         width: "100%",
         display: "flex",
         alignItems: "center",
-        gap: "12px",
-        padding: "14px 20px",
-        backgroundColor: isHovered ? "var(--input-bg)" : "transparent",
-        border: "none",
-        borderBottom: isLast ? "none" : "1px solid var(--card-border)",
+        gap: "16px",
+        padding: "16px 18px",
+        backgroundColor: "var(--card-bg)",
+        border: "1px solid",
+        borderColor: isHovered 
+          ? "color-mix(in srgb, var(--brand) 25%, var(--card-border))" 
+          : "var(--card-border)",
+        borderRadius: "10px",
         cursor: "pointer",
         textAlign: "left",
-        transition: "all 0.15s ease",
+        transition: "all 0.2s ease",
+        position: "relative",
+        boxShadow: isHovered 
+          ? "0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04), 0 0 0 1px color-mix(in srgb, var(--brand) 10%, var(--card-border))" 
+          : "0 1px 3px rgba(0,0,0,0.04), 0 0 0 1px rgba(0,0,0,0.02)",
+        transform: isHovered ? "translateY(-1px)" : "translateY(0)",
       }}
     >
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap", marginBottom: "4px" }}>
+      
+      <div style={{ flex: 1, minWidth: 0, paddingRight: "14px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px", flexWrap: "wrap" }}>
           <span style={{
-            padding: "2px 6px",
-            borderRadius: "999px",
-            fontSize: "9px",
+            padding: "3px 7px",
+            borderRadius: "4px",
+            fontSize: "10px",
             fontWeight: 600,
             textTransform: "uppercase",
-            letterSpacing: "0.2px",
-            backgroundColor: "color-mix(in srgb, var(--brand) 8%, transparent)",
+            letterSpacing: "0.4px",
+            backgroundColor: "color-mix(in srgb, var(--brand) 10%, var(--card-bg))",
             color: "var(--brand)",
-            border: "1px solid color-mix(in srgb, var(--brand) 15%, transparent)",
+            border: "1px solid color-mix(in srgb, var(--brand) 15%, var(--card-border))",
           }}>
             {getTypeLabel(request.type)}
           </span>
           <span style={{
-            padding: "1px 5px",
+            padding: "2px 6px",
             borderRadius: "3px",
             fontSize: "10px",
-            fontWeight: 600,
-            fontFamily: "monospace",
+            fontWeight: 500,
+            fontFamily: "var(--font-mono, monospace)",
             backgroundColor: "var(--input-bg)",
             color: "var(--text-muted)",
             border: "1px solid var(--card-border)",
@@ -364,19 +513,36 @@ function RequestRow({
           </span>
           <StatusBadge status={request.status} />
         </div>
+        
         <div style={{
-          fontSize: "13px",
+          fontSize: "14px",
           fontWeight: 500,
           color: "var(--text-primary)",
           whiteSpace: "nowrap",
           overflow: "hidden",
           textOverflow: "ellipsis",
-          marginBottom: "2px",
+          marginBottom: "5px",
+          letterSpacing: "-0.1px",
+          lineHeight: 1.4,
         }}>
           {request.message || "No description provided"}
         </div>
+        
         {(request.currentPlan || request.requestedPlan) && (
-          <div style={{ fontSize: "11px", color: "var(--text-muted)", opacity: 0.8 }}>
+          <div style={{ 
+            fontSize: "11px", 
+            color: "var(--text-muted)",
+            display: "flex",
+            alignItems: "center",
+            gap: "4px",
+            marginTop: "2px",
+          }}>
+            <span style={{ 
+              color: "var(--text-secondary)",
+              fontWeight: 500,
+            }}>
+              {request.requestedPlan ? `Upgrading` : `On`}
+            </span>
             {formatPlanMovement(request.currentPlan, request.requestedPlan)}
           </div>
         )}
@@ -390,23 +556,30 @@ function RequestRow({
           fontSize: "11px",
           color: "var(--text-muted)",
           whiteSpace: "nowrap",
+          padding: "4px 9px",
+          backgroundColor: "color-mix(in srgb, var(--page-bg) 50%, var(--card-bg))",
+          borderRadius: "5px",
+          border: "1px solid var(--card-border)",
         }}>
-          <Clock size={11} />
-          {new Date(request.createdAt).toLocaleDateString()}
+          <Clock size={10} strokeWidth={2} />
+          {new Date(request.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
         </div>
+        
         <div style={{
-          width: "24px",
-          height: "24px",
+          width: "26px",
+          height: "26px",
           borderRadius: "6px",
-          backgroundColor: isHovered ? "color-mix(in srgb, var(--brand) 8%, transparent)" : "var(--input-bg)",
-          border: `1px solid ${isHovered ? "color-mix(in srgb, var(--brand) 20%, transparent)" : "var(--card-border)"}`,
+          backgroundColor: isHovered ? "var(--brand)" : "color-mix(in srgb, var(--page-bg) 40%, var(--card-bg))",
+          border: "1px solid",
+          borderColor: isHovered ? "var(--brand)" : "var(--card-border)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          color: isHovered ? "var(--brand)" : "var(--text-muted)",
-          transition: "all 0.15s ease",
+          color: isHovered ? "#fff" : "var(--text-muted)",
+          transition: "all 0.18s ease",
+          flexShrink: 0,
         }}>
-          <ChevronRight size={13} />
+          <ChevronRight size={13} strokeWidth={2} />
         </div>
       </div>
     </button>
@@ -424,30 +597,30 @@ function StatusBadge({ status }: { status: string }) {
     bgColor = "#dcfce7";
     textColor = "#166534";
     borderColor = "#86efac";
-    icon = <CheckCircle2 size={9} />;
+    icon = <CheckCircle2 size={10} strokeWidth={2.5} />;
   } else if (key === "rejected") {
     bgColor = "#fee2e2";
     textColor = "#991b1b";
     borderColor = "#fca5a5";
-    icon = <XCircle size={9} />;
+    icon = <XCircle size={10} strokeWidth={2.5} />;
   } else if (key === "contacted" || key === "in_review") {
     bgColor = "#e0f2fe";
     textColor = "#075985";
     borderColor = "#7dd3fc";
-    icon = <AlertCircle size={9} />;
+    icon = <AlertCircle size={10} strokeWidth={2.5} />;
   }
 
   return (
     <span style={{
       display: "inline-flex",
       alignItems: "center",
-      gap: "3px",
-      padding: "2px 6px",
+      gap: "4px",
+      padding: "3px 7px",
       borderRadius: "999px",
-      fontSize: "9px",
+      fontSize: "10px",
       fontWeight: 600,
       textTransform: "uppercase",
-      letterSpacing: "0.2px",
+      letterSpacing: "0.3px",
       backgroundColor: bgColor,
       color: textColor,
       border: `1px solid ${borderColor}`,
@@ -467,10 +640,3 @@ function formatPlanMovement(currentPlan: string | null, requestedPlan: string | 
   }
   return `Current: ${getPlanLabel(currentPlan ?? "")}`;
 }
-
-const cardStyle: React.CSSProperties = {
-  backgroundColor: "var(--card-bg)",
-  border: "1px solid var(--card-border)",
-  borderRadius: "10px",
-  overflow: "hidden",
-};
