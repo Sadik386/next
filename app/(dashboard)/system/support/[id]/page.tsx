@@ -4,22 +4,13 @@ import { PageWrapper } from "@/components/layout/PageWrapper";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft, Send, MessageSquare, Bot, Clock } from "lucide-react";
+import { ArrowLeft, Send, MessageSquare, Bot, Clock, CheckCircle2, AlertCircle, XCircle, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { getStatusLabel, getTypeLabel, getPlanLabel } from "@/lib/ui-labels";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 
 type Note = {
   id: number;
@@ -95,11 +86,11 @@ export default function RequestConversationPage() {
   if (loading) {
     return (
       <PageWrapper>
-        <Card className={surfaceCardClass}>
-          <CardContent className="p-8 text-center text-sm font-medium text-[var(--text-secondary)]">
+        <div style={cardStyle}>
+          <div style={{ padding: "32px", textAlign: "center", color: "var(--text-muted)", fontSize: "14px" }}>
             Loading request details...
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </PageWrapper>
     );
   }
@@ -107,11 +98,11 @@ export default function RequestConversationPage() {
   if (!request) {
     return (
       <PageWrapper>
-        <Card className={surfaceCardClass}>
-          <CardContent className="p-8 text-center text-sm font-medium text-[var(--text-secondary)]">
+        <div style={cardStyle}>
+          <div style={{ padding: "32px", textAlign: "center", color: "var(--text-muted)", fontSize: "14px" }}>
             Request not found
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </PageWrapper>
     );
   }
@@ -120,145 +111,293 @@ export default function RequestConversationPage() {
 
   return (
     <PageWrapper>
-      <div className="mx-auto flex max-w-5xl flex-col gap-5 pb-8 sm:gap-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div style={{ maxWidth: "1180px", margin: "0 auto", width: "100%" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px", flexWrap: "wrap", gap: "12px" }}>
           <Button
             variant="ghost"
-            className="h-10 w-fit rounded-xl px-3 text-[var(--text-secondary)] hover:bg-white hover:text-[var(--text-primary)] hover:shadow-sm"
             onClick={() => router.back()}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "8px",
+              padding: "8px 14px",
+              borderRadius: "8px",
+              border: "1px solid var(--card-border)",
+              backgroundColor: "var(--card-bg)",
+              color: "var(--text-secondary)",
+              fontSize: "13px",
+              fontWeight: 500,
+              cursor: "pointer",
+            }}
           >
-            <ArrowLeft size={16} />
+            <ArrowLeft size={15} />
             Back to Support
           </Button>
-          <StatusPill status={request.status} />
+          <StatusBadge status={request.status} />
         </div>
 
-        <Card className={surfaceCardClass}>
-          <CardHeader className="px-5 py-6 sm:px-7 sm:py-7">
-            <div className="grid gap-5 lg:grid-cols-[1fr_auto] lg:items-start">
-              <div className="min-w-0">
-                <div className="mb-4 flex flex-wrap items-center gap-2">
-                  <TypePill type={request.type} />
-                  <Badge className="rounded-full border border-[#e7ebf0] bg-white px-3 py-1 font-mono text-[11px] font-semibold text-[#7b8493] shadow-sm hover:bg-white">
+        <div style={cardStyle}>
+          <div style={{ padding: "20px", borderBottom: "1px solid var(--card-border)" }}>
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "16px", flexWrap: "wrap" }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", marginBottom: "10px" }}>
+                  <span style={{
+                    padding: "3px 8px",
+                    borderRadius: "999px",
+                    fontSize: "10px",
+                    fontWeight: 600,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.3px",
+                    backgroundColor: "color-mix(in srgb, var(--brand) 10%, transparent)",
+                    color: "var(--brand)",
+                    border: "1px solid color-mix(in srgb, var(--brand) 20%, transparent)",
+                  }}>
+                    {getTypeLabel(request.type)}
+                  </span>
+                  <span style={{
+                    padding: "2px 6px",
+                    borderRadius: "4px",
+                    fontSize: "11px",
+                    fontWeight: 600,
+                    fontFamily: "monospace",
+                    backgroundColor: "var(--input-bg)",
+                    color: "var(--text-muted)",
+                    border: "1px solid var(--card-border)",
+                  }}>
                     #{request.id}
-                  </Badge>
+                  </span>
+                  <StatusBadge status={request.status} />
                 </div>
-                <CardTitle className="text-2xl font-bold tracking-tight text-[var(--text-primary)] sm:text-[28px]">
+                <h1 style={{ fontSize: "18px", fontWeight: 700, color: "var(--text-primary)", marginBottom: "8px" }}>
                   Support Conversation
-                </CardTitle>
-                <CardDescription className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm leading-6 text-[var(--text-secondary)]">
-                  <span className="inline-flex items-center gap-2">
-                    <Clock size={15} />
+                </h1>
+                <div style={{ display: "flex", alignItems: "center", gap: "16px", flexWrap: "wrap", fontSize: "12px", color: "var(--text-muted)" }}>
+                  <span style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+                    <Clock size={13} />
                     {formatDate(request.createdAt)}
                   </span>
                   {(request.currentPlan || request.requestedPlan) && (
                     <span>{formatPlanMovement(request.currentPlan, request.requestedPlan)}</span>
                   )}
-                </CardDescription>
-              </div>
-              <div className="rounded-2xl border border-[#e8eaef] bg-[#f8fafc] px-4 py-3 shadow-sm">
-                <div className="text-xs font-semibold uppercase text-[var(--text-muted)]">
-                  Public replies
                 </div>
-                <div className="mt-1 text-2xl font-bold leading-none text-[var(--text-primary)]">
-                  {publicNotes.length}
+              </div>
+              <div style={{
+                padding: "12px 16px",
+                borderRadius: "10px",
+                backgroundColor: "var(--input-bg)",
+                border: "1px solid var(--card-border)",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+              }}>
+                <MessageSquare size={16} style={{ color: "var(--text-muted)" }} />
+                <div>
+                  <div style={{ fontSize: "10px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px", color: "var(--text-muted)" }}>
+                    Messages
+                  </div>
+                  <div style={{ fontSize: "18px", fontWeight: 700, color: "var(--text-primary)", lineHeight: 1.2 }}>
+                    {publicNotes.length}
+                  </div>
                 </div>
               </div>
             </div>
-          </CardHeader>
-          <Separator className="bg-[#eef1f5]" />
-          <CardContent className="p-5 sm:p-7">
-            <div className="rounded-2xl border border-[#e8edf3] bg-[#f8fafc] p-5 shadow-inner shadow-slate-100/80">
-              <div className="mb-3 flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-[#ece3cf] bg-[#fff8e8] text-[var(--brand)] shadow-sm">
-                  <MessageSquare size={18} />
+          </div>
+
+          <div style={{ padding: "20px" }}>
+            <div style={{
+              padding: "16px",
+              borderRadius: "10px",
+              backgroundColor: "var(--input-bg)",
+              border: "1px solid var(--card-border)",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "12px" }}>
+                <div style={{
+                  width: "36px",
+                  height: "36px",
+                  borderRadius: "8px",
+                  backgroundColor: "color-mix(in srgb, var(--brand) 12%, transparent)",
+                  color: "var(--brand)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}>
+                  <MessageSquare size={16} />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-[var(--text-primary)]">
+                  <div style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-primary)" }}>
                     Original Request
-                  </p>
-                  <p className="text-xs text-[var(--text-muted)]">
+                  </div>
+                  <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>
                     Submitted {formatDate(request.createdAt)}
-                  </p>
+                  </div>
                 </div>
               </div>
-              <p className="whitespace-pre-wrap text-[15px] leading-7 text-[var(--text-secondary)]">
+              <p style={{
+                fontSize: "14px",
+                lineHeight: 1.6,
+                color: "var(--text-secondary)",
+                whiteSpace: "pre-wrap",
+              }}>
                 {request.message || "No description provided."}
               </p>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        <Card className={surfaceCardClass}>
-          <CardHeader className="px-5 py-5 sm:px-7 sm:py-6">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div style={{ ...cardStyle, marginTop: "16px" }}>
+          <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--card-border)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+              <div style={{
+                width: "36px",
+                height: "36px",
+                borderRadius: "8px",
+                backgroundColor: "var(--input-bg)",
+                border: "1px solid var(--card-border)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "var(--text-muted)",
+              }}>
+                <MessageSquare size={16} />
+              </div>
               <div>
-                <CardTitle className="flex items-center gap-3 text-lg font-semibold tracking-normal text-[var(--text-primary)]">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-2xl border border-[#e6edf5] bg-[#f7f9fc] text-[#687386] shadow-sm">
-                    <MessageSquare size={18} />
-                  </span>
+                <h2 style={{ fontSize: "14px", fontWeight: 600, color: "var(--text-primary)" }}>
                   Conversation History
-                </CardTitle>
-                <CardDescription className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
-                  Public messages shared between the customer and support.
-                </CardDescription>
+                </h2>
+                <p style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "2px" }}>
+                  Messages shared between you and support
+                </p>
               </div>
             </div>
-          </CardHeader>
-          <Separator className="bg-[#eef1f5]" />
-          <CardContent className="bg-[#fbfcfe] p-0">
-            <ScrollArea className={publicNotes.length > 4 ? "h-[min(620px,calc(100vh-260px))]" : ""}>
-              <div className="p-4 sm:p-7">
-                {publicNotes.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-[#dce3eb] bg-white px-5 py-10 text-center text-sm font-medium text-[var(--text-secondary)] shadow-sm">
-                    No public replies yet.
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-7">
-                    {publicNotes.map((note) => {
-                      const isAdmin = !note.user.name.toLowerCase().includes("customer");
-                      return <ConversationMessage key={note.id} note={note} isAdmin={isAdmin} />;
-                    })}
-                  </div>
-                )}
-              </div>
-            </ScrollArea>
-          </CardContent>
-        </Card>
+          </div>
 
-        <Card className={surfaceCardClass}>
-          <CardHeader className="px-5 py-5 sm:px-7 sm:py-6">
-            <CardTitle className="text-lg font-semibold tracking-normal text-[var(--text-primary)]">
-              Reply Composer
-            </CardTitle>
-            <CardDescription className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">
-              Send a public reply to continue this support conversation.
-            </CardDescription>
-          </CardHeader>
-          <Separator className="bg-[#eef1f5]" />
-          <CardContent className="p-5 sm:p-7">
+          <div style={{ backgroundColor: "var(--page-bg)", minHeight: "200px" }}>
+            {publicNotes.length === 0 ? (
+              <div style={{ padding: "40px 20px", textAlign: "center" }}>
+                <div style={{
+                  width: "48px",
+                  height: "48px",
+                  borderRadius: "10px",
+                  backgroundColor: "var(--input-bg)",
+                  border: "1px dashed var(--card-border)",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "var(--text-muted)",
+                  marginBottom: "12px",
+                }}>
+                  <MessageSquare size={18} />
+                </div>
+                <p style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
+                  No public replies yet.
+                </p>
+              </div>
+            ) : (
+              <ScrollArea style={{ height: publicNotes.length > 3 ? "min(400px, calc(100vh - 480px))" : "auto" }}>
+                <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: "16px" }}>
+                  {publicNotes.map((note) => {
+                    const isAdmin = !note.user.name.toLowerCase().includes("customer");
+                    return <ConversationMessage key={note.id} note={note} isAdmin={isAdmin} />;
+                  })}
+                </div>
+              </ScrollArea>
+            )}
+          </div>
+        </div>
+
+        <div style={{ ...cardStyle, marginTop: "16px" }}>
+          <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--card-border)", display: "flex", alignItems: "center", gap: "12px" }}>
+            <div style={{
+              width: "36px",
+              height: "36px",
+              borderRadius: "8px",
+              backgroundColor: "color-mix(in srgb, var(--brand) 10%, transparent)",
+              color: "var(--brand)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}>
+              <Send size={16} />
+            </div>
+            <div>
+              <h2 style={{ fontSize: "14px", fontWeight: 600, color: "var(--text-primary)", marginBottom: "2px" }}>
+                Reply Composer
+              </h2>
+              <p style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+                Send a public reply to continue this support conversation.
+              </p>
+            </div>
+          </div>
+
+          <div style={{ padding: "20px" }}>
             <Textarea
               value={reply}
               onChange={(e) => setReply(e.target.value)}
               placeholder="Type your reply..."
-              className="min-h-[168px] resize-y rounded-2xl border-[#e1e6ee] bg-[#fbfcfe] px-4 py-4 text-[15px] leading-7 text-[var(--text-primary)] shadow-inner shadow-slate-100/80 transition placeholder:text-[#9aa4b5] focus-visible:border-[#d4b46a] focus-visible:ring-4 focus-visible:ring-[#C4973A]/15 focus-visible:ring-offset-0"
+              style={{
+                width: "100%",
+                minHeight: "130px",
+                padding: "14px 16px",
+                borderRadius: "10px",
+                border: "1px solid var(--input-border)",
+                backgroundColor: "var(--input-bg)",
+                color: "var(--text-primary)",
+                fontSize: "14px",
+                lineHeight: 1.6,
+                resize: "vertical",
+                outline: "none",
+                transition: "border-color 0.15s ease, box-shadow 0.15s ease",
+              }}
+              onFocus={(e) => {
+                e.target.style.borderColor = "color-mix(in srgb, var(--brand) 50%, transparent)";
+                e.target.style.boxShadow = "0 0 0 3px color-mix(in srgb, var(--brand) 15%, transparent)";
+              }}
+              onBlur={(e) => {
+                e.target.style.borderColor = "var(--input-border)";
+                e.target.style.boxShadow = "none";
+              }}
             />
-          </CardContent>
-          <Separator className="bg-[#eef1f5]" />
-          <CardFooter className="flex flex-col gap-3 bg-[#fbfcfe] px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-7">
-            <p className="text-sm text-[var(--text-secondary)]">
-              Replies are visible in the customer conversation.
-            </p>
+          </div>
+
+          <div style={{
+            padding: "14px 20px",
+            borderTop: "1px solid var(--card-border)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: "12px",
+            backgroundColor: "var(--input-bg)",
+          }}>
+            <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+              Replies are visible in the conversation.
+            </span>
             <Button
               onClick={handleReply}
               disabled={submitting || !reply}
-              className="h-11 w-full rounded-xl bg-[var(--brand)] px-5 font-semibold text-[var(--brand-text)] shadow-[0_14px_28px_rgba(196,151,58,0.22)] transition hover:bg-[var(--brand-hover)] sm:w-auto"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+                padding: "10px 20px",
+                borderRadius: "8px",
+                border: "none",
+                backgroundColor: "var(--brand)",
+                color: "var(--brand-text)",
+                fontSize: "13px",
+                fontWeight: 600,
+                cursor: submitting || !reply ? "not-allowed" : "pointer",
+                opacity: submitting || !reply ? 0.6 : 1,
+                transition: "all 0.15s ease",
+                boxShadow: submitting || !reply ? "none" : "0 6px 16px rgba(196,151,58,0.2)",
+              }}
             >
-              <Send size={16} />
+              <Send size={14} />
               {submitting ? "Sending..." : "Send Reply"}
             </Button>
-          </CardFooter>
-        </Card>
+          </div>
+        </div>
       </div>
     </PageWrapper>
   );
@@ -266,74 +405,168 @@ export default function RequestConversationPage() {
 
 function ConversationMessage({ note, isAdmin }: { note: Note; isAdmin: boolean }) {
   return (
-    <div className={`flex gap-3 sm:gap-4 ${isAdmin ? "justify-end" : "justify-start"}`}>
-      {!isAdmin && <MessageAvatar name={note.user.name} isAdmin={false} />}
-      <div className={`min-w-0 max-w-[calc(100%-3.25rem)] sm:max-w-[76%] ${isAdmin ? "items-end" : "items-start"} flex flex-col gap-2`}>
-        <div className={`flex flex-wrap items-center gap-2 px-1 text-xs text-[var(--text-muted)] ${isAdmin ? "justify-end text-right" : ""}`}>
-          <span className="font-semibold text-[var(--text-primary)]">{note.user.name}</span>
-          <Badge className={`rounded-full border px-2.5 py-0.5 text-[10px] font-semibold shadow-sm ${isAdmin ? "border-[#ece3cf] bg-[#fff8e8] text-[#8a6519] hover:bg-[#fff8e8]" : "border-[#dce3eb] bg-white text-[#687386] hover:bg-white"}`}>
-            {isAdmin ? "Admin" : "Customer"}
-          </Badge>
-          <span>{formatConversationTime(note.createdAt)}</span>
+    <div style={{
+      display: "flex",
+      gap: "12px",
+      justifyContent: isAdmin ? "flex-end" : "flex-start",
+      position: "relative",
+    }}>
+      {!isAdmin && (
+        <div style={{
+          position: "relative",
+          zIndex: 1,
+        }}>
+          <Avatar style={{
+            width: "32px",
+            height: "32px",
+            borderRadius: "8px",
+            border: "1px solid var(--card-border)",
+            backgroundColor: "var(--input-bg)",
+            flexShrink: 0,
+          }}>
+            <AvatarFallback style={{
+              backgroundColor: "transparent",
+              color: "var(--text-muted)",
+              fontSize: "11px",
+              fontWeight: 600,
+            }}>
+              <User size={14} />
+            </AvatarFallback>
+          </Avatar>
         </div>
-        <div className={`min-w-24 rounded-[22px] px-4 py-3 text-[15px] leading-7 shadow-[0_16px_34px_rgba(17,19,24,0.08)] sm:px-5 ${isAdmin ? "rounded-tr-md bg-[var(--brand)] text-[var(--brand-text)] shadow-[0_18px_38px_rgba(196,151,58,0.24)]" : "rounded-tl-md border border-[#e3e9f0] bg-white text-[var(--text-primary)]"}`}>
-          <p className="whitespace-pre-wrap break-words">{note.note}</p>
+      )}
+
+      <div style={{
+        maxWidth: "75%",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: isAdmin ? "flex-end" : "flex-start",
+        gap: "4px",
+      }}>
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "8px",
+          fontSize: "11px",
+          color: "var(--text-muted)",
+          padding: "0 4px",
+        }}>
+          <span style={{ fontWeight: 600, color: "var(--text-primary)", fontSize: "13px" }}>{note.user.name}</span>
+          <span style={{
+            padding: "2px 7px",
+            borderRadius: "999px",
+            fontSize: "9px",
+            fontWeight: 600,
+            textTransform: "uppercase",
+            letterSpacing: "0.3px",
+            backgroundColor: isAdmin ? "color-mix(in srgb, var(--brand) 15%, transparent)" : "var(--input-bg)",
+            color: isAdmin ? "var(--brand)" : "var(--text-muted)",
+            border: `1px solid ${isAdmin ? "color-mix(in srgb, var(--brand) 25%, transparent)" : "var(--card-border)"}`,
+          }}>
+            {isAdmin ? "Support" : "You"}
+          </span>
+          <span style={{ fontSize: "10px", color: "var(--text-muted)" }}>{formatConversationTime(note.createdAt)}</span>
+        </div>
+
+        <div style={{
+          padding: "14px 16px",
+          borderRadius: isAdmin ? "18px 18px 6px 18px" : "18px 18px 18px 6px",
+          fontSize: "14px",
+          lineHeight: 1.6,
+          whiteSpace: "pre-wrap",
+          wordBreak: "break-word",
+          backgroundColor: isAdmin ? "var(--brand)" : "var(--card-bg)",
+          color: isAdmin ? "var(--brand-text)" : "var(--text-primary)",
+          border: isAdmin ? "none" : "1px solid var(--card-border)",
+          boxShadow: isAdmin ? "0 10px 28px rgba(196,151,58,0.22), 0 2px 8px rgba(196,151,58,0.12)" : "0 6px 16px rgba(0,0,0,0.05)",
+          transition: "transform 0.15s ease",
+        }}>
+          {note.note}
         </div>
       </div>
-      {isAdmin && <MessageAvatar name={note.user.name} isAdmin />}
+
+      {isAdmin && (
+        <div style={{
+          position: "relative",
+          zIndex: 1,
+        }}>
+          <Avatar style={{
+            width: "32px",
+            height: "32px",
+            borderRadius: "8px",
+            border: "1px solid color-mix(in srgb, var(--brand) 30%, transparent)",
+            backgroundColor: "color-mix(in srgb, var(--brand) 12%, transparent)",
+            color: "var(--brand)",
+            flexShrink: 0,
+          }}>
+            <AvatarFallback style={{
+              backgroundColor: "transparent",
+              color: "var(--brand)",
+              fontSize: "11px",
+              fontWeight: 600,
+            }}>
+              <Bot size={14} />
+            </AvatarFallback>
+          </Avatar>
+        </div>
+      )}
     </div>
   );
 }
 
-function MessageAvatar({ name, isAdmin }: { name: string; isAdmin: boolean }) {
-  return (
-    <Avatar className={`h-10 w-10 border shadow-sm sm:h-11 sm:w-11 ${isAdmin ? "border-[#ece3cf] bg-[#fff8e8] text-[var(--brand)]" : "border-[#dce3eb] bg-white text-[#687386]"}`}>
-      <AvatarFallback className="bg-transparent text-xs font-bold">
-        {isAdmin ? <Bot size={17} /> : getInitials(name)}
-      </AvatarFallback>
-    </Avatar>
-  );
-}
-
-function TypePill({ type }: { type: string }) {
-  return (
-    <Badge className="rounded-full border border-[#ece3cf] bg-[#fff8e8] px-3 py-1 text-[11px] font-semibold text-[#8a6519] shadow-sm hover:bg-[#fff8e8]">
-      {getTypeLabel(type)}
-    </Badge>
-  );
-}
-
-function StatusPill({ status }: { status: string }) {
-  return (
-    <Badge className={`w-fit rounded-full border px-3 py-1 text-[11px] font-semibold shadow-sm ${getStatusBadgeClass(status)}`}>
-      <span className="mr-1.5 h-1.5 w-1.5 rounded-full bg-current" />
-      {getStatusLabel(status)}
-    </Badge>
-  );
-}
-
-function getStatusBadgeClass(status: string): string {
+function StatusBadge({ status }: { status: string }) {
   const key = status.toLowerCase();
+  let bgColor = "#fef3c7";
+  let textColor = "#92400e";
+  let borderColor = "#fcd34d";
+  let icon = null;
+
   if (key === "approved" || key === "resolved") {
-    return "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-50";
+    bgColor = "#dcfce7";
+    textColor = "#166534";
+    borderColor = "#86efac";
+    icon = <CheckCircle2 size={10} />;
+  } else if (key === "rejected") {
+    bgColor = "#fee2e2";
+    textColor = "#991b1b";
+    borderColor = "#fca5a5";
+    icon = <XCircle size={10} />;
+  } else if (key === "contacted" || key === "in_review") {
+    bgColor = "#e0f2fe";
+    textColor = "#075985";
+    borderColor = "#7dd3fc";
+    icon = <AlertCircle size={10} />;
   }
-  if (key === "rejected") {
-    return "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-50";
-  }
-  if (key === "contacted" || key === "in_review") {
-    return "border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-50";
-  }
-  return "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-50";
+
+  return (
+    <span style={{
+      display: "inline-flex",
+      alignItems: "center",
+      gap: "5px",
+      padding: "6px 12px",
+      borderRadius: "999px",
+      fontSize: "11px",
+      fontWeight: 600,
+      textTransform: "uppercase",
+      letterSpacing: "0.3px",
+      backgroundColor: bgColor,
+      color: textColor,
+      border: `1px solid ${borderColor}`,
+    }}>
+      {icon}
+      {getStatusLabel(status)}
+    </span>
+  );
 }
 
 function formatPlanMovement(currentPlan: string | null, requestedPlan: string | null): string {
   if (currentPlan && requestedPlan) {
-    return `${getPlanLabel(currentPlan)} to ${getPlanLabel(requestedPlan)}`;
+    return `${getPlanLabel(currentPlan)} → ${getPlanLabel(requestedPlan)}`;
   }
   if (requestedPlan) {
-    return `Requested plan: ${getPlanLabel(requestedPlan)}`;
+    return `Requested: ${getPlanLabel(requestedPlan)}`;
   }
-  return `Current plan: ${getPlanLabel(currentPlan ?? "")}`;
+  return `Current: ${getPlanLabel(currentPlan ?? "")}`;
 }
 
 function formatDate(value: string): string {
@@ -352,16 +585,9 @@ function formatConversationTime(value: string): string {
   })}`;
 }
 
-function getInitials(name: string): string {
-  const initials = name
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join("");
-
-  return initials || "?";
-}
-
-const surfaceCardClass =
-  "overflow-hidden rounded-2xl border border-[#e8eaef] bg-white text-[var(--text-primary)] shadow-[0_22px_70px_rgba(17,19,24,0.08)]";
+const cardStyle: React.CSSProperties = {
+  backgroundColor: "var(--card-bg)",
+  border: "1px solid var(--card-border)",
+  borderRadius: "12px",
+  overflow: "hidden",
+};

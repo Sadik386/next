@@ -4,18 +4,9 @@ import { PageWrapper } from "@/components/layout/PageWrapper";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { getPlanLabel, getStatusLabel, getTypeLabel } from "@/lib/ui-labels";
-import { ChevronRight, Clock, Inbox, MessageSquare } from "lucide-react";
+import { ChevronRight, Clock, Inbox, MessageSquare, CheckCircle2, AlertCircle, XCircle } from "lucide-react";
 
 type SubscriptionRequest = {
   id: number;
@@ -52,176 +43,381 @@ export default function SupportPage() {
     fetchRequests();
   }, []);
 
+  const openCount = requests.filter(r => !["resolved", "approved", "rejected"].includes(r.status.toLowerCase())).length;
+  const resolvedCount = requests.filter(r => ["resolved", "approved"].includes(r.status.toLowerCase())).length;
+
   return (
     <PageWrapper>
-      <div className="flex flex-col gap-6 pb-8">
-        <SupportHero requestCount={requests.length} loading={loading} />
+      <div style={{ maxWidth: "1180px", margin: "0 auto", width: "100%" }}>
+        <div style={{ marginBottom: "24px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+            <span style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "4px 10px",
+              borderRadius: "999px",
+              fontSize: "11px",
+              fontWeight: 600,
+              textTransform: "uppercase",
+              letterSpacing: "0.5px",
+              backgroundColor: "color-mix(in srgb, var(--brand) 12%, transparent)",
+              color: "var(--brand)",
+              border: "1px solid color-mix(in srgb, var(--brand) 20%, transparent)",
+            }}>
+              <MessageSquare size={12} />
+              Support Center
+            </span>
+          </div>
+          <h1 style={{ fontSize: "22px", fontWeight: 700, color: "var(--text-primary)" }}>
+            Support Requests
+          </h1>
+          <p style={{ fontSize: "13px", color: "var(--text-secondary)", marginTop: "4px" }}>
+            Manage your subscription questions and support follow-ups from one clean inbox.
+          </p>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px", marginBottom: "20px" }}>
+          <StatCard
+            icon={<Inbox size={18} />}
+            label="Total Requests"
+            value={requests.length}
+            color="#687386"
+          />
+          <StatCard
+            icon={<AlertCircle size={18} />}
+            label="Open"
+            value={openCount}
+            color="#f59e0b"
+          />
+          <StatCard
+            icon={<CheckCircle2 size={18} />}
+            label="Resolved"
+            value={resolvedCount}
+            color="#22c55e"
+          />
+        </div>
 
         {loading ? (
-          <Card className={surfaceCardClass}>
-            <CardContent className="p-8 text-center text-sm font-medium text-[var(--text-secondary)]">
+          <div style={cardStyle}>
+            <div style={{ padding: "32px", textAlign: "center", color: "var(--text-muted)", fontSize: "14px" }}>
               Loading requests...
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         ) : requests.length === 0 ? (
-          <Card className={surfaceCardClass}>
-            <CardContent className="px-5 py-12 sm:px-8">
-              <div className="mx-auto flex max-w-sm flex-col items-center text-center">
-                <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-[#ece3cf] bg-[#fff8e8] text-[var(--brand)] shadow-[0_12px_28px_rgba(196,151,58,0.14)]">
-                  <MessageSquare size={24} strokeWidth={1.8} />
-                </div>
-                <h2 className="text-lg font-semibold text-[var(--text-primary)]">
-                  No support requests
-                </h2>
-                <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
-                  There are currently no open support or subscription requests to display.
-                </p>
+          <div style={cardStyle}>
+            <div style={{ padding: "40px 20px", textAlign: "center" }}>
+              <div style={{
+                width: "56px",
+                height: "56px",
+                borderRadius: "12px",
+                backgroundColor: "color-mix(in srgb, var(--brand) 10%, transparent)",
+                color: "var(--brand)",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                marginBottom: "16px",
+              }}>
+                <MessageSquare size={24} />
               </div>
-            </CardContent>
-          </Card>
+              <h2 style={{ fontSize: "16px", fontWeight: 600, color: "var(--text-primary)", marginBottom: "6px" }}>
+                No support requests
+              </h2>
+              <p style={{ fontSize: "13px", color: "var(--text-secondary)", maxWidth: "320px", margin: "0 auto", lineHeight: 1.5 }}>
+                There are currently no open support or subscription requests to display.
+              </p>
+            </div>
+          </div>
         ) : (
-          <Card className={surfaceCardClass}>
-            <CardHeader className="px-5 py-5 sm:px-7 sm:py-6">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex min-w-0 items-start gap-4">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#ece3cf] bg-[#fff8e8] text-[var(--brand)] shadow-[0_12px_28px_rgba(196,151,58,0.12)]">
-                    <Inbox size={20} strokeWidth={1.9} />
+          <div style={cardStyle}>
+            <div style={{ padding: "14px 20px", borderBottom: "1px solid var(--card-border)" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  <div style={{
+                    width: "38px",
+                    height: "38px",
+                    borderRadius: "8px",
+                    backgroundColor: "color-mix(in srgb, var(--brand) 10%, transparent)",
+                    color: "var(--brand)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}>
+                    <Inbox size={17} />
                   </div>
-                  <div className="min-w-0">
-                    <CardTitle className="text-lg font-semibold tracking-normal text-[var(--text-primary)]">
+                  <div>
+                    <h2 style={{ fontSize: "14px", fontWeight: 600, color: "var(--text-primary)" }}>
                       Request Inbox
-                    </CardTitle>
-                    <CardDescription className="mt-1.5 text-sm leading-6 text-[var(--text-secondary)]">
-                      Review the latest customer messages and subscription requests.
-                    </CardDescription>
+                    </h2>
+                    <p style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "2px" }}>
+                      Review your messages and subscription requests
+                    </p>
                   </div>
                 </div>
-                <Badge className="w-fit rounded-full border border-[#e6edf5] bg-[#f7f9fc] px-3 py-1 text-xs font-semibold text-[#536173] shadow-sm hover:bg-[#f7f9fc]">
+                <span style={{
+                  padding: "4px 10px",
+                  borderRadius: "999px",
+                  fontSize: "11px",
+                  fontWeight: 600,
+                  backgroundColor: "var(--input-bg)",
+                  color: "var(--text-secondary)",
+                  border: "1px solid var(--card-border)",
+                }}>
                   {requests.length} {requests.length === 1 ? "request" : "requests"}
-                </Badge>
+                </span>
               </div>
-            </CardHeader>
-            <Separator className="bg-[#eef1f5]" />
-            <CardContent className="bg-[#fbfcfe] p-3 sm:p-4">
-              <div className="flex flex-col gap-3">
-                {requests.map((request) => (
-                  <button
+            </div>
+
+            <div style={{ backgroundColor: "var(--page-bg)" }}>
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                {requests.map((request, index) => (
+                  <RequestRow
                     key={request.id}
-                    type="button"
-                    className="group grid w-full gap-4 rounded-2xl border border-[#e7ebf0] bg-white p-4 text-left shadow-[0_10px_26px_rgba(17,19,24,0.04)] transition-all duration-200 hover:border-[#ece3cf] hover:bg-[#fffaf0] hover:shadow-[0_18px_38px_rgba(17,19,24,0.08)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#C4973A]/15 sm:grid-cols-[1fr_auto] sm:items-center sm:p-5"
+                    request={request}
                     onClick={() => router.push(`/system/support/${request.id}`)}
-                  >
-                    <div className="min-w-0">
-                      <div className="mb-3 flex flex-wrap items-center gap-2">
-                        <TypePill type={request.type} />
-                        <Badge className="rounded-full border border-[#e7ebf0] bg-white px-2.5 py-1 font-mono text-[11px] font-semibold text-[#7b8493] shadow-sm hover:bg-white">
-                          #{request.id}
-                        </Badge>
-                        <StatusPill status={request.status} />
-                      </div>
-                      <p className="truncate text-[15px] font-semibold leading-6 text-[var(--text-primary)]">
-                        {request.message || "No description provided"}
-                      </p>
-                      {(request.currentPlan || request.requestedPlan) && (
-                        <p className="mt-1.5 text-sm leading-5 text-[var(--text-secondary)]">
-                          {formatPlanMovement(request.currentPlan, request.requestedPlan)}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex items-center justify-between gap-3 text-sm text-[var(--text-muted)] sm:justify-end">
-                      <span className="inline-flex items-center gap-2 whitespace-nowrap rounded-full bg-[#f7f9fc] px-3 py-1.5 text-xs font-medium text-[#687386]">
-                        <Clock size={14} />
-                        {new Date(request.createdAt).toLocaleDateString()}
-                      </span>
-                      <span className="flex h-9 w-9 items-center justify-center rounded-full border border-[#e7ebf0] bg-white text-[#8a94a6] shadow-sm transition-all group-hover:translate-x-0.5 group-hover:border-[#e6d8b7] group-hover:text-[var(--brand)]">
-                        <ChevronRight size={17} />
-                      </span>
-                    </div>
-                  </button>
+                    isLast={index === requests.length - 1}
+                  />
                 ))}
               </div>
-            </CardContent>
-            <Separator className="bg-[#eef1f5]" />
-            <CardFooter className="flex flex-col gap-2 px-5 py-4 text-sm text-[var(--text-secondary)] sm:flex-row sm:items-center sm:justify-between sm:px-7">
-              <span>Open a request to view the conversation and respond.</span>
-              <span className="text-xs font-medium text-[var(--text-muted)]">
+            </div>
+
+            <div style={{
+              padding: "14px 20px",
+              borderTop: "1px solid var(--card-border)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              flexWrap: "wrap",
+              gap: "8px",
+            }}>
+              <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+                Open a request to view the conversation and respond.
+              </span>
+              <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
                 Updated from support requests
               </span>
-            </CardFooter>
-          </Card>
+            </div>
+          </div>
         )}
       </div>
     </PageWrapper>
   );
 }
 
-function SupportHero({ requestCount, loading }: { requestCount: number; loading: boolean }) {
+function StatCard({
+  icon,
+  label,
+  value,
+  color,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: number;
+  color: string;
+}) {
   return (
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-      <div className="min-w-0">
-        <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#e6edf5] bg-white px-3 py-1 text-xs font-semibold uppercase text-[#687386] shadow-sm">
-          <MessageSquare size={13} />
-          Support center
-        </div>
-        <h1 className="text-2xl font-bold tracking-tight text-[var(--text-primary)] sm:text-[28px]">
-          Support Requests
-        </h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--text-secondary)]">
-          Manage customer subscription questions and support follow-ups from one clean inbox.
-        </p>
+    <div style={{
+      ...cardStyle,
+      padding: "14px 16px",
+      display: "flex",
+      alignItems: "center",
+      gap: "12px",
+    }}>
+      <div style={{
+        width: "36px",
+        height: "36px",
+        borderRadius: "8px",
+        backgroundColor: `${color}15`,
+        color: color,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        flexShrink: 0,
+      }}>
+        {icon}
       </div>
-      <div className="w-fit rounded-2xl border border-[#e8eaef] bg-white px-4 py-3 shadow-[0_12px_30px_rgba(17,19,24,0.06)]">
-        <div className="text-2xl font-bold leading-none text-[var(--text-primary)]">
-          {loading ? "-" : requestCount}
+      <div>
+        <div style={{ fontSize: "18px", fontWeight: 700, color: "var(--text-primary)", lineHeight: 1.2 }}>
+          {value}
         </div>
-        <div className="mt-1 text-xs font-medium text-[var(--text-secondary)]">
-          total requests
+        <div style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "1px" }}>
+          {label}
         </div>
       </div>
     </div>
   );
 }
 
-function TypePill({ type }: { type: string }) {
+function RequestRow({
+  request,
+  onClick,
+  isLast,
+}: {
+  request: SubscriptionRequest;
+  onClick: () => void;
+  isLast: boolean;
+}) {
+  const [isHovered, setIsHovered] = useState(false);
+
   return (
-    <Badge className="rounded-full border border-[#ece3cf] bg-[#fff8e8] px-3 py-1 text-[11px] font-semibold text-[#8a6519] shadow-sm hover:bg-[#fff8e8]">
-      {getTypeLabel(type)}
-    </Badge>
+    <button
+      type="button"
+      onClick={onClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={{
+        width: "100%",
+        display: "flex",
+        alignItems: "center",
+        gap: "16px",
+        padding: "16px 20px",
+        backgroundColor: isHovered ? "var(--input-bg)" : "transparent",
+        border: "none",
+        borderBottom: isLast ? "none" : "1px solid var(--card-border)",
+        cursor: "pointer",
+        textAlign: "left",
+        transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+        transform: isHovered ? "translateY(-1px)" : "translateY(0)",
+        boxShadow: isHovered ? "0 4px 12px rgba(0, 0, 0, 0.06)" : "none",
+      }}
+    >
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", marginBottom: "6px" }}>
+          <span style={{
+            padding: "3px 8px",
+            borderRadius: "999px",
+            fontSize: "10px",
+            fontWeight: 600,
+            textTransform: "uppercase",
+            letterSpacing: "0.3px",
+            backgroundColor: "color-mix(in srgb, var(--brand) 10%, transparent)",
+            color: "var(--brand)",
+            border: "1px solid color-mix(in srgb, var(--brand) 20%, transparent)",
+          }}>
+            {getTypeLabel(request.type)}
+          </span>
+          <span style={{
+            padding: "2px 6px",
+            borderRadius: "4px",
+            fontSize: "11px",
+            fontWeight: 600,
+            fontFamily: "monospace",
+            backgroundColor: "var(--input-bg)",
+            color: "var(--text-muted)",
+            border: "1px solid var(--card-border)",
+          }}>
+            #{request.id}
+          </span>
+          <StatusBadge status={request.status} />
+        </div>
+        <div style={{
+          fontSize: "14px",
+          fontWeight: 500,
+          color: "var(--text-primary)",
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          marginBottom: "4px",
+        }}>
+          {request.message || "No description provided"}
+        </div>
+        {(request.currentPlan || request.requestedPlan) && (
+          <div style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+            {formatPlanMovement(request.currentPlan, request.requestedPlan)}
+          </div>
+        )}
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", gap: "12px", flexShrink: 0 }}>
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "5px",
+          fontSize: "12px",
+          color: "var(--text-muted)",
+          whiteSpace: "nowrap",
+        }}>
+          <Clock size={13} />
+          {new Date(request.createdAt).toLocaleDateString()}
+        </div>
+        <div style={{
+          width: "28px",
+          height: "28px",
+          borderRadius: "8px",
+          backgroundColor: isHovered ? "color-mix(in srgb, var(--brand) 10%, transparent)" : "var(--input-bg)",
+          border: `1px solid ${isHovered ? "color-mix(in srgb, var(--brand) 30%, transparent)" : "var(--card-border)"}`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: isHovered ? "var(--brand)" : "var(--text-muted)",
+          transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+          transform: isHovered ? "translateX(2px)" : "translateX(0)",
+        }}>
+          <ChevronRight size={15} />
+        </div>
+      </div>
+    </button>
   );
 }
 
-function StatusPill({ status }: { status: string }) {
-  return (
-    <Badge className={`rounded-full border px-3 py-1 text-[11px] font-semibold shadow-sm ${getStatusBadgeClass(status)}`}>
-      <span className="mr-1.5 h-1.5 w-1.5 rounded-full bg-current" />
-      {getStatusLabel(status)}
-    </Badge>
-  );
-}
-
-function getStatusBadgeClass(status: string): string {
+function StatusBadge({ status }: { status: string }) {
   const key = status.toLowerCase();
+  let bgColor = "#fef3c7";
+  let textColor = "#92400e";
+  let borderColor = "#fcd34d";
+  let icon = null;
+
   if (key === "approved" || key === "resolved") {
-    return "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-50";
+    bgColor = "#dcfce7";
+    textColor = "#166534";
+    borderColor = "#86efac";
+    icon = <CheckCircle2 size={10} />;
+  } else if (key === "rejected") {
+    bgColor = "#fee2e2";
+    textColor = "#991b1b";
+    borderColor = "#fca5a5";
+    icon = <XCircle size={10} />;
+  } else if (key === "contacted" || key === "in_review") {
+    bgColor = "#e0f2fe";
+    textColor = "#075985";
+    borderColor = "#7dd3fc";
+    icon = <AlertCircle size={10} />;
   }
-  if (key === "rejected") {
-    return "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-50";
-  }
-  if (key === "contacted" || key === "in_review") {
-    return "border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-50";
-  }
-  return "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-50";
+
+  return (
+    <span style={{
+      display: "inline-flex",
+      alignItems: "center",
+      gap: "4px",
+      padding: "3px 8px",
+      borderRadius: "999px",
+      fontSize: "10px",
+      fontWeight: 600,
+      textTransform: "uppercase",
+      letterSpacing: "0.3px",
+      backgroundColor: bgColor,
+      color: textColor,
+      border: `1px solid ${borderColor}`,
+    }}>
+      {icon}
+      {getStatusLabel(status)}
+    </span>
+  );
 }
 
 function formatPlanMovement(currentPlan: string | null, requestedPlan: string | null): string {
   if (currentPlan && requestedPlan) {
-    return `${getPlanLabel(currentPlan)} to ${getPlanLabel(requestedPlan)}`;
+    return `${getPlanLabel(currentPlan)} → ${getPlanLabel(requestedPlan)}`;
   }
   if (requestedPlan) {
-    return `Requested plan: ${getPlanLabel(requestedPlan)}`;
+    return `Requested: ${getPlanLabel(requestedPlan)}`;
   }
-  return `Current plan: ${getPlanLabel(currentPlan ?? "")}`;
+  return `Current: ${getPlanLabel(currentPlan ?? "")}`;
 }
 
-const surfaceCardClass =
-  "overflow-hidden rounded-2xl border border-[#e8eaef] bg-white text-[var(--text-primary)] shadow-[0_22px_70px_rgba(17,19,24,0.08)]";
+const cardStyle: React.CSSProperties = {
+  backgroundColor: "var(--card-bg)",
+  border: "1px solid var(--card-border)",
+  borderRadius: "12px",
+  overflow: "hidden",
+};

@@ -12,12 +12,12 @@ import {
 
 const tabs = [
   { label: "Business Settings", href: "/system/settings", icon: Settings },
-  { label: "Import & Export", href: "/system/import-export", icon: Import },
-  { label: "Registration Requests", href: "/system/registration-requests", icon: UserPlus },
-  { label: "Delete Requests", href: "/system/delete-requests", icon: Trash2 },
   { label: "Users", href: "/system/users", icon: Users },
   { label: "Roles & Permissions", href: "/system/roles-permissions", icon: Shield },
   { label: "Support", href: "/system/support", icon: HelpCircle },
+  { label: "Import & Export", href: "/system/import-export", icon: Import },
+  { label: "Registration Requests", href: "/system/registration-requests", icon: UserPlus },
+  { label: "Delete Requests", href: "/system/delete-requests", icon: Trash2 },
 ];
 
 export default function SystemLayout({ children }: { children: React.ReactNode }) {
