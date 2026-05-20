@@ -11,7 +11,7 @@ import {
   ArrowLeft,
   ShieldCheck,
   FileText,
-  MessageSquare
+  Headphones
 } from "lucide-react";
 import { Toaster } from "sonner";
 import { useEffect, useState } from "react";
@@ -20,7 +20,7 @@ import { UserAvatar } from "@/components/ui/UserAvatar";
 const NAV_ITEMS = [
   { label: "Overview", href: "/platform", icon: LayoutDashboard },
   { label: "Businesses", href: "/platform/businesses", icon: Building2 },
-  { label: "Requests", href: "/platform/requests", icon: MessageSquare },
+  { label: "Support", href: "/platform/support", icon: Headphones },
   { label: "Plans", href: "/platform/plans", icon: CreditCard },
   { label: "Usage", href: "/platform/usage", icon: BarChart3 },
   { label: "Email Policy", href: "/platform/email", icon: Mail },

@@ -1,0 +1,54 @@
+import { NextRequest, NextResponse } from "next/server";
+import { requirePlatformAdmin } from "@/lib/platform-auth";
+import { getSubscriptionRequestById, updateSubscriptionRequestStatus, addRequestNote } from "@/services/subscription-request.service";
+
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requirePlatformAdmin(req);
+  if (auth instanceof NextResponse) return auth;
+
+  try {
+    const { id } = await params;
+    const request = await getSubscriptionRequestById(parseInt(id));
+    
+    if (!request) {
+      return NextResponse.json({ success: false, message: "Request not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true, data: request });
+  } catch (error: any) {
+    console.error("Error fetching support request:", error);
+    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+  }
+}
+
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requirePlatformAdmin(req);
+  if (auth instanceof NextResponse) return auth;
+
+  try {
+    const { id } = await params;
+    const body = await req.json();
+    const { status, adminNote, userId } = body;
+
+    if (!status) {
+      return NextResponse.json({ success: false, message: "Status is required" }, { status: 400 });
+    }
+
+    const validStatuses = ["pending", "in_review", "contacted", "approved", "rejected", "resolved"];
+    if (!validStatuses.includes(status)) {
+      return NextResponse.json({ success: false, message: "Invalid status" }, { status: 400 });
+    }
+
+    const updated = await updateSubscriptionRequestStatus({
+      id: parseInt(id),
+      status,
+      adminNote,
+      userId: userId || auth.user.id,
+    });
+
+    return NextResponse.json({ success: true, data: updated });
+  } catch (error: any) {
+    console.error("Error updating support request:", error);
+    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+  }
+}

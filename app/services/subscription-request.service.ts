@@ -50,7 +50,7 @@ export async function getPlatformSubscriptionRequests(params: {
   if (search) {
     where.OR = [
       { business: { name: { contains: search } } },
-      { requester: { name: { contains: search } } },
+      { user: { name: { contains: search } } },
     ];
   }
 
@@ -59,7 +59,7 @@ export async function getPlatformSubscriptionRequests(params: {
       where,
       include: {
         business: { select: { id: true, name: true, slug: true } },
-        requester: { select: { id: true, name: true, email: true } },
+        user: { select: { id: true, name: true, email: true } },
         notes: { include: { user: { select: { name: true } } }, orderBy: { createdAt: 'desc' } }
       },
       orderBy: { createdAt: "desc" },
@@ -77,8 +77,8 @@ export async function getSubscriptionRequestById(id: number) {
     where: { id },
     include: {
       business: { select: { id: true, name: true, slug: true } },
-      requester: { select: { id: true, name: true, email: true } },
-      notes: { include: { user: { select: { name: true } } }, orderBy: { createdAt: 'desc' } }
+      user: { select: { id: true, name: true, email: true } },
+      notes: { include: { user: { select: { name: true } } }, orderBy: { createdAt: 'asc' } }
     }
   });
 }
@@ -92,10 +92,26 @@ export async function updateSubscriptionRequestStatus(params: {
   const { id, status, adminNote, userId } = params;
 
   return prisma.$transaction(async (tx) => {
+    const current = await tx.subscriptionRequest.findUnique({
+      where: { id },
+      select: { status: true }
+    });
+
     const updated = await tx.subscriptionRequest.update({
       where: { id },
       data: { status },
     });
+
+    if (current && current.status !== status) {
+      await tx.requestNote.create({
+        data: {
+          requestId: id,
+          userId: userId,
+          note: `Status changed from ${current.status.replace('_', ' ')} to ${status.replace('_', ' ')}`,
+          visibility: "internal",
+        },
+      });
+    }
 
     if (adminNote) {
       await tx.requestNote.create({
@@ -103,6 +119,7 @@ export async function updateSubscriptionRequestStatus(params: {
           requestId: id,
           userId: userId,
           note: adminNote,
+          visibility: "internal",
         },
       });
     }
@@ -117,7 +134,7 @@ export async function getBusinessSubscriptionRequests(businessId: number) {
     include: {
       notes: {
         include: { user: { select: { name: true } } },
-        orderBy: { createdAt: 'desc' }
+        orderBy: { createdAt: 'asc' }
       }
     },
     orderBy: { createdAt: "desc" },
