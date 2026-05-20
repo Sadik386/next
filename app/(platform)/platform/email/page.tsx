@@ -6,10 +6,55 @@ import {
   AlertTriangle,
   Server,
   Building2,
-  CheckCircle2
+  CheckCircle2,
+  XCircle,
+  Loader2
 } from "lucide-react";
+import { useState, useEffect } from "react";
+
+interface EmailConfigStatus {
+  success: boolean;
+  configured: boolean;
+  smtpHost: string | null;
+  smtpFromEmail: string | null;
+  smtpFromName: string;
+}
 
 export default function PlatformEmailPolicy() {
+  const [configStatus, setConfigStatus] = useState<EmailConfigStatus | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  useEffect(() => {
+    fetch("/api/platform/email")
+      .then(res => res.json())
+      .then(data => {
+        setConfigStatus(data);
+        setLoading(false);
+      })
+      .catch(() => {
+        setLoading(false);
+      });
+  }, []);
+
+  const handleTestEmail = async () => {
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const res = await fetch("/api/platform/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "test" }),
+      });
+      const data = await res.json();
+      setTestResult({ success: data.success, message: data.message });
+    } catch {
+      setTestResult({ success: false, message: "Failed to send test email" });
+    }
+    setTesting(false);
+  };
+
   return (
     <div>
       <div style={{ marginBottom: "32px" }}>
@@ -54,14 +99,66 @@ export default function PlatformEmailPolicy() {
           <h3 style={{ fontSize: "16px", fontWeight: 600, color: "var(--text-primary)" }}>Platform SMTP Configuration</h3>
         </div>
         
-        <div style={{ padding: "24px", backgroundColor: "var(--page-bg)", borderRadius: "8px", border: "1px solid var(--card-border)", textAlign: "center" }}>
-          <Mail size={32} color="var(--text-muted)" style={{ margin: "0 auto 12px" }} />
-          <h4 style={{ fontSize: "15px", fontWeight: 600, color: "var(--text-primary)", marginBottom: "8px" }}>Platform SMTP Configuration</h4>
-          <p style={{ fontSize: "13px", color: "var(--text-muted)", maxWidth: "400px", margin: "0 auto" }}>
-            Platform SMTP is currently configured via environment variables (`SMTP_HOST`, `SMTP_USER`, etc.). 
-            A dedicated UI for managing platform SMTP settings will be added in a future release.
-          </p>
-        </div>
+        {loading ? (
+          <div style={{ padding: "24px", textAlign: "center" }}>
+            <Loader2 size={24} className="animate-spin" style={{ margin: "0 auto", color: "var(--text-muted)" }} />
+          </div>
+        ) : configStatus?.configured ? (
+          <div style={{ padding: "20px", backgroundColor: "var(--page-bg)", borderRadius: "8px", border: "1px solid var(--card-border)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
+              <CheckCircle2 size={18} color="#16a34a" />
+              <span style={{ fontSize: "14px", fontWeight: 600, color: "#16a34a" }}>Configured</span>
+            </div>
+            <div style={{ display: "grid", gap: "8px", fontSize: "13px", color: "var(--text-secondary)" }}>
+              <div><strong>SMTP Host:</strong> {configStatus.smtpHost}</div>
+              <div><strong>From Email:</strong> {configStatus.smtpFromEmail}</div>
+              <div><strong>From Name:</strong> {configStatus.smtpFromName}</div>
+            </div>
+            <div style={{ marginTop: "16px", paddingTop: "16px", borderTop: "1px solid var(--card-border)" }}>
+              <button
+                onClick={handleTestEmail}
+                disabled={testing}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  padding: "8px 16px",
+                  backgroundColor: "var(--brand)",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: "6px",
+                  fontSize: "13px",
+                  fontWeight: 500,
+                  cursor: testing ? "not-allowed" : "pointer",
+                  opacity: testing ? 0.7 : 1,
+                }}
+              >
+                {testing ? <Loader2 size={14} className="animate-spin" /> : <Mail size={14} />}
+                Send Test Email
+              </button>
+              {testResult && (
+                <div style={{ 
+                  marginTop: "12px", 
+                  padding: "10px", 
+                  borderRadius: "6px",
+                  backgroundColor: testResult.success ? "#dcfce7" : "#fef2f2",
+                  color: testResult.success ? "#166534" : "#991b1b",
+                  fontSize: "13px"
+                }}>
+                  {testResult.message}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div style={{ padding: "24px", backgroundColor: "var(--page-bg)", borderRadius: "8px", border: "1px solid var(--card-border)", textAlign: "center" }}>
+            <XCircle size={32} color="var(--text-muted)" style={{ margin: "0 auto 12px" }} />
+            <h4 style={{ fontSize: "15px", fontWeight: 600, color: "var(--text-primary)", marginBottom: "8px" }}>Not Configured</h4>
+            <p style={{ fontSize: "13px", color: "var(--text-muted)", maxWidth: "400px", margin: "0 auto" }}>
+              Platform SMTP is not configured. Set the following environment variables: SMTP_HOST, SMTP_USER, SMTP_PASS, SMTP_FROM_EMAIL
+            </p>
+          </div>
+        )}
       </div>
 
       <div style={{ 
