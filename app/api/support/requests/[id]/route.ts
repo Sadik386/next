@@ -14,7 +14,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     if (!request || request.businessId !== user.businessId) {
       return NextResponse.json({ success: false, message: "Request not found" }, { status: 404 });
     }
-    return NextResponse.json({ success: true, data: request });
+    return NextResponse.json({ 
+      success: true, 
+      data: request,
+      currentUserId: user.id,
+    });
   } catch (error) {
     return NextResponse.json({ success: false, message: "Failed to fetch request" }, { status: 500 });
   }

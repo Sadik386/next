@@ -11,12 +11,9 @@ import {
   AlertCircle, 
   XCircle,
   MessageCircle,
-  Filter,
   Loader2,
   Headphones,
-  TrendingUp,
   Eye,
-  Send
 } from "lucide-react";
 import { getStatusLabel, getTypeLabel } from "@/lib/ui-labels";
 
@@ -303,6 +300,13 @@ export default function SupportInboxPage() {
         .spin {
           animation: spin 1s linear infinite;
         }
+        @keyframes pulse-dot {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.6; transform: scale(1.2); }
+        }
+        .pulse-dot {
+          animation: pulse-dot 2s ease-in-out infinite;
+        }
       `}</style>
     </div>
   );
@@ -425,9 +429,9 @@ function RequestList({ children }: { children: React.ReactNode }) {
 
 function RequestRow({ request, onClick }: { request: SupportRequest; onClick: () => void }) {
   const [hovered, setHovered] = useState(false);
+  const [pressed, setPressed] = useState(false);
 
   const isOpen = !["resolved", "approved", "rejected"].includes(request.status);
-  const latestNote = request.notes?.[0];
   const hasUnread = isOpen && request.notes.length === 0;
 
   return (
@@ -436,6 +440,8 @@ function RequestRow({ request, onClick }: { request: SupportRequest; onClick: ()
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      onMouseDown={() => setPressed(true)}
+      onMouseUp={() => setPressed(false)}
       style={{
         width: "100%",
         display: "flex",
@@ -444,21 +450,24 @@ function RequestRow({ request, onClick }: { request: SupportRequest; onClick: ()
         padding: "14px 16px",
         backgroundColor: "var(--card-bg)",
         border: "1px solid",
-        borderColor: hovered 
-          ? "color-mix(in srgb, var(--brand) 20%, var(--card-border))" 
-          : "var(--card-border)",
+        borderColor: pressed
+          ? "color-mix(in srgb, var(--brand) 40%, var(--card-border))"
+          : hovered
+            ? "color-mix(in srgb, var(--brand) 25%, var(--card-border))"
+            : "var(--card-border)",
         borderRadius: "9px",
         cursor: "pointer",
         textAlign: "left",
-        transition: "all 0.2s ease",
-        boxShadow: hovered 
-          ? "0 3px 8px rgba(0,0,0,0.06)" 
+        transition: "all 0.15s ease",
+        boxShadow: hovered
+          ? "0 4px 12px rgba(0,0,0,0.08)"
           : "none",
+        transform: pressed ? "scale(0.99)" : "scale(1)",
       }}
     >
       {/* Unread indicator */}
       {hasUnread && (
-        <div style={{
+        <div className="pulse-dot" style={{
           width: "8px",
           height: "8px",
           borderRadius: "50%",
@@ -521,13 +530,13 @@ function RequestRow({ request, onClick }: { request: SupportRequest; onClick: ()
 
       {/* Status Badge */}
       <div style={{ flexShrink: 0 }}>
-        <StatusBadge status={request.status} />
+        <StatusBadge status={request.status} hovered={hovered} />
       </div>
     </button>
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({ status, hovered }: { status: string; hovered?: boolean }) {
   const key = status.toLowerCase();
   let bgColor = "#fef3c7";
   let textColor = "#92400e";
@@ -562,10 +571,12 @@ function StatusBadge({ status }: { status: string }) {
       fontWeight: 600,
       textTransform: "uppercase",
       letterSpacing: "0.3px",
-      backgroundColor: bgColor,
+      backgroundColor: hovered ? bgColor : bgColor,
       color: textColor,
       border: `1px solid ${borderColor}`,
       whiteSpace: "nowrap",
+      transition: "all 0.15s ease",
+      opacity: hovered ? 1 : 0.9,
     }}>
       {icon}
       {getStatusLabel(status)}

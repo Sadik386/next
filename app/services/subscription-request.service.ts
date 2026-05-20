@@ -60,7 +60,7 @@ export async function getPlatformSubscriptionRequests(params: {
       include: {
         business: { select: { id: true, name: true, slug: true } },
         user: { select: { id: true, name: true, email: true } },
-        notes: { include: { user: { select: { name: true } } }, orderBy: { createdAt: 'desc' } }
+        notes: { include: { user: { select: { id: true, name: true } } }, orderBy: { createdAt: 'desc' } }
       },
       orderBy: { createdAt: "desc" },
       take: limit,
@@ -78,7 +78,7 @@ export async function getSubscriptionRequestById(id: number) {
     include: {
       business: { select: { id: true, name: true, slug: true } },
       user: { select: { id: true, name: true, email: true } },
-      notes: { include: { user: { select: { name: true } } }, orderBy: { createdAt: 'asc' } }
+      notes: { include: { user: { select: { id: true, name: true } } }, orderBy: { createdAt: 'asc' } }
     }
   });
 }
@@ -87,9 +87,10 @@ export async function updateSubscriptionRequestStatus(params: {
   id: number;
   status: SubscriptionRequestStatus;
   adminNote?: string;
+  visibility?: string;
   userId: number;
 }) {
-  const { id, status, adminNote, userId } = params;
+  const { id, status, adminNote, visibility, userId } = params;
 
   return prisma.$transaction(async (tx) => {
     const current = await tx.subscriptionRequest.findUnique({
@@ -119,7 +120,7 @@ export async function updateSubscriptionRequestStatus(params: {
           requestId: id,
           userId: userId,
           note: adminNote,
-          visibility: "internal",
+          visibility: visibility || "internal",
         },
       });
     }
@@ -133,7 +134,7 @@ export async function getBusinessSubscriptionRequests(businessId: number) {
     where: { businessId },
     include: {
       notes: {
-        include: { user: { select: { name: true } } },
+        include: { user: { select: { id: true, name: true } } },
         orderBy: { createdAt: 'asc' }
       }
     },

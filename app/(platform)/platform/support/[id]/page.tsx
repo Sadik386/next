@@ -5,9 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import { toast } from "sonner";
 import { 
   ArrowLeft, 
-  Clock, 
   CheckCircle2, 
-  AlertCircle, 
   XCircle,
   Send,
   StickyNote,
@@ -18,7 +16,6 @@ import {
   Activity,
   Loader2,
   ChevronDown,
-  MoreHorizontal
 } from "lucide-react";
 import { getStatusLabel, getTypeLabel, getPlanLabel } from "@/lib/ui-labels";
 
@@ -27,7 +24,7 @@ type RequestNote = {
   note: string;
   visibility: string;
   createdAt: string;
-  user: { name: string };
+  user: { id: number; name: string };
 };
 
 type SupportRequest = {
@@ -66,6 +63,7 @@ export default function SupportWorkspacePage() {
   const [isInternal, setIsInternal] = useState(true);
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   const timelineRef = useRef<HTMLDivElement>(null);
+  const [platformUserId, setPlatformUserId] = useState<number | null>(null);
 
   useEffect(() => {
     if (id) fetchRequest();
@@ -77,6 +75,7 @@ export default function SupportWorkspacePage() {
       const data = await res.json();
       if (res.ok && data.success) {
         setRequest(data.data);
+        setPlatformUserId(data.adminUserId ?? null);
       } else {
         toast.error(data.message || "Failed to load request");
         router.push("/platform/support");
@@ -129,6 +128,7 @@ export default function SupportWorkspacePage() {
         body: JSON.stringify({
           status: request?.status,
           adminNote: message,
+          visibility: isInternal ? "internal" : "public",
           userId: 1,
         }),
       });
@@ -298,7 +298,7 @@ export default function SupportWorkspacePage() {
             borderRadius: "12px",
             overflow: "hidden",
           }}>
-            <Timeline request={request} />
+            <Timeline request={request} platformUserId={platformUserId} />
           </div>
 
           {/* Composer */}
@@ -408,8 +408,9 @@ function RequestCard({ request }: { request: SupportRequest }) {
   );
 }
 
-function Timeline({ request }: { request: SupportRequest }) {
+function Timeline({ request, platformUserId }: { request: SupportRequest; platformUserId: number | null }) {
   const notes = request.notes || [];
+  const requestUserId = request.user.id;
 
   if (notes.length === 0) {
     return (
@@ -419,117 +420,239 @@ function Timeline({ request }: { request: SupportRequest }) {
     );
   }
 
+  const getMessageType = (note: RequestNote) => {
+    const isSystem = note.note.startsWith("Status changed from");
+    if (isSystem) return "system";
+
+    const isInternal = note.visibility === "internal";
+    if (isInternal) return "internal";
+
+    const isCustomerMessage = note.user.id === requestUserId;
+    if (isCustomerMessage) return "customer";
+
+    return "support";
+  };
+
+  const getMessageStyle = (type: string) => {
+    switch (type) {
+      case "customer":
+        return {
+          bgColor: "#f8fafc",
+          borderColor: "#e2e8f0",
+          iconBg: "#f1f5f9",
+          iconBorder: "#94a3b8",
+          textColor: "#64748b",
+          badgeBg: "#e2e8f0",
+          badgeColor: "#475569",
+          badgeBorder: "#cbd5e1",
+          connectorColor: "#e2e8f0",
+        };
+      case "support":
+        return {
+          bgColor: "color-mix(in srgb, var(--brand) 8%, var(--card-bg))",
+          borderColor: "color-mix(in srgb, var(--brand) 30%, transparent)",
+          iconBg: "color-mix(in srgb, var(--brand) 15%, var(--card-bg))",
+          iconBorder: "var(--brand)",
+          textColor: "var(--brand)",
+          badgeBg: "color-mix(in srgb, var(--brand) 15%, var(--card-bg))",
+          badgeColor: "var(--brand)",
+          badgeBorder: "color-mix(in srgb, var(--brand) 30%, transparent)",
+          connectorColor: "color-mix(in srgb, var(--brand) 20%, var(--card-border))",
+        };
+      case "internal":
+        return {
+          bgColor: "#fffbeb",
+          borderColor: "#fcd34d",
+          iconBg: "#fef3c7",
+          iconBorder: "#f59e0b",
+          textColor: "#b45309",
+          badgeBg: "#fef3c7",
+          badgeColor: "#92400e",
+          badgeBorder: "#fcd34d",
+          connectorColor: "#fcd34d",
+        };
+      case "system":
+      default:
+        return {
+          bgColor: "var(--page-bg)",
+          borderColor: "var(--card-border)",
+          iconBg: "var(--page-bg)",
+          iconBorder: "var(--text-muted)",
+          textColor: "var(--text-muted)",
+          badgeBg: "var(--page-bg)",
+          badgeColor: "var(--text-muted)",
+          badgeBorder: "var(--card-border)",
+          connectorColor: "var(--card-border)",
+        };
+    }
+  };
+
+  const getLabel = (type: string) => {
+    switch (type) {
+      case "customer":
+        return "Customer";
+      case "support":
+        return "Support Reply";
+      case "internal":
+        return "Internal Note";
+      case "system":
+        return "System";
+      default:
+        return "Unknown";
+    }
+  };
+
+  const getUserDisplay = (note: RequestNote, type: string) => {
+    if (type === "support") {
+      return "Accoraze Admin";
+    }
+    if (type === "customer") {
+      return `${note.user.name} · ${request.business.name} · Business User`;
+    }
+    return note.user.name;
+  };
+
   return (
     <div style={{ padding: "20px" }}>
-      <div style={{ 
-        display: "flex", 
-        flexDirection: "column", 
+      <div style={{
+        display: "flex",
+        flexDirection: "column",
         gap: "0",
         position: "relative",
       }}>
-        {/* Timeline line */}
+        {/* Timeline line - use connector color from first note if available */}
         <div style={{
           position: "absolute",
           left: "15px",
           top: "24px",
           bottom: "24px",
           width: "2px",
-          backgroundColor: "var(--card-border)",
+          backgroundColor: notes.length > 0 ? getMessageStyle(getMessageType(notes[0])).connectorColor : "var(--card-border)",
         }} />
 
         {notes.map((note, idx) => {
-          const isPublic = note.visibility === "public";
-          const isSystem = note.note.startsWith("Status changed from");
+          const messageType = getMessageType(note);
+          const style = getMessageStyle(messageType);
+          const label = getLabel(messageType);
+          const userDisplay = getUserDisplay(note, messageType);
+          const isLast = idx === notes.length - 1;
+          const isInternalNote = messageType === "internal";
+          const prevIsInternal = idx > 0 && getMessageType(notes[idx - 1]) === "internal";
+          const needsExtraSpacing = isInternalNote && !prevIsInternal;
 
           return (
-            <div key={note.id} style={{ 
-              display: "flex", 
-              gap: "14px", 
-              paddingBottom: idx < notes.length - 1 ? "24px" : "0",
+            <div key={note.id} style={{
+              display: "flex",
+              gap: "14px",
+              paddingBottom: !isLast ? (isInternalNote ? "20px" : "24px") : "0",
+              paddingTop: needsExtraSpacing ? "8px" : "0",
               position: "relative",
+              marginLeft: isInternalNote ? "-4px" : "0",
             }}>
+              {/* Timeline connector to next item - thinner/dashed for internal */}
+              {!isLast && (
+                <div style={{
+                  position: "absolute",
+                  left: isInternalNote ? "11px" : "15px",
+                  top: "56px",
+                  bottom: "-8px",
+                  width: isInternalNote ? "1px" : "2px",
+                  backgroundColor: isInternalNote ? "transparent" : style.connectorColor,
+                  borderLeft: isInternalNote ? "1px dashed #d97706" : "none",
+                }}
+                />
+              )}
+
               {/* Timeline dot */}
               <div style={{
-                width: "32px",
-                height: "32px",
+                width: isInternalNote ? "24px" : "32px",
+                height: isInternalNote ? "24px" : "32px",
                 borderRadius: "50%",
-                backgroundColor: isSystem 
-                  ? "var(--page-bg)" 
-                  : isPublic 
-                    ? "#dcfce7" 
-                    : "#fef3c7",
+                backgroundColor: style.iconBg,
                 border: "2px solid",
-                borderColor: isSystem 
-                  ? "var(--card-border)" 
-                  : isPublic 
-                    ? "#86efac" 
-                    : "#fcd34d",
+                borderColor: style.iconBorder,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 flexShrink: 0,
                 zIndex: 1,
+                marginTop: isInternalNote ? "4px" : "0",
               }}>
-                {isSystem ? (
-                  <Activity size={12} strokeWidth={2} color="var(--text-muted)" />
-                ) : isPublic ? (
-                  <Send size={12} strokeWidth={2} color="#166534" />
+                {messageType === "system" ? (
+                  <Activity size={10} strokeWidth={2} color="var(--text-muted)" />
+                ) : messageType === "support" ? (
+                  <Send size={10} strokeWidth={2} color={style.textColor} />
+                ) : messageType === "internal" ? (
+                  <StickyNote size={10} strokeWidth={2} color={style.textColor} />
                 ) : (
-                  <StickyNote size={12} strokeWidth={2} color="#92400e" />
+                  <User size={10} strokeWidth={2} color={style.textColor} />
                 )}
               </div>
 
-              {/* Content */}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ 
-                  display: "flex", 
-                  alignItems: "center", 
-                  gap: "8px", 
-                  marginBottom: "6px",
-                  flexWrap: "wrap",
-                }}>
-                  <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-primary)" }}>
-                    {note.user.name}
-                  </span>
-                  <span style={{
-                    padding: "2px 6px",
-                    borderRadius: "3px",
-                    fontSize: "9px",
-                    fontWeight: 600,
-                    textTransform: "uppercase",
-                    backgroundColor: isSystem 
-                      ? "var(--page-bg)" 
-                      : isPublic 
-                        ? "#dcfce7" 
-                        : "#fef3c7",
-                    color: isSystem 
-                      ? "var(--text-muted)" 
-                      : isPublic 
-                        ? "#166534" 
-                        : "#92400e",
-                    border: "1px solid",
-                    borderColor: isSystem 
-                      ? "var(--card-border)" 
-                      : isPublic 
-                        ? "#86efac" 
-                        : "#fcd34d",
+              {/* Content - narrower for internal notes */}
+              <div style={{
+                flex: 1,
+                minWidth: 0,
+                maxWidth: isInternalNote ? "68%" : "100%",
+              }}>
+                {isInternalNote ? (
+                  <div style={{
+                    backgroundColor: "rgba(254, 243, 199, 0.6)",
+                    border: "1px solid rgba(252, 211, 77, 0.5)",
+                    borderRadius: "6px",
+                    padding: "8px 10px",
                   }}>
-                    {isSystem ? "System" : isPublic ? "Reply" : "Internal Note"}
-                  </span>
-                  <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
-                    {new Date(note.createdAt).toLocaleDateString(undefined, { 
-                      month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" 
-                    })}
-                  </span>
-                </div>
-                <div style={{ 
-                  fontSize: "13px", 
-                  color: "var(--text-secondary)", 
-                  lineHeight: 1.6,
-                  whiteSpace: "pre-wrap",
-                }}>
-                  {note.note}
-                </div>
+                    <div style={{
+                      fontSize: "11px",
+                      color: "#92400e",
+                      lineHeight: 1.4,
+                      whiteSpace: "pre-wrap",
+                    }}>
+                      {note.note}
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      marginBottom: "6px",
+                      flexWrap: "wrap",
+                    }}>
+                      <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-primary)" }}>
+                        {userDisplay}
+                      </span>
+                      <span style={{
+                        padding: "3px 8px",
+                        borderRadius: "4px",
+                        fontSize: "10px",
+                        fontWeight: 600,
+                        letterSpacing: "0.3px",
+                        textTransform: "uppercase",
+                        backgroundColor: style.badgeBg,
+                        color: style.badgeColor,
+                        border: "1px solid",
+                        borderColor: style.badgeBorder,
+                      }}>
+                        {label}
+                      </span>
+                      <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+                        {new Date(note.createdAt).toLocaleDateString(undefined, {
+                          month: "short", day: "numeric", hour: "2-digit", minute: "2-digit"
+                        })}
+                      </span>
+                    </div>
+                    <div style={{
+                      fontSize: "13px",
+                      color: "var(--text-secondary)",
+                      lineHeight: 1.6,
+                      whiteSpace: "pre-wrap",
+                    }}>
+                      {note.note}
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           );

@@ -14,7 +14,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ success: false, message: "Request not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ success: true, data: request });
+    return NextResponse.json({ success: true, data: request, adminUserId: auth.user.id });
   } catch (error: any) {
     console.error("Error fetching support request:", error);
     return NextResponse.json({ success: false, message: error.message }, { status: 500 });
@@ -28,7 +28,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   try {
     const { id } = await params;
     const body = await req.json();
-    const { status, adminNote, userId } = body;
+    const { status, adminNote, visibility, userId } = body;
 
     if (!status) {
       return NextResponse.json({ success: false, message: "Status is required" }, { status: 400 });
@@ -43,6 +43,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       id: parseInt(id),
       status,
       adminNote,
+      visibility,
       userId: userId || auth.user.id,
     });
 

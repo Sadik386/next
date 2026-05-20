@@ -13,7 +13,7 @@ import { getStatusLabel, getTypeLabel, getPlanLabel } from "@/lib/ui-labels";
 type Note = {
   id: number;
   note: string;
-  user: { name: string };
+  user: { id: number; name: string };
   createdAt: string;
   visibility: string;
 };
@@ -33,6 +33,7 @@ export default function RequestConversationPage() {
   const params = useParams();
   const router = useRouter();
   const [request, setRequest] = useState<SubscriptionRequest | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
   const [reply, setReply] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -56,7 +57,11 @@ export default function RequestConversationPage() {
       const res = await fetch(`/api/support/requests/${id}`);
       const data = await res.json();
       if (res.ok) {
+        console.log('API Response:', JSON.stringify(data, null, 2));
+        console.log('currentUserId from API:', data.currentUserId);
+        console.log('Notes from API:', JSON.stringify(data.data?.notes, null, 2));
         setRequest(data.data);
+        setCurrentUserId(data.currentUserId ?? null);
       } else {
         toast.error(data.message || "Failed to load request");
       }
@@ -171,14 +176,20 @@ export default function RequestConversationPage() {
             ) : (
               <div style={threadStyle}>
                 {publicNotes.map((note, index) => {
-                  const isAdmin = !note.user.name.toLowerCase().includes("customer");
-                  const showConnector = index < publicNotes.length - 1 && 
-                    publicNotes[index + 1].user.name === note.user.name;
+                  const isOwnMessage = currentUserId !== null && note.user.id === currentUserId;
+                  const showConnector = index < publicNotes.length - 1 &&
+                    publicNotes[index + 1].user.id === note.user.id;
+                  console.log('Debug note:', {
+                    noteUserId: note.user.id,
+                    currentUserId,
+                    isOwnMessage,
+                    label: isOwnMessage ? "You" : "Accoraze Support"
+                  });
                   return (
                     <ConversationMessage 
                       key={note.id} 
                       note={note} 
-                      isAdmin={isAdmin}
+                      isOwnMessage={isOwnMessage}
                       showConnector={showConnector}
                     />
                   );
@@ -231,22 +242,22 @@ export default function RequestConversationPage() {
 
 function ConversationMessage({ 
   note, 
-  isAdmin, 
+  isOwnMessage, 
   showConnector 
 }: { 
   note: Note; 
-  isAdmin: boolean;
+  isOwnMessage: boolean;
   showConnector?: boolean;
 }) {
   return (
-    <div style={messageWrapperStyle(isAdmin)}>
+    <div style={messageWrapperStyle(isOwnMessage)}>
       <div style={messageRowStyle}>
-        {!isAdmin && (
+        {!isOwnMessage && (
           <div style={avatarColumnStyle}>
-            <div style={avatarCircleStyle(isAdmin)}>
+            <div style={avatarCircleStyle(isOwnMessage)}>
               <Avatar style={avatarStyle}>
-                <AvatarFallback style={avatarFallbackStyle}>
-                  <User size={13} />
+                <AvatarFallback style={avatarFallbackBrandStyle}>
+                  <Bot size={13} />
                 </AvatarFallback>
               </Avatar>
             </div>
@@ -256,23 +267,23 @@ function ConversationMessage({
 
         <div style={messageContentStyle}>
           <div style={messageMetaStyle}>
-            <span style={senderNameStyle(isAdmin)}>
-              {isAdmin ? "Support" : "Customer"}
+            <span style={senderNameStyle(isOwnMessage)}>
+              {isOwnMessage ? "You" : "Accoraze Support"}
             </span>
             <span style={timeSeparatorStyle}>·</span>
             <span style={timestampStyle}>{formatConversationTime(note.createdAt)}</span>
           </div>
-          <div style={bubbleStyle(isAdmin)}>
+          <div style={bubbleStyle(isOwnMessage)}>
             {note.note}
           </div>
         </div>
 
-        {isAdmin && (
+        {isOwnMessage && (
           <div style={avatarColumnStyle}>
-            <div style={avatarCircleStyle(isAdmin)}>
+            <div style={avatarCircleStyle(isOwnMessage)}>
               <Avatar style={avatarStyle}>
-                <AvatarFallback style={avatarFallbackBrandStyle}>
-                  <Bot size={13} />
+                <AvatarFallback style={avatarFallbackStyle}>
+                  <User size={13} />
                 </AvatarFallback>
               </Avatar>
             </div>
@@ -563,9 +574,9 @@ const threadStyle: React.CSSProperties = {
   gap: "4px",
 };
 
-const messageWrapperStyle = (isAdmin: boolean): React.CSSProperties => ({
+const messageWrapperStyle = (isOwnMessage: boolean): React.CSSProperties => ({
   display: "flex",
-  justifyContent: isAdmin ? "flex-end" : "flex-start",
+  justifyContent: isOwnMessage ? "flex-end" : "flex-start",
 });
 
 const messageRowStyle: React.CSSProperties = {
@@ -583,20 +594,20 @@ const avatarColumnStyle: React.CSSProperties = {
   width: "28px",
 };
 
-const avatarCircleStyle = (isAdmin: boolean): React.CSSProperties => ({
+const avatarCircleStyle = (isOwnMessage: boolean): React.CSSProperties => ({
   width: "28px",
   height: "28px",
   borderRadius: "14px",
-  border: isAdmin 
-    ? "2px solid color-mix(in srgb, var(--brand) 30%, transparent)"
-    : "1px solid var(--card-border)",
-  backgroundColor: isAdmin 
-    ? "color-mix(in srgb, var(--brand) 12%, transparent)"
-    : "var(--input-bg)",
+  border: isOwnMessage 
+    ? "1px solid var(--card-border)"
+    : "2px solid color-mix(in srgb, var(--brand) 30%, transparent)",
+  backgroundColor: isOwnMessage 
+    ? "var(--input-bg)"
+    : "color-mix(in srgb, var(--brand) 12%, transparent)",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  color: isAdmin ? "var(--brand)" : "var(--text-muted)",
+  color: isOwnMessage ? "var(--text-muted)" : "var(--brand)",
   overflow: "hidden",
 });
 
@@ -640,10 +651,10 @@ const messageMetaStyle: React.CSSProperties = {
   padding: "0 2px",
 };
 
-const senderNameStyle = (isAdmin: boolean): React.CSSProperties => ({
+const senderNameStyle = (isOwnMessage: boolean): React.CSSProperties => ({
   fontSize: "11px",
   fontWeight: 600,
-  color: isAdmin ? "var(--brand)" : "var(--text-primary)",
+  color: isOwnMessage ? "var(--text-primary)" : "var(--brand)",
 });
 
 const timeSeparatorStyle: React.CSSProperties = {
@@ -656,17 +667,17 @@ const timestampStyle: React.CSSProperties = {
   color: "var(--text-muted)",
 };
 
-const bubbleStyle = (isAdmin: boolean): React.CSSProperties => ({
+const bubbleStyle = (isOwnMessage: boolean): React.CSSProperties => ({
   padding: "10px 14px",
-  borderRadius: isAdmin ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
+  borderRadius: isOwnMessage ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
   fontSize: "13px",
   lineHeight: 1.5,
   whiteSpace: "pre-wrap",
   wordBreak: "break-word",
-  backgroundColor: isAdmin ? "var(--brand)" : "var(--card-bg)",
-  color: isAdmin ? "var(--brand-text)" : "var(--text-primary)",
-  border: isAdmin ? "none" : "1px solid var(--card-border)",
-  boxShadow: isAdmin ? "0 2px 8px rgba(0,0,0,0.08)" : "0 1px 2px rgba(0,0,0,0.03)",
+  backgroundColor: isOwnMessage ? "var(--brand)" : "var(--card-bg)",
+  color: isOwnMessage ? "var(--brand-text)" : "var(--text-primary)",
+  border: isOwnMessage ? "none" : "1px solid var(--card-border)",
+  boxShadow: isOwnMessage ? "0 2px 8px rgba(0,0,0,0.08)" : "0 1px 2px rgba(0,0,0,0.03)",
 });
 
 const composerWrapperStyle: React.CSSProperties = {
