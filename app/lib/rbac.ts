@@ -1,15 +1,21 @@
 import { ROLE_PERMISSIONS, Permission } from "@/constants/permissions";
-import { RoleName } from "@/constants/roles";
 import {
   BusinessContextError,
   setActiveBusinessContextForUser,
   type BusinessContext,
 } from "@/lib/business-context";
 import { JWTPayload, verifyToken } from "@/lib/jwt";
+import { normalizeRole } from "@/lib/role-normalization";
 import { NextRequest, NextResponse } from "next/server";
 
-export function hasPermission(role: RoleName, permission: Permission): boolean {
-  const permissions = ROLE_PERMISSIONS[role] ?? [];
+export function hasPermission(
+  role: string | null | undefined,
+  permission: Permission
+): boolean {
+  const normalizedRole = normalizeRole(role);
+  if (!normalizedRole) return false;
+
+  const permissions = ROLE_PERMISSIONS[normalizedRole] ?? [];
   return permissions.includes(permission);
 }
 
@@ -59,7 +65,7 @@ export async function requirePermission(
   const authResult = await requireAuth(req);
   if (authResult instanceof NextResponse) return authResult;
   const { user } = authResult;
-  if (!hasPermission(user.role as RoleName, permission)) {
+  if (!hasPermission(user.role, permission)) {
     return forbiddenResponse();
   }
   return authResult;
