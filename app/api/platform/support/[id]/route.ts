@@ -4,7 +4,7 @@ import { getSubscriptionRequestById, updateSubscriptionRequestStatus, addRequest
 import { sendSupportReplyEmail, isPlatformEmailConfigured } from "@/services/platform-email.service";
 
 async function sendReplyEmail(requestId: number, note: string, requestData: any) {
-  const canSendEmail = isPlatformEmailConfigured();
+  const canSendEmail = await isPlatformEmailConfigured();
   if (!canSendEmail) return;
 
   if (requestData?.user?.email) {

@@ -1,8 +1,7 @@
 import { AsyncLocalStorage } from "async_hooks";
+import { activeBusinessMemberStatusWhere } from "@/constants/business-member-status";
 import type { JWTPayload } from "@/lib/jwt";
 import { prisma } from "@/lib/prisma";
-
-const ACTIVE_MEMBER_STATUS = "ACTIVE";
 
 export interface BusinessContext {
   businessId: number;
@@ -54,7 +53,7 @@ export async function resolveBusinessContextForUser(
 
   const membershipWhere = {
     userId: user.id,
-    status: ACTIVE_MEMBER_STATUS,
+    status: activeBusinessMemberStatusWhere(),
     business: { isActive: true },
   };
 

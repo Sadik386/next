@@ -17,7 +17,7 @@ const PUBLIC_AUTH_PAGE_ROUTES = new Set([
   "/reset-password",
 ]);
 
-const PUBLIC_PAGE_PREFIXES = ["/pos/mobile"];
+const PUBLIC_PAGE_PREFIXES = ["/pos/mobile", "/scan/pos", "/scan/products"];
 
 const PUBLIC_API_ROUTES = [
   "/api/auth/login",
@@ -41,18 +41,24 @@ const SECURITY_HEADERS = [
   ["X-Frame-Options", "SAMEORIGIN"],
   ["X-Content-Type-Options", "nosniff"],
   ["Referrer-Policy", "strict-origin-when-cross-origin"],
-  ["Permissions-Policy", "camera=(), microphone=(), geolocation=()"],
 ] as const;
 
-function addSecurityHeaders(response: NextResponse) {
+const DEFAULT_PERMISSIONS_POLICY = "camera=(), microphone=(), geolocation=()";
+const CAMERA_PERMISSIONS_POLICY = "camera=(self), microphone=(), geolocation=()";
+
+function addSecurityHeaders(response: NextResponse, allowCamera = false) {
   for (const [key, value] of SECURITY_HEADERS) {
     response.headers.set(key, value);
   }
+  response.headers.set(
+    "Permissions-Policy",
+    allowCamera ? CAMERA_PERMISSIONS_POLICY : DEFAULT_PERMISSIONS_POLICY
+  );
   return response;
 }
 
-function nextResponse() {
-  return addSecurityHeaders(NextResponse.next());
+function nextResponse(allowCamera = false) {
+  return addSecurityHeaders(NextResponse.next(), allowCamera);
 }
 
 function jsonUnauthorized(clearCookie = false) {
@@ -96,6 +102,15 @@ function isPublicAssetPath(pathname: string) {
   );
 }
 
+function isCameraRoute(pathname: string) {
+  return (
+    isRouteMatch(pathname, "/scan/pos") ||
+    isRouteMatch(pathname, "/scan/products") ||
+    pathname === "/pos/mobile" ||
+    pathname === "/pos"
+  );
+}
+
 function isPublicPage(pathname: string) {
   return (
     PUBLIC_PAGE_ROUTES.has(pathname) ||
@@ -107,8 +122,7 @@ function isPublicPage(pathname: string) {
 function isSetupPage(pathname: string) {
   if (pathname !== "/setup") return false;
 
-  // TODO: Once setup completion is edge-readable, block this route after
-  // installation in mode-specific ways for cloud, self-hosted, and desktop.
+  // Completion is enforced by the /setup server page, where Prisma is safe.
   return (
     currentAppMode === "cloud" ||
     currentAppMode === "self_hosted" ||
@@ -148,6 +162,14 @@ function isPublicApi(pathname: string, method: string) {
     return true;
   }
 
+  if (/^\/api\/scan\/products\/session\/[^/]+$/.test(pathname) && method === "GET") {
+    return true;
+  }
+
+  if (/^\/api\/scan\/products\/session\/[^/]+\/scan$/.test(pathname) && method === "POST") {
+    return true;
+  }
+
   return false;
 }
 
@@ -183,15 +205,6 @@ export default async function middleware(req: NextRequest) {
   }
 
   if (isPublicPage(pathname)) {
-    // If the path is "/setup" and the user is not authenticated, redirect to login.
-    // This prevents the incorrect redirect to onboarding when setup is complete.
-    if (pathname === "/setup") {
-      const token = req.cookies.get("auth_token")?.value;
-      if (!token) {
-        return loginRedirect(req);
-      }
-    }
-
     if (PUBLIC_AUTH_PAGE_ROUTES.has(pathname)) {
       const token = req.cookies.get("auth_token")?.value;
       if (token) {
@@ -201,7 +214,7 @@ export default async function middleware(req: NextRequest) {
         }
       }
     }
-    return nextResponse();
+    return nextResponse(isCameraRoute(pathname));
   }
 
   const token = req.cookies.get("auth_token")?.value;
@@ -216,7 +229,7 @@ export default async function middleware(req: NextRequest) {
 
   // TODO: Use payload.businessId for edge-level tenant-aware routing once
   // middleware needs business scoping beyond authentication.
-  return nextResponse();
+  return nextResponse(isCameraRoute(pathname));
 }
 
 export const config = {

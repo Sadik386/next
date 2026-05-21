@@ -23,6 +23,15 @@ type Product = {
   category: Category | null;
 };
 
+type MobileScanProduct = {
+  id: number;
+  productId: string;
+  name: string;
+  sku: string | null;
+};
+
+type MobileSessionInfo = { sessionId: string; mobileUrl: string; expiresAt: string };
+
 const UNITS = ["Piece", "Kg", "Liter", "Box", "Pack", "Dozen", "Meter", "Set", "Pair", "Other"];
 
 const emptyForm = {
@@ -37,6 +46,34 @@ const emptyForm = {
   imageUrl: "",
   status: "active",
 };
+
+function normalizeScanValue(value: string | null | undefined) {
+  return (value ?? "").trim().toLowerCase();
+}
+
+function findProductMatch(
+  products: Product[],
+  code: string,
+  scannedProduct?: MobileScanProduct | null
+) {
+  const normalizedCode = normalizeScanValue(code);
+  return products.find((p) => {
+    if (scannedProduct?.id && p.id === scannedProduct.id) return true;
+    return (
+      normalizeScanValue(p.productId) === normalizedCode ||
+      normalizeScanValue(p.sku) === normalizedCode ||
+      normalizeScanValue(p.name) === normalizedCode
+    );
+  });
+}
+
+function getMobileSessionToken(sessionInfo: MobileSessionInfo) {
+  try {
+    return new URL(sessionInfo.mobileUrl).searchParams.get("token") ?? "";
+  } catch {
+    return "";
+  }
+}
 
 export default function ProductsPage() {
   const searchParams = useSearchParams();
@@ -61,7 +98,6 @@ export default function ProductsPage() {
   const scanInputRef = useRef<HTMLInputElement | null>(null);
   const rowRefs = useRef<Map<number, HTMLTableRowElement>>(new Map());
 
-  type MobileSessionInfo = { sessionId: string; mobileUrl: string; expiresAt: string };
   const [mobileSession, setMobileSession] = useState<MobileSessionInfo | null>(null);
   const [mobileQr, setMobileQr] = useState<string | null>(null);
   const [mobileStatus, setMobileStatus] = useState<string>("waiting");
@@ -83,7 +119,9 @@ export default function ProductsPage() {
   const highlightParam = searchParams.get("highlight");
   useEffect(() => {
     if (highlightParam && products.length > 0) {
-      const matched = products.find(p => p.productId.toLowerCase() === highlightParam.toLowerCase());
+      const matched = products.find(
+        (p) => normalizeScanValue(p.productId) === normalizeScanValue(highlightParam)
+      );
       if (matched) {
         setHighlightId(matched.id);
         const row = document.getElementById(`product-row-${matched.id}`);
@@ -94,6 +132,14 @@ export default function ProductsPage() {
       }
     }
   }, [products, highlightParam]);
+
+  useEffect(() => {
+    if (!highlightId) return;
+    const row = rowRefs.current.get(highlightId);
+    if (row) row.scrollIntoView({ behavior: "smooth", block: "center" });
+    const timer = setTimeout(() => setHighlightId(null), 2000);
+    return () => clearTimeout(timer);
+  }, [highlightId, products]);
 
   const loadCategories = useCallback(async () => {
     const res = await fetch("/api/categories");
@@ -144,28 +190,36 @@ export default function ProductsPage() {
 
     async function poll() {
       try {
-        const res = await fetch(`/api/scan/products/session/${mobileSession!.sessionId}`);
+        const token = getMobileSessionToken(mobileSession!);
+        const tokenParam = token ? `?token=${encodeURIComponent(token)}` : "";
+        const res = await fetch(`/api/scan/products/session/${mobileSession!.sessionId}${tokenParam}`);
         if (!res.ok) return;
         const data = await res.json();
         if (cancelled) return;
         setMobileStatus(data.status);
         if (data.scannedCode && data.scannedCode !== processedScanRef.current) {
           processedScanRef.current = data.scannedCode;
-          const code = data.scannedCode;
-          const match = products.find(
-            (p) =>
-              p.productId.toLowerCase() === code.toLowerCase() ||
-              (p.sku ?? "").toLowerCase() === code.toLowerCase() ||
-              p.name.toLowerCase() === code.toLowerCase()
-          );
+          const code = data.scannedCode.trim();
+          const scannedProduct = (data.product ?? null) as MobileScanProduct | null;
+          let match = findProductMatch(products, code, scannedProduct);
+          if (!match) {
+            const params = new URLSearchParams({ search: code, pageSize: "20" });
+            const productRes = await fetch(`/api/products?${params}`);
+            if (productRes.ok) {
+              const productData = await productRes.json();
+              const fetchedProducts = (productData.items ?? []) as Product[];
+              if (fetchedProducts.length > 0) {
+                setProducts(fetchedProducts);
+                match = findProductMatch(fetchedProducts, code, scannedProduct);
+              }
+            }
+          }
           if (match) {
             setSearch(code);
             setHighlightId(match.id);
-            const row = rowRefs.current.get(match.id);
-            if (row) row.scrollIntoView({ behavior: "smooth", block: "center" });
-            setTimeout(() => setHighlightId(null), 2000);
             toast.success(`Found: ${match.name}`);
           } else {
+            setSearch(code);
             toast.error(`No product found for "${code}"`);
           }
         }
@@ -305,12 +359,7 @@ export default function ProductsPage() {
     e.preventDefault();
     const q = scanQuery.trim();
     if (!q) return;
-    const match = products.find(
-      (p) =>
-        p.productId.toLowerCase() === q.toLowerCase() ||
-        (p.sku ?? "").toLowerCase() === q.toLowerCase() ||
-        p.name.toLowerCase() === q.toLowerCase()
-    );
+    const match = findProductMatch(products, q);
     if (match) {
       setSearch(q);
       setHighlightId(match.id);

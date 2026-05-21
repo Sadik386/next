@@ -1,6 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { hashPassword, verifyPassword } from "@/lib/password";
 import { getCurrentBusinessId } from "@/lib/business";
+import {
+  BUSINESS_MEMBER_STATUS,
+  activeBusinessMemberStatusWhere,
+} from "@/constants/business-member-status";
 
 // Profile functions
 export async function getProfile(userId: number) {
@@ -121,7 +125,7 @@ export async function getUsers({ search, role, status, page = 1, limit = 20 }: {
   if (status === "inactive") where.isActive = false;
   where.deletedAt = null;
   where.businessMemberships = {
-    some: { businessId, status: "active" },
+    some: { businessId, status: activeBusinessMemberStatusWhere() },
   };
 
   const [items, total] = await Promise.all([
@@ -158,7 +162,7 @@ export async function getUserById(id: number) {
     where: {
       id,
       businessMemberships: {
-        some: { businessId, status: "active" },
+        some: { businessId, status: activeBusinessMemberStatusWhere() },
       },
     },
     include: { role: true },
@@ -212,7 +216,7 @@ export async function createUser(
         userId: createdUser.id,
         businessId,
         isDefault: true,
-        status: "active",
+        status: BUSINESS_MEMBER_STATUS.ACTIVE,
       },
     });
 
@@ -238,7 +242,7 @@ export async function changeRole(userId: number, newRoleName: string, _currentRo
     where: {
       id: userId,
       businessMemberships: {
-        some: { businessId, status: "active" },
+        some: { businessId, status: activeBusinessMemberStatusWhere() },
       },
     },
   });
@@ -263,7 +267,7 @@ export async function changeStatus(userId: number, isActive: boolean, _currentRo
     where: {
       id: userId,
       businessMemberships: {
-        some: { businessId, status: "active" },
+        some: { businessId, status: activeBusinessMemberStatusWhere() },
       },
     },
   });

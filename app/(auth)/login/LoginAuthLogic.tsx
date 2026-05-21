@@ -10,32 +10,31 @@ export default function LoginAuthLogic() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [checkingSetup, setCheckingSetup] = useState(true);
 
   const redirectParam = searchParams.get('redirect');
 
   useEffect(() => {
+    let isMounted = true;
+
     fetch("/api/setup/status")
       .then((r) => r.json())
       .then((data) => {
-        if (!data.isComplete) {
-          router.push("/setup");
+        if (!isMounted) return;
+        if (data.success !== false && !data.isComplete) {
+          router.replace("/setup");
         } else {
-          if (redirectParam && redirectParam !== '/setup') {
-            router.push(redirectParam);
-          } else {
-            router.push("/dashboard");
-          }
+          setCheckingSetup(false);
         }
       })
       .catch(() => {
-        // Fallback to dashboard or original redirect if setup status fails
-        if (redirectParam && redirectParam !== '/setup') {
-            router.push(redirectParam);
-        } else {
-            router.push("/dashboard");
-        }
+        if (isMounted) setCheckingSetup(false);
       });
-  }, [router, searchParams, redirectParam]); // Added redirectParam to dependency array
+
+    return () => {
+      isMounted = false;
+    };
+  }, [router]);
 
   const handleFormSubmit = async (event: React.FormEvent) => {
     event.preventDefault(); // Prevent default form submission
@@ -61,6 +60,14 @@ export default function LoginAuthLogic() {
       setLoading(false);
     }
   };
+
+  if (checkingSetup) {
+    return (
+      <div style={bgStyle}>
+        <div style={spinnerStyle}>Loading...</div>
+      </div>
+    );
+  }
 
   return (
     <div style={bgStyle}>

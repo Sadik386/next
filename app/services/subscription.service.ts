@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { activeBusinessMemberStatusWhere } from "@/constants/business-member-status";
 import {
   FEATURE_KEYS,
   PLAN_NAMES,
@@ -130,7 +131,9 @@ export async function getSubscriptionDashboardData(
 
   const [usageRecords, userCount, productCount] = await Promise.all([
     getAllCurrentUsage(businessId),
-    prisma.businessMember.count({ where: { businessId, status: "active" } }),
+    prisma.businessMember.count({
+      where: { businessId, status: activeBusinessMemberStatusWhere() },
+    }),
     prisma.product.count({ where: { businessId } }),
   ]);
 

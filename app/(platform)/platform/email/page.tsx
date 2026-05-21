@@ -8,65 +8,161 @@ import {
   Building2,
   CheckCircle2,
   XCircle,
-  Loader2
+  Loader2,
+  Save,
+  Eye,
+  EyeOff
 } from "lucide-react";
 import { useState, useEffect } from "react";
 
-interface EmailConfigStatus {
-  success: boolean;
+interface PlatformEmailConfig {
   configured: boolean;
-  smtpHost: string | null;
-  smtpFromEmail: string | null;
-  smtpFromName: string;
+  hasPassword: boolean;
+  host: string | null;
+  port: number | null;
+  secure: boolean | null;
+  user: string | null;
+  fromEmail: string | null;
+  fromName: string;
+  replyTo: string | null;
+  source: "database" | "environment" | null;
 }
 
-export default function PlatformEmailPolicy() {
-  const [configStatus, setConfigStatus] = useState<EmailConfigStatus | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+interface FormData {
+  host: string;
+  port: string;
+  user: string;
+  password: string;
+  fromEmail: string;
+  fromName: string;
+  replyTo: string;
+}
 
-  useEffect(() => {
+const initialFormData: FormData = {
+  host: "",
+  port: "587",
+  user: "",
+  password: "",
+  fromEmail: "",
+  fromName: "Accoraze Platform",
+  replyTo: "",
+};
+
+export default function PlatformEmailPolicy() {
+  const [config, setConfig] = useState<PlatformEmailConfig | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [formData, setFormData] = useState<FormData>(initialFormData);
+  const [testRecipient, setTestRecipient] = useState("");
+  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  const fetchConfig = () => {
     fetch("/api/platform/email")
       .then(res => res.json())
       .then(data => {
-        setConfigStatus(data);
+        setConfig(data);
+        if (data.configured && data.source === "database") {
+          setFormData({
+            host: data.host || "",
+            port: String(data.port || "587"),
+            user: data.user || "",
+            password: "",
+            fromEmail: data.fromEmail || "",
+            fromName: data.fromName || "Accoraze Platform",
+            replyTo: data.replyTo || "",
+          });
+        }
         setLoading(false);
       })
       .catch(() => {
         setLoading(false);
       });
+  };
+
+  useEffect(() => {
+    fetchConfig();
   }, []);
 
-  const handleTestEmail = async () => {
-    setTesting(true);
-    setTestResult(null);
+  const handleSave = async () => {
+    if (!formData.host || !formData.user || !formData.fromEmail) {
+      setMessage({ type: "error", text: "Host, username, and from email are required" });
+      return;
+    }
+
+    const port = parseInt(formData.port, 10);
+    const secure = port === 465;
+
+    setSaving(true);
+    setMessage(null);
     try {
       const res = await fetch("/api/platform/email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "test" }),
+        body: JSON.stringify({
+          action: "save",
+          data: {
+            host: formData.host,
+            port: port,
+            secure: secure,
+            user: formData.user,
+            password: formData.password,
+            fromEmail: formData.fromEmail,
+            fromName: formData.fromName,
+            replyTo: formData.replyTo || undefined,
+          },
+        }),
       });
       const data = await res.json();
-      setTestResult({ success: data.success, message: data.message });
+      setMessage({ type: data.success ? "success" : "error", text: data.message });
+      if (data.success) {
+        fetchConfig();
+      }
     } catch {
-      setTestResult({ success: false, message: "Failed to send test email" });
+      setMessage({ type: "error", text: "Failed to save configuration" });
+    }
+    setSaving(false);
+  };
+
+  const handleTest = async () => {
+    if (!testRecipient || !testRecipient.includes("@")) {
+      setMessage({ type: "error", text: "Please enter a valid test recipient email" });
+      return;
+    }
+
+    setTesting(true);
+    setMessage(null);
+    try {
+      const res = await fetch("/api/platform/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "test", email: testRecipient }),
+      });
+      const data = await res.json();
+      setMessage({ type: data.success ? "success" : "error", text: data.message });
+    } catch {
+      setMessage({ type: "error", text: "Failed to send test email" });
     }
     setTesting(false);
   };
 
+  const handleChange = (field: keyof FormData, value: string | boolean) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
   return (
     <div>
-      <div style={{ marginBottom: "32px" }}>
-        <h1 style={{ fontSize: "24px", fontWeight: 700, color: "var(--text-primary)", marginBottom: "4px" }}>Email Policy & Foundation</h1>
-        <p style={{ color: "var(--text-muted)", fontSize: "14px" }}>Infrastructure configuration for platform and tenant communications</p>
+      <div style={{ marginBottom: "20px" }}>
+        <h1 style={{ fontSize: "20px", fontWeight: 700, color: "var(--text-primary)", marginBottom: "4px" }}>Email Policy</h1>
+        <p style={{ color: "var(--text-muted)", fontSize: "13px" }}>Platform and tenant email infrastructure</p>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px", marginBottom: "32px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "20px" }}>
         <PolicyCard 
           icon={<ShieldCheck size={20} color="var(--brand)" />}
           title="Platform SMTP"
-          description="Used only for Accoraze platform/internal emails. Managed via environment variables."
+          description="Used only for Accoraze platform/internal emails. Managed via database or environment variables."
           points={[
             "Platform admin alerts",
             "New business registration alerts",
@@ -93,105 +189,221 @@ export default function PlatformEmailPolicy() {
         />
       </div>
 
-      <div style={cardStyle}>
-        <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "16px" }}>
-          <Server size={20} color="var(--text-primary)" />
-          <h3 style={{ fontSize: "16px", fontWeight: 600, color: "var(--text-primary)" }}>Platform SMTP Configuration</h3>
-        </div>
-        
-        {loading ? (
-          <div style={{ padding: "24px", textAlign: "center" }}>
-            <Loader2 size={24} className="animate-spin" style={{ margin: "0 auto", color: "var(--text-muted)" }} />
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+        <div style={cardStyle}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <Server size={16} color="var(--text-primary)" />
+              <h3 style={{ fontSize: "14px", fontWeight: 600, color: "var(--text-primary)" }}>Platform SMTP Settings</h3>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              {loading ? (
+                <Loader2 size={14} className="animate-spin" style={{ color: "var(--text-muted)" }} />
+              ) : config?.configured ? (
+                <>
+                  <CheckCircle2 size={14} color="#16a34a" />
+                  <span style={{ fontSize: "11px", color: "#16a34a", fontWeight: 500 }}>Configured</span>
+                  {config.source === "environment" && (
+                    <span style={{ fontSize: "10px", color: "var(--text-muted)", marginLeft: "4px" }}>(env)</span>
+                  )}
+                </>
+              ) : (
+                <>
+                  <XCircle size={14} color="var(--text-muted)" />
+                  <span style={{ fontSize: "11px", color: "var(--text-muted)", fontWeight: 500 }}>Not Set</span>
+                </>
+              )}
+            </div>
           </div>
-        ) : configStatus?.configured ? (
-          <div style={{ padding: "20px", backgroundColor: "var(--page-bg)", borderRadius: "8px", border: "1px solid var(--card-border)" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
-              <CheckCircle2 size={18} color="#16a34a" />
-              <span style={{ fontSize: "14px", fontWeight: 600, color: "#16a34a" }}>Configured</span>
+
+          {loading ? (
+            <div style={{ padding: "20px", textAlign: "center" }}>
+              <Loader2 size={20} className="animate-spin" style={{ margin: "0 auto", color: "var(--text-muted)" }} />
             </div>
-            <div style={{ display: "grid", gap: "8px", fontSize: "13px", color: "var(--text-secondary)" }}>
-              <div><strong>SMTP Host:</strong> {configStatus.smtpHost}</div>
-              <div><strong>From Email:</strong> {configStatus.smtpFromEmail}</div>
-              <div><strong>From Name:</strong> {configStatus.smtpFromName}</div>
-            </div>
-            <div style={{ marginTop: "16px", paddingTop: "16px", borderTop: "1px solid var(--card-border)" }}>
-              <button
-                onClick={handleTestEmail}
-                disabled={testing}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  padding: "8px 16px",
-                  backgroundColor: "var(--brand)",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: "6px",
-                  fontSize: "13px",
-                  fontWeight: 500,
-                  cursor: testing ? "not-allowed" : "pointer",
-                  opacity: testing ? 0.7 : 1,
-                }}
-              >
-                {testing ? <Loader2 size={14} className="animate-spin" /> : <Mail size={14} />}
-                Send Test Email
-              </button>
-              {testResult && (
+          ) : (
+            <>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                <FormField label="SMTP Host" required>
+                  <input
+                    type="text"
+                    value={formData.host}
+                    onChange={e => handleChange("host", e.target.value)}
+                    placeholder="smtp.gmail.com"
+                    style={inputStyle}
+                  />
+                </FormField>
+                <FormField label="Port" required>
+                  <input
+                    type="text"
+                    value={formData.port}
+                    onChange={e => handleChange("port", e.target.value)}
+                    placeholder="587"
+                    style={inputStyle}
+                  />
+                  <div style={{ fontSize: "10px", color: "var(--text-muted)", marginTop: "4px" }}>
+                    Port 465 uses SSL automatically. Port 587 uses STARTTLS automatically.
+                  </div>
+                </FormField>
+                <FormField label="Username" required>
+                  <input
+                    type="text"
+                    value={formData.user}
+                    onChange={e => handleChange("user", e.target.value)}
+                    placeholder="your@email.com"
+                    style={inputStyle}
+                  />
+                </FormField>
+                <FormField label="Password" required>
+                  <div style={{ position: "relative" }}>
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      value={formData.password}
+                      onChange={e => handleChange("password", e.target.value)}
+                      placeholder={config?.hasPassword ? "•••••••• (keep existing)" : "Enter password"}
+                      style={{ ...inputStyle, paddingRight: "32px" }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      style={eyeButtonStyle}
+                    >
+                      {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                    </button>
+                  </div>
+                </FormField>
+                <FormField label="From Email" required>
+                  <input
+                    type="text"
+                    value={formData.fromEmail}
+                    onChange={e => handleChange("fromEmail", e.target.value)}
+                    placeholder="noreply@example.com"
+                    style={inputStyle}
+                  />
+                </FormField>
+                <FormField label="From Name">
+                  <input
+                    type="text"
+                    value={formData.fromName}
+                    onChange={e => handleChange("fromName", e.target.value)}
+                    placeholder="Accoraze Platform"
+                    style={inputStyle}
+                  />
+                </FormField>
+                <FormField label="Reply-To">
+                  <input
+                    type="text"
+                    value={formData.replyTo}
+                    onChange={e => handleChange("replyTo", e.target.value)}
+                    placeholder="support@example.com"
+                    style={inputStyle}
+                  />
+                </FormField>
+                <FormField label="Test Recipient">
+                  <input
+                    type="text"
+                    value={testRecipient}
+                    onChange={e => {
+                      setTestRecipient(e.target.value);
+                      if (message?.type === "error" && e.target.value.includes("@")) {
+                        setMessage(null);
+                      }
+                    }}
+                    placeholder="test@example.com"
+                    style={inputStyle}
+                  />
+                </FormField>
+              </div>
+
+              <div style={{ display: "flex", gap: "8px", marginTop: "16px", paddingTop: "16px", borderTop: "1px solid var(--card-border)" }}>
+                <button
+                  onClick={handleTest}
+                  disabled={testing || !config?.configured}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    padding: "8px 16px",
+                    backgroundColor: "transparent",
+                    color: config?.configured ? "var(--brand)" : "var(--text-muted)",
+                    border: "1px solid",
+                    borderColor: config?.configured ? "var(--brand)" : "var(--card-border)",
+                    borderRadius: "6px",
+                    fontSize: "12px",
+                    fontWeight: 500,
+                    cursor: config?.configured && !testing ? "pointer" : "not-allowed",
+                    opacity: config?.configured && !testing ? 1 : 0.5,
+                  }}
+                >
+                  {testing ? <Loader2 size={12} className="animate-spin" /> : <Mail size={12} />}
+                  Test
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    padding: "8px 16px",
+                    backgroundColor: "var(--brand)",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "6px",
+                    fontSize: "12px",
+                    fontWeight: 500,
+                    cursor: saving ? "not-allowed" : "pointer",
+                    opacity: saving ? 0.7 : 1,
+                  }}
+                >
+                  {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+                  Save
+                </button>
+              </div>
+
+              {message && (
                 <div style={{ 
                   marginTop: "12px", 
                   padding: "10px", 
                   borderRadius: "6px",
-                  backgroundColor: testResult.success ? "#dcfce7" : "#fef2f2",
-                  color: testResult.success ? "#166534" : "#991b1b",
-                  fontSize: "13px"
+                  backgroundColor: message.type === "success" ? "#dcfce7" : "#fef2f2",
+                  color: message.type === "success" ? "#166534" : "#991b1b",
+                  fontSize: "12px"
                 }}>
-                  {testResult.message}
+                  {message.text}
                 </div>
               )}
-            </div>
-          </div>
-        ) : (
-          <div style={{ padding: "24px", backgroundColor: "var(--page-bg)", borderRadius: "8px", border: "1px solid var(--card-border)", textAlign: "center" }}>
-            <XCircle size={32} color="var(--text-muted)" style={{ margin: "0 auto 12px" }} />
-            <h4 style={{ fontSize: "15px", fontWeight: 600, color: "var(--text-primary)", marginBottom: "8px" }}>Not Configured</h4>
-            <p style={{ fontSize: "13px", color: "var(--text-muted)", maxWidth: "400px", margin: "0 auto" }}>
-              Platform SMTP is not configured. Set the following environment variables: SMTP_HOST, SMTP_USER, SMTP_PASS, SMTP_FROM_EMAIL
-            </p>
-          </div>
-        )}
-      </div>
-
-      <div style={{ 
-        marginTop: "32px", 
-        padding: "24px", 
-        backgroundColor: "#fffbeb", 
-        borderRadius: "12px", 
-        border: "1px solid #fde68a",
-        display: "flex",
-        flexDirection: "column",
-        gap: "16px"
-      }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "10px", color: "#92400e" }}>
-          <AlertTriangle size={20} />
-          <h3 style={{ fontSize: "16px", fontWeight: 700 }}>Critical Policies</h3>
+            </>
+          )}
         </div>
-        
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
-          <div style={policyItemStyle}>
-            <div style={policyTitleStyle}>1. Tenant Isolation</div>
-            <div style={policyDescStyle}>Platform SMTP must NOT send customer emails on behalf of businesses. Businesses must configure their own SMTP for all customer outreach.</div>
+
+        <div style={{ 
+          padding: "12px", 
+          backgroundColor: "#fffbeb", 
+          borderRadius: "8px", 
+          border: "1px solid #fde68a"
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "10px", color: "#92400e" }}>
+            <AlertTriangle size={14} />
+            <h3 style={{ fontSize: "12px", fontWeight: 700 }}>Critical Policies</h3>
           </div>
-          <div style={policyItemStyle}>
-            <div style={policyTitleStyle}>2. Business SMTP Required</div>
-            <div style={policyDescStyle}>If a business has not configured its own SMTP, customer-facing email actions must be blocked with a clear &quot;SMTP missing&quot; error. Platform SMTP must never be used as a fallback.</div>
-          </div>
-          <div style={policyItemStyle}>
-            <div style={policyTitleStyle}>3. Usage Limits</div>
-            <div style={policyDescStyle}>Business email sending is metered by plan quotas. Free plan: 100 emails/month. Limits reset monthly.</div>
-          </div>
-          <div style={policyItemStyle}>
-            <div style={policyTitleStyle}>4. V1 Email Behavior</div>
-            <div style={policyDescStyle}>No automatic email sending in V1. Manual email actions will use the configured Business SMTP and apply plan limits.</div>
+          
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            <div style={{ padding: "8px", backgroundColor: "rgba(255,255,255,0.5)", borderRadius: "4px" }}>
+              <div style={{ fontSize: "11px", fontWeight: 700, color: "#92400e" }}>1. Tenant Isolation</div>
+              <div style={{ fontSize: "10px", color: "#b45309" }}>Platform SMTP must NOT send tenant emails.</div>
+            </div>
+            <div style={{ padding: "8px", backgroundColor: "rgba(255,255,255,0.5)", borderRadius: "4px" }}>
+              <div style={{ fontSize: "11px", fontWeight: 700, color: "#92400e" }}>2. Business SMTP Required</div>
+              <div style={{ fontSize: "10px", color: "#b45309" }}>Each business configures own SMTP.</div>
+            </div>
+            <div style={{ padding: "8px", backgroundColor: "rgba(255,255,255,0.5)", borderRadius: "4px" }}>
+              <div style={{ fontSize: "11px", fontWeight: 700, color: "#92400e" }}>3. Usage Limits</div>
+              <div style={{ fontSize: "10px", color: "#b45309" }}>Free: 100 emails/month.</div>
+            </div>
+            <div style={{ padding: "8px", backgroundColor: "rgba(255,255,255,0.5)", borderRadius: "4px" }}>
+              <div style={{ fontSize: "11px", fontWeight: 700, color: "#92400e" }}>4. V1 Behavior</div>
+              <div style={{ fontSize: "10px", color: "#b45309" }}>No auto-send. Manual only.</div>
+            </div>
           </div>
         </div>
       </div>
@@ -199,58 +411,76 @@ export default function PlatformEmailPolicy() {
   );
 }
 
+function FormField({ label, children, required, wide }: { label: string; children: React.ReactNode; required?: boolean; wide?: boolean }) {
+  return (
+    <div style={{ gridColumn: wide ? "span 2" : "auto" }}>
+      <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: "var(--text-secondary)", marginBottom: "4px" }}>
+        {label}
+        {required && <span style={{ color: "#ef4444" }}> *</span>}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+const inputStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "8px 10px",
+  fontSize: "12px",
+  border: "1px solid var(--card-border)",
+  borderRadius: "6px",
+  backgroundColor: "var(--page-bg)",
+  color: "var(--text-primary)",
+  outline: "none",
+};
+
+const eyeButtonStyle: React.CSSProperties = {
+  position: "absolute",
+  right: "8px",
+  top: "50%",
+  transform: "translateY(-50%)",
+  background: "none",
+  border: "none",
+  cursor: "pointer",
+  color: "var(--text-muted)",
+  padding: "4px",
+  display: "flex",
+  alignItems: "center",
+};
+
 function PolicyCard({ icon, title, description, points, note, status }: any) {
   return (
     <div style={cardStyle}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "12px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           {icon}
-          <h3 style={{ fontSize: "16px", fontWeight: 700, color: "var(--text-primary)" }}>{title}</h3>
+          <h3 style={{ fontSize: "14px", fontWeight: 700, color: "var(--text-primary)" }}>{title}</h3>
         </div>
-        <span style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", padding: "4px 8px", backgroundColor: "var(--page-bg)", borderRadius: "4px", color: "var(--text-muted)" }}>
+        <span style={{ fontSize: "9px", fontWeight: 700, textTransform: "uppercase", padding: "3px 6px", backgroundColor: "var(--page-bg)", borderRadius: "3px", color: "var(--text-muted)" }}>
           {status}
         </span>
       </div>
-      <p style={{ fontSize: "13px", color: "var(--text-secondary)", marginBottom: "16px" }}>{description}</p>
-      <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "8px" }}>
+      <p style={{ fontSize: "12px", color: "var(--text-secondary)", marginBottom: "12px" }}>{description}</p>
+      <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "6px" }}>
         {points.map((p: string, i: number) => (
-          <li key={i} style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", color: "var(--text-secondary)" }}>
-            <CheckCircle2 size={14} color="#16a34a" />
+          <li key={i} style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "11px", color: "var(--text-secondary)" }}>
+            <CheckCircle2 size={12} color="#16a34a" />
             {p}
           </li>
         ))}
       </ul>
       {note && (
-        <div style={{ marginTop: "12px", padding: "10px 12px", backgroundColor: "var(--page-bg)", borderRadius: "6px", border: "1px solid var(--card-border)" }}>
-          <div style={{ fontSize: "11px", color: "var(--text-muted)", fontStyle: "italic" }}>{note}</div>
+        <div style={{ marginTop: "10px", padding: "8px 10px", backgroundColor: "var(--page-bg)", borderRadius: "4px", border: "1px solid var(--card-border)" }}>
+          <div style={{ fontSize: "10px", color: "var(--text-muted)", fontStyle: "italic" }}>{note}</div>
         </div>
       )}
     </div>
   );
 }
 
-const cardStyle = {
+const cardStyle: React.CSSProperties = {
   backgroundColor: "var(--card-bg)",
   border: "1px solid var(--card-border)",
-  borderRadius: "12px",
-  padding: "24px",
-};
-
-const policyItemStyle = {
-  padding: "16px",
-  backgroundColor: "rgba(255,255,255,0.5)",
   borderRadius: "8px",
-};
-
-const policyTitleStyle = {
-  fontSize: "14px",
-  fontWeight: 700,
-  color: "#92400e",
-  marginBottom: "4px",
-};
-
-const policyDescStyle = {
-  fontSize: "12px",
-  color: "#b45309",
-  lineHeight: 1.4,
+  padding: "16px",
 };

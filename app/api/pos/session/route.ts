@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requirePermission } from "@/lib/rbac";
 import { PERMISSIONS } from "@/constants/permissions";
 import { runWithBusinessContext } from "@/lib/business-context";
-import { createPosSession } from "@/services/pos.service";
+import { createPosSession, createPosSessionAccessToken } from "@/services/pos.service";
 import { buildScannerUrl } from "@/lib/url";
 
 export async function POST(req: NextRequest) {
@@ -13,12 +13,14 @@ export async function POST(req: NextRequest) {
 
   return runWithBusinessContext(user, async () => {
     try {
-      const session = await createPosSession(auth.user.id);
-      const mobileUrl = buildScannerUrl("pos", session.shortId, req);
+      const session = await createPosSession(auth.user.id, auth.businessId);
+      const token = createPosSessionAccessToken(session.shortId, auth.businessId);
+      const mobileUrl = new URL(buildScannerUrl("pos", session.shortId, req));
+      mobileUrl.searchParams.set("token", token);
 
       return NextResponse.json({
         sessionId: session.shortId,
-        mobileUrl,
+        mobileUrl: mobileUrl.toString(),
         expiresAt: session.expiresAt.toISOString(),
       });
     } catch (err) {

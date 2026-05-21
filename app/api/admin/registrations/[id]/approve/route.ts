@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/rbac";
 import { PERMISSIONS } from "@/constants/permissions";
+import { BUSINESS_MEMBER_STATUS } from "@/constants/business-member-status";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -49,7 +50,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         userId: user.id,
         businessId: auth.businessId,
         isDefault: true,
-        status: "active",
+        status: BUSINESS_MEMBER_STATUS.ACTIVE,
       },
     });
 

@@ -1,4 +1,6 @@
 import nodemailer, { Transporter } from "nodemailer";
+import { prisma } from "@/lib/prisma";
+import { encryptSecret, decryptSecret } from "@/lib/crypto/secret";
 
 export interface PlatformEmailConfig {
   smtpHost: string;
@@ -11,12 +13,61 @@ export interface PlatformEmailConfig {
   smtpReplyTo?: string;
 }
 
+export interface PlatformEmailDbConfig {
+  host: string;
+  port: number;
+  secure: boolean;
+  user: string;
+  pass: string;
+  fromEmail: string;
+  fromName: string;
+  replyTo?: string;
+}
+
 export interface PlatformEmailResult {
   success: boolean;
   message: string;
 }
 
-function getPlatformEmailConfig(): PlatformEmailConfig | null {
+export interface PlatformEmailSafeConfig {
+  configured: boolean;
+  hasPassword: boolean;
+  host: string | null;
+  port: number | null;
+  secure: boolean | null;
+  user: string | null;
+  fromEmail: string | null;
+  fromName: string;
+  replyTo: string | null;
+  source: "database" | "environment" | null;
+}
+
+async function getDbEmailConfig(): Promise<PlatformEmailDbConfig | null> {
+  try {
+    const setting = await prisma.platformSetting.findUnique({
+      where: { key: "smtp_config" },
+    });
+
+    if (!setting?.value) {
+      return null;
+    }
+
+    const config = JSON.parse(setting.value) as PlatformEmailDbConfig;
+    if (!config.host || !config.user || !config.fromEmail) {
+      return null;
+    }
+
+    return {
+      ...config,
+      pass: decryptSecret(config.pass || ""),
+    };
+  } catch (error) {
+    console.error("Failed to load DB email config:", error);
+    return null;
+  }
+}
+
+function getEnvEmailConfig(): PlatformEmailConfig | null {
   const host = process.env.SMTP_HOST;
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
@@ -38,6 +89,34 @@ function getPlatformEmailConfig(): PlatformEmailConfig | null {
   };
 }
 
+async function getPlatformEmailConfig(): Promise<PlatformEmailConfig | null> {
+  const dbConfig = await getDbEmailConfig();
+  if (dbConfig) {
+    const port = dbConfig.port || 587;
+    return {
+      smtpHost: dbConfig.host,
+      smtpPort: port,
+      smtpSecure: port === 465,
+      smtpUser: dbConfig.user,
+      smtpPass: dbConfig.pass,
+      smtpFromEmail: dbConfig.fromEmail,
+      smtpFromName: dbConfig.fromName,
+      smtpReplyTo: dbConfig.replyTo,
+    };
+  }
+
+  const envConfig = getEnvEmailConfig();
+  if (envConfig) {
+    const port = envConfig.smtpPort || 587;
+    return {
+      ...envConfig,
+      smtpSecure: port === 465,
+    };
+  }
+
+  return null;
+}
+
 function createPlatformTransporter(config: PlatformEmailConfig): Transporter {
   return nodemailer.createTransport({
     host: config.smtpHost,
@@ -54,24 +133,127 @@ function createPlatformTransporter(config: PlatformEmailConfig): Transporter {
   });
 }
 
-export function isPlatformEmailConfigured(): boolean {
-  const config = getPlatformEmailConfig();
+export async function isPlatformEmailConfigured(): Promise<boolean> {
+  const config = await getPlatformEmailConfig();
   return config !== null;
 }
 
+export async function getPlatformEmailSafeConfig(): Promise<PlatformEmailSafeConfig> {
+  const dbConfig = await getDbEmailConfig();
+  
+  if (dbConfig) {
+    return {
+      configured: true,
+      hasPassword: !!dbConfig.pass,
+      host: dbConfig.host,
+      port: dbConfig.port,
+      secure: dbConfig.secure,
+      user: dbConfig.user,
+      fromEmail: dbConfig.fromEmail,
+      fromName: dbConfig.fromName,
+      replyTo: dbConfig.replyTo || null,
+      source: "database",
+    };
+  }
+
+  const envHost = process.env.SMTP_HOST || "";
+  const envFromEmail = process.env.SMTP_FROM_EMAIL || "";
+  const envUser = process.env.SMTP_USER || "";
+  const envConfigured = !!(envHost && envUser && envFromEmail);
+
+  return {
+    configured: envConfigured,
+    hasPassword: !!process.env.SMTP_PASS,
+    host: envConfigured ? envHost : null,
+    port: envConfigured ? parseInt(process.env.SMTP_PORT || "587", 10) : null,
+    secure: envConfigured ? process.env.SMTP_SECURE === "true" : null,
+    user: envConfigured ? envUser : null,
+    fromEmail: envConfigured ? envFromEmail : null,
+    fromName: process.env.SMTP_FROM_NAME || "Accoraze Platform",
+    replyTo: process.env.SMTP_REPLY_TO || null,
+    source: envConfigured ? "environment" : null,
+  };
+}
+
+export async function savePlatformEmailConfig(config: {
+  host: string;
+  port: number;
+  secure: boolean;
+  user: string;
+  password: string;
+  fromEmail: string;
+  fromName: string;
+  replyTo?: string;
+}): Promise<PlatformEmailResult> {
+  try {
+    const existingSetting = await prisma.platformSetting.findUnique({
+      where: { key: "smtp_config" },
+    });
+
+    let existingPass = "";
+    if (existingSetting?.value) {
+      const existingConfig = JSON.parse(existingSetting.value) as PlatformEmailDbConfig;
+      existingPass = existingConfig.pass || "";
+    }
+
+    const newPassword = config.password || existingPass;
+    
+    if (!newPassword) {
+      return { success: false, message: "SMTP password is required." };
+    }
+
+    const encryptedPass = encryptSecret(newPassword);
+    
+    const dbConfig: PlatformEmailDbConfig = {
+      host: config.host,
+      port: config.port,
+      secure: config.secure,
+      user: config.user,
+      pass: encryptedPass,
+      fromEmail: config.fromEmail,
+      fromName: config.fromName,
+      replyTo: config.replyTo,
+    };
+
+    await prisma.platformSetting.upsert({
+      where: { key: "smtp_config" },
+      update: { value: JSON.stringify(dbConfig) },
+      create: { key: "smtp_config", value: JSON.stringify(dbConfig) },
+    });
+
+    return { success: true, message: "SMTP configuration saved successfully." };
+  } catch (error) {
+    console.error("Failed to save platform email config:", error);
+    return { success: false, message: "Failed to save configuration." };
+  }
+}
+
 export async function testPlatformSmtp(): Promise<PlatformEmailResult> {
-  const config = getPlatformEmailConfig();
+  const config = await getPlatformEmailConfig();
   if (!config) {
-    return { success: false, message: "Platform SMTP not configured. Check environment variables." };
+    return { success: false, message: "Platform SMTP not configured. Add settings or check environment variables." };
+  }
+
+  if (!config.smtpHost || !config.smtpUser || !config.smtpPass || !config.smtpFromEmail) {
+    return { success: false, message: "SMTP credentials are incomplete. Please check username/password." };
   }
 
   try {
     const transporter = createPlatformTransporter(config);
     await transporter.verify();
     return { success: true, message: "Platform SMTP connection successful." };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Platform SMTP connection test failed:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    
+    if (errorMessage.includes("535") || errorMessage.includes("authentication failed") || errorMessage.includes("Invalid login")) {
+      return { success: false, message: "SMTP authentication failed. Please verify username and app password." };
+    }
+    
+    if (errorMessage.includes("ENOTFOUND") || errorMessage.includes("ECONNREFUSED")) {
+      return { success: false, message: "SMTP connection failed. Please check host and port." };
+    }
+    
     return { success: false, message: `Connection failed: ${errorMessage}` };
   }
 }
@@ -84,9 +266,13 @@ interface SendPlatformEmailParams {
 }
 
 export async function sendPlatformEmail(params: SendPlatformEmailParams): Promise<PlatformEmailResult> {
-  const config = getPlatformEmailConfig();
+  const config = await getPlatformEmailConfig();
   if (!config) {
     return { success: false, message: "Platform SMTP not configured." };
+  }
+
+  if (!config.smtpHost || !config.smtpUser || !config.smtpPass || !config.smtpFromEmail) {
+    return { success: false, message: "SMTP credentials are incomplete. Please check username/password." };
   }
 
   if (!params.to || !params.to.includes("@")) {
@@ -110,9 +296,18 @@ export async function sendPlatformEmail(params: SendPlatformEmailParams): Promis
 
     await transporter.sendMail(mailOptions);
     return { success: true, message: "Email sent successfully." };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Platform email send failed:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    
+    if (errorMessage.includes("535") || errorMessage.includes("authentication failed") || errorMessage.includes("Invalid login")) {
+      return { success: false, message: "SMTP authentication failed. Please verify username and app password." };
+    }
+    
+    if (errorMessage.includes("ENOTFOUND") || errorMessage.includes("ECONNREFUSED")) {
+      return { success: false, message: "SMTP connection failed. Please check host and port." };
+    }
+    
     return { success: false, message: `Failed to send email: ${errorMessage}` };
   }
 }

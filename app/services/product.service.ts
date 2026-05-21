@@ -29,6 +29,21 @@ export interface ProductInput {
   lowStockThreshold?: number;
 }
 
+function normalizeLookupInput(value: string): string {
+  return value.trim();
+}
+
+function lookupVariants(value: string): string[] {
+  const trimmed = normalizeLookupInput(value);
+  if (!trimmed) return [];
+  return Array.from(new Set([trimmed, trimmed.toUpperCase(), trimmed.toLowerCase()]));
+}
+
+function isNumericLookup(value: string): boolean {
+  const numId = Number(value);
+  return Number.isInteger(numId) && numId > 0;
+}
+
 export async function generateProductId(): Promise<string> {
   const count = await prisma.product.count({ where: { businessId: getCurrentBusinessId() } });
   const next = count + 1;
@@ -42,12 +57,14 @@ export async function getProducts(filters: ProductFilters = {}) {
 
   const where: Prisma.ProductWhereInput = { deletedAt: null, businessId: getCurrentBusinessId() };
   if (filters.search) {
-    const searchLower = filters.search.toLowerCase().trim();
-    where.OR = [
-      { name: { contains: searchLower } },
-      { productId: { contains: searchLower } },
-      { sku: { contains: searchLower } },
-    ];
+    const variants = lookupVariants(filters.search);
+    if (variants.length > 0) {
+      where.OR = variants.flatMap((variant) => [
+        { name: { contains: variant } },
+        { productId: { contains: variant } },
+        { sku: { contains: variant } },
+      ]);
+    }
   }
   if (filters.categoryId) where.categoryId = filters.categoryId;
   if (filters.status) where.status = filters.status;
@@ -85,18 +102,41 @@ export async function getProductById(id: number) {
 }
 
 export async function getProductByIdOrProductId(idOrProductId: string) {
-  const numId = Number(idOrProductId);
-  const isNumeric = !isNaN(numId) && isFinite(numId);
+  const lookup = normalizeLookupInput(idOrProductId);
+  if (!lookup) return null;
+
+  const numId = Number(lookup);
+  const isNumeric = isNumericLookup(lookup);
+  const variants = lookupVariants(lookup);
 
   return prisma.product.findFirst({
     where: {
       deletedAt: null,
       businessId: getCurrentBusinessId(),
       OR: isNumeric
-        ? [{ id: numId }, { productId: idOrProductId }]
-        : [{ productId: idOrProductId }],
+        ? [{ id: numId }, { productId: { in: variants } }]
+        : [{ productId: { in: variants } }],
     },
-    include: { category: true },
+    include: { category: true, stock: true },
+  });
+}
+
+export async function findProductByFlexibleCode(code: string, businessId = getCurrentBusinessId()) {
+  const lookup = normalizeLookupInput(code);
+  if (!lookup) return null;
+
+  const variants = lookupVariants(lookup);
+  return prisma.product.findFirst({
+    where: {
+      deletedAt: null,
+      businessId,
+      OR: [
+        { productId: { in: variants } },
+        { sku: { in: variants } },
+        { name: { in: variants } },
+      ],
+    },
+    include: { category: true, stock: true },
   });
 }
 

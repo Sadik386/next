@@ -1,9 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
-import { endPosSession, getPosSession } from "@/services/pos.service";
+import { PERMISSIONS } from "@/constants/permissions";
+import { requirePermission } from "@/lib/rbac";
+import {
+  endPosSession,
+  getBusinessIdFromPosSessionToken,
+  getPosSession,
+} from "@/services/pos.service";
 
-export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+async function resolveSessionBusinessId(req: NextRequest, shortId: string) {
+  const tokenBusinessId = getBusinessIdFromPosSessionToken(
+    shortId,
+    req.nextUrl.searchParams.get("token")
+  );
+  if (tokenBusinessId) return tokenBusinessId;
+
+  const auth = await requirePermission(req, PERMISSIONS.USE_POS);
+  if (auth instanceof NextResponse) return auth;
+  return auth.businessId;
+}
+
+export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
-  const session = await getPosSession(id);
+  const businessId = await resolveSessionBusinessId(req, id);
+  if (businessId instanceof NextResponse) return businessId;
+
+  const session = await getPosSession(id, businessId);
   if (!session) return NextResponse.json({ error: "Session not found" }, { status: 404 });
 
   let scans: unknown = [];
@@ -21,9 +42,12 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
   });
 }
 
-export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const auth = await requirePermission(req, PERMISSIONS.USE_POS);
+  if (auth instanceof NextResponse) return auth;
+
   const { id } = await ctx.params;
-  const session = await endPosSession(id);
+  const session = await endPosSession(id, auth.businessId);
   if (!session) return NextResponse.json({ error: "Session not found" }, { status: 404 });
   return NextResponse.json({ ok: true });
 }

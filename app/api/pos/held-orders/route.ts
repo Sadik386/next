@@ -8,7 +8,7 @@ export async function GET(req: NextRequest) {
   const auth = await requirePermission(req, PERMISSIONS.USE_POS);
   if (auth instanceof NextResponse) return auth;
 
-  const items = await listHeldOrders(auth.user.id);
+  const items = await listHeldOrders(auth.user.id, auth.businessId);
   return NextResponse.json({
     items: items.map((h) => ({
       id: h.id,
@@ -40,7 +40,8 @@ export async function POST(req: NextRequest) {
           discount: Number(body.discount) || 0,
           notes: body.notes ?? null,
         },
-        auth.user.id
+        auth.user.id,
+        auth.businessId
       );
       return NextResponse.json({ held: { id: held.id } });
     } catch (err) {

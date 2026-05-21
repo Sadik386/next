@@ -32,7 +32,9 @@ export async function POST(req: NextRequest) {
     } catch (err) {
       console.error("POS checkout error:", err);
       const message = err instanceof Error ? err.message : "Server error";
-      return NextResponse.json({ error: message }, { status: 400 });
+      const status =
+        message === "Customer not found" || message === "Product not found" ? 404 : 400;
+      return NextResponse.json({ error: message }, { status });
     }
   });
 }

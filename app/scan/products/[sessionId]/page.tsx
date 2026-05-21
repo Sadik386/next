@@ -8,6 +8,12 @@ type SessionState = {
   expiresAt: string;
 };
 
+type ScannerUrlState = {
+  sessionId: string;
+  accessToken: string;
+  ready: boolean;
+};
+
 function ScannerContent() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const readerRef = useRef<BrowserMultiFormatReader | null>(null);
@@ -19,17 +25,31 @@ function ScannerContent() {
   const [lastResult, setLastResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [manual, setManual] = useState("");
   const [cameraOn, setCameraOn] = useState(false);
-  const [sessionId, setSessionId] = useState<string>("");
+  const [scannerUrl, setScannerUrl] = useState<ScannerUrlState>({
+    sessionId: "",
+    accessToken: "",
+    ready: false,
+  });
 
   useEffect(() => {
     const pathParts = window.location.pathname.split("/");
     const sid = pathParts[pathParts.length - 1] || "";
-    setSessionId(sid);
+    setScannerUrl({
+      sessionId: sid,
+      accessToken: new URLSearchParams(window.location.search).get("token") ?? "",
+      ready: true,
+    });
   }, []);
 
   useEffect(() => {
-    if (!sessionId) return;
-    fetch(`/api/scan/products/session/${sessionId}`)
+    if (!scannerUrl.ready || !scannerUrl.sessionId) return;
+    if (!scannerUrl.accessToken) {
+      setError("Missing scanner token");
+      return;
+    }
+
+    const tokenParam = `?token=${encodeURIComponent(scannerUrl.accessToken)}`;
+    fetch(`/api/scan/products/session/${scannerUrl.sessionId}${tokenParam}`)
       .then((r) => r.json())
       .then((d) => {
         if (d.error) {
@@ -40,7 +60,7 @@ function ScannerContent() {
         }
       })
       .catch(() => setError("Failed to load session"));
-  }, [sessionId]);
+  }, [scannerUrl]);
 
   const submitScan = useCallback(
     async (code: string) => {
@@ -53,7 +73,13 @@ function ScannerContent() {
       lastScanRef.current = { code: trimmed, at: now };
 
       try {
-        const res = await fetch(`/api/scan/products/session/${sessionId}/scan`, {
+        if (!scannerUrl.accessToken) {
+          setLastResult({ ok: false, message: "Missing scanner token" });
+          return;
+        }
+
+        const tokenParam = `?token=${encodeURIComponent(scannerUrl.accessToken)}`;
+        const res = await fetch(`/api/scan/products/session/${scannerUrl.sessionId}/scan${tokenParam}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ code: trimmed }),
@@ -65,17 +91,17 @@ function ScannerContent() {
         }
         setLastResult({
           ok: true,
-          message: `Sent: ${trimmed}`,
+          message: data.productName ? `Found: ${data.productName}` : `Sent: ${trimmed}`,
         });
       } catch {
         setLastResult({ ok: false, message: "Network error" });
       }
     },
-    [sessionId]
+    [scannerUrl]
   );
 
   useEffect(() => {
-    if (!cameraOn || !sessionId) return;
+    if (!cameraOn || !scannerUrl.sessionId) return;
     let stopped = false;
     const reader = new BrowserMultiFormatReader();
     readerRef.current = reader;
@@ -118,7 +144,7 @@ function ScannerContent() {
       readerRef.current?.reset();
       readerRef.current = null;
     };
-  }, [cameraOn, sessionId, submitScan]);
+  }, [cameraOn, scannerUrl.sessionId, submitScan]);
 
   function manualSubmit(e: React.FormEvent) {
     e.preventDefault();

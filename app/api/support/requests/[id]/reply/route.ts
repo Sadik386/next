@@ -22,7 +22,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     const requestData = await getSubscriptionRequestById(parseInt(id));
     if (requestData && requestData.user?.email) {
-      const canSendEmail = isPlatformEmailConfigured();
+      const canSendEmail = await isPlatformEmailConfigured();
       if (canSendEmail) {
         try {
           await sendSupportReplyEmail(

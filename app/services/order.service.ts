@@ -39,8 +39,23 @@ export interface OrderInput {
 const ORDER_STATUSES = ["pending", "confirmed", "delivered", "cancelled"] as const;
 const PAYMENT_STATUSES = ["unpaid", "partial", "paid"] as const;
 
-export async function generateOrderId(): Promise<string> {
-  const count = await prisma.order.count({ where: { businessId: getCurrentBusinessId() } });
+function normalizeLookupInput(value: string): string {
+  return value.trim();
+}
+
+function lookupVariants(value: string): string[] {
+  const trimmed = normalizeLookupInput(value);
+  if (!trimmed) return [];
+  return Array.from(new Set([trimmed, trimmed.toUpperCase(), trimmed.toLowerCase()]));
+}
+
+function isNumericLookup(value: string): boolean {
+  const numId = Number(value);
+  return Number.isInteger(numId) && numId > 0;
+}
+
+export async function generateOrderId(businessId = getCurrentBusinessId()): Promise<string> {
+  const count = await prisma.order.count({ where: { businessId } });
   const next = count + 1;
   return `ORD-${String(next).padStart(3, "0")}`;
 }
@@ -50,13 +65,17 @@ export async function getOrders(filters: OrderFilters = {}) {
   const pageSize = Math.min(100, Math.max(1, filters.pageSize ?? 20));
   const skip = (page - 1) * pageSize;
 
-  const where: Prisma.OrderWhereInput = { deletedAt: null, businessId: getCurrentBusinessId() };
+  const businessId = getCurrentBusinessId();
+  const where: Prisma.OrderWhereInput = { deletedAt: null, businessId };
   if (filters.search) {
-    where.OR = [
-      { orderId: { contains: filters.search } },
-      { customer: { name: { contains: filters.search } } },
-      { customer: { customerId: { contains: filters.search } } },
-    ];
+    const variants = lookupVariants(filters.search);
+    if (variants.length > 0) {
+      where.OR = variants.flatMap((variant) => [
+        { orderId: { contains: variant } },
+        { customer: { is: { businessId, name: { contains: variant } } } },
+        { customer: { is: { businessId, customerId: { contains: variant } } } },
+      ]);
+    }
   }
   if (filters.status) where.status = filters.status;
   if (filters.paymentStatus) where.paymentStatus = filters.paymentStatus;
@@ -107,16 +126,20 @@ export async function getOrderById(id: number) {
 }
 
 export async function getOrderByIdOrOrderId(idOrOrderId: string) {
-  const numId = Number(idOrOrderId);
-  const isNumeric = !isNaN(numId) && isFinite(numId);
+  const lookup = normalizeLookupInput(idOrOrderId);
+  if (!lookup) return null;
+
+  const numId = Number(lookup);
+  const isNumeric = isNumericLookup(lookup);
+  const variants = lookupVariants(lookup);
 
   return prisma.order.findFirst({
     where: {
       deletedAt: null,
       businessId: getCurrentBusinessId(),
       OR: isNumeric
-        ? [{ id: numId }, { orderId: idOrOrderId }]
-        : [{ orderId: idOrOrderId }],
+        ? [{ id: numId }, { orderId: { in: variants } }]
+        : [{ orderId: { in: variants } }],
     },
     include: {
       customer: true,
@@ -151,20 +174,21 @@ export async function createOrder(data: OrderInput, userId: number) {
     throw new Error("At least one item is required");
   }
 
+  const businessId = getCurrentBusinessId();
   const customer = await prisma.customer.findFirst({
-    where: { id: data.customerId, deletedAt: null },
+    where: { id: data.customerId, businessId, deletedAt: null },
   });
   if (!customer) throw new Error("Customer not found");
 
   const productIds = data.items.map((i) => i.productId);
   const products = await prisma.product.findMany({
-    where: { id: { in: productIds }, deletedAt: null },
+    where: { id: { in: productIds }, businessId, deletedAt: null },
   });
   const productMap = new Map(products.map((p) => [p.id, p]));
 
   const itemRows = data.items.map((item) => {
     const product = productMap.get(item.productId);
-    if (!product) throw new Error(`Product ${item.productId} not found`);
+    if (!product) throw new Error("Product not found");
     const qty = Math.max(1, Math.floor(item.quantity));
     const unitPrice = toDecimal(item.unitPrice ?? product.salePrice);
     const totalPrice = unitPrice.mul(qty);
@@ -188,14 +212,14 @@ export async function createOrder(data: OrderInput, userId: number) {
   const paidAmount = toDecimal(data.paidAmount ?? 0);
   const paymentStatus = data.paymentStatus ?? computePaymentStatus(totalAmount, paidAmount);
 
-  const orderId = await generateOrderId();
+  const orderId = await generateOrderId(businessId);
 
   const order = await prisma.$transaction(async (tx) => {
     const created = await tx.order.create({
       data: {
         orderId,
-        businessId: getCurrentBusinessId(),
-        customerId: data.customerId,
+        businessId,
+        customerId: customer.id,
         status: "pending",
         paymentStatus,
         paymentMethod: data.paymentMethod ?? null,
@@ -210,7 +234,7 @@ export async function createOrder(data: OrderInput, userId: number) {
         createdBy: userId,
         items: {
           create: itemRows.map((r) => ({
-            businessId: getCurrentBusinessId(),
+            businessId,
             productId: r.productId,
             productName: r.productName,
             quantity: r.quantity,
@@ -223,7 +247,7 @@ export async function createOrder(data: OrderInput, userId: number) {
     });
 
     for (const row of itemRows) {
-      await applyStockDelta(tx, row.productId, -row.quantity, `Order ${orderId}`, userId);
+      await applyStockDelta(tx, businessId, row.productId, -row.quantity, `Order ${orderId}`, userId);
     }
 
     return created;

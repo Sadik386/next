@@ -84,6 +84,26 @@ type SessionScan = {
 const PAYMENT_METHODS = ["Cash", "bKash", "Nagad", "Rocket", "Upay", "Bank", "Card"] as const;
 const PAYMENT_STATUSES = ["paid", "partial", "unpaid"] as const;
 
+function normalizeScanValue(value: string | null | undefined) {
+  return (value ?? "").trim().toLowerCase();
+}
+
+function findProductForScan(
+  products: ProductOption[],
+  code: string,
+  scannedProductId?: number
+) {
+  const normalizedCode = normalizeScanValue(code);
+  return products.find((p) => {
+    if (scannedProductId && p.id === scannedProductId) return true;
+    return (
+      normalizeScanValue(p.productId) === normalizedCode ||
+      normalizeScanValue(p.sku) === normalizedCode ||
+      normalizeScanValue(p.name) === normalizedCode
+    );
+  });
+}
+
 export default function PosPage() {
   const { currency, settings, brandColor } = useSettings();
 
@@ -262,13 +282,35 @@ export default function PosPage() {
     setTimeout(() => setFeedback((f) => (f && f.text === text ? null : f)), 2000);
   }, []);
 
+  const resolveProductForScan = useCallback(
+    async (code: string, scannedProductId?: number) => {
+      const localMatch = findProductForScan(products, code, scannedProductId);
+      if (localMatch) return localMatch;
+
+      if (scannedProductId) {
+        const res = await fetch(`/api/products/${scannedProductId}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.product) return data.product as ProductOption;
+        }
+      }
+
+      const params = new URLSearchParams({ search: code, pageSize: "20" });
+      const res = await fetch(`/api/products?${params}`);
+      if (!res.ok) return null;
+
+      const data = await res.json();
+      const fetchedProducts = (data.items ?? []) as ProductOption[];
+      return findProductForScan(fetchedProducts, code, scannedProductId) ?? null;
+    },
+    [products]
+  );
+
   const handleScan = useCallback(
-    (rawCode: string) => {
+    async (rawCode: string, scannedProductId?: number) => {
       const code = rawCode.trim();
       if (!code) return;
-      const product = products.find(
-        (p) => p.sku === code || p.productId === code
-      );
+      const product = await resolveProductForScan(code, scannedProductId);
       if (!product) {
         flashFeedback(false, `No product found for "${code}"`);
         return;
@@ -280,13 +322,13 @@ export default function PosPage() {
       addToCart(product);
       flashFeedback(true, `Added ${product.name}`);
     },
-    [products, addToCart, flashFeedback]
+    [resolveProductForScan, addToCart, flashFeedback]
   );
 
   function onScanSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!scanInput.trim()) return;
-    handleScan(scanInput);
+    void handleScan(scanInput);
     setScanInput("");
     scanInputRef.current?.focus();
   }
@@ -335,7 +377,7 @@ export default function PosPage() {
         await reader.decodeFromVideoDevice(null, video, (result: any) => {
           if (stopped) return;
           if (result) {
-            handleScan(result.getText());
+            void handleScan(result.getText());
           }
         });
       } catch (err) {
@@ -396,7 +438,7 @@ export default function PosPage() {
             const key = `${scan.barcode}|${scan.at}`;
             if (processedScanRef.current.has(key)) continue;
             processedScanRef.current.add(key);
-            handleScan(scan.barcode);
+            void handleScan(scan.barcode, scan.productId);
           }
         }
       } catch {

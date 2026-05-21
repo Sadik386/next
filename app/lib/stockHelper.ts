@@ -1,7 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { getStockStatus, StockStatus } from "@/services/inventory.service";
 import { createNotification } from "@/services/notification.service";
-import { getCurrentBusinessId } from "@/lib/business";
 
 export interface ApplyStockDeltaResult {
   previousQty: number;
@@ -12,16 +11,36 @@ export interface ApplyStockDeltaResult {
 
 export async function applyStockDelta(
   tx: Prisma.TransactionClient,
+  businessId: number,
   productId: number,
   delta: number,
   reason: string,
   userId: number
 ): Promise<ApplyStockDeltaResult> {
-  const businessId = getCurrentBusinessId();
-  const product = await tx.product.findUnique({ where: { id: productId } });
-  if (!product) throw new Error(`Product ${productId} not found`);
+  const product = await tx.product.findFirst({
+    where: { id: productId, businessId, deletedAt: null },
+  });
+  if (!product) throw new Error("Product not found");
 
-  const existingStock = await tx.stock.findUnique({ where: { productId } });
+  const existingStock = await tx.stock.findFirst({
+    where: { productId, businessId },
+    include: { product: { select: { businessId: true } } },
+  });
+  if (
+    existingStock &&
+    (existingStock.businessId !== businessId ||
+      existingStock.product.businessId !== businessId)
+  ) {
+    throw new Error("Product not found");
+  }
+  const conflictingStock = existingStock
+    ? null
+    : await tx.stock.findFirst({
+        where: { productId },
+        select: { id: true },
+      });
+  if (conflictingStock) throw new Error("Product not found");
+
   const stockRecord =
     existingStock ??
     (await tx.stock.create({ data: { businessId, productId, quantity: 0, threshold: 10 } }));
@@ -31,10 +50,11 @@ export async function applyStockDelta(
   const rawNewQty = previousQty + delta;
   const newQty = Math.max(0, rawNewQty);
 
-  await tx.stock.update({
-    where: { id: stockRecord.id },
+  const updatedStock = await tx.stock.updateMany({
+    where: { id: stockRecord.id, businessId },
     data: { quantity: newQty },
   });
+  if (updatedStock.count !== 1) throw new Error("Stock not found");
 
   await tx.stockLog.create({
     data: {
@@ -59,8 +79,8 @@ export async function applyStockDelta(
       ? "active"
       : product.status;
   if (targetProductStatus !== product.status) {
-    await tx.product.update({
-      where: { id: productId },
+    await tx.product.updateMany({
+      where: { id: productId, businessId },
       data: { status: targetProductStatus },
     });
   }

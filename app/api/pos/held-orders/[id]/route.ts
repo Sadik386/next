@@ -7,7 +7,7 @@ export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: stri
   const auth = await requirePermission(req, PERMISSIONS.USE_POS);
   if (auth instanceof NextResponse) return auth;
   const { id } = await ctx.params;
-  const result = await deleteHeldOrder(Number(id), auth.user.id);
+  const result = await deleteHeldOrder(Number(id), auth.user.id, auth.businessId);
   if (!result) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json({ ok: true });
 }

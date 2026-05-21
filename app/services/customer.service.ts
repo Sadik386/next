@@ -27,6 +27,21 @@ export interface CustomerInput {
   status?: string;
 }
 
+function normalizeLookupInput(value: string): string {
+  return value.trim();
+}
+
+function lookupVariants(value: string): string[] {
+  const trimmed = normalizeLookupInput(value);
+  if (!trimmed) return [];
+  return Array.from(new Set([trimmed, trimmed.toUpperCase(), trimmed.toLowerCase()]));
+}
+
+function isNumericLookup(value: string): boolean {
+  const numId = Number(value);
+  return Number.isInteger(numId) && numId > 0;
+}
+
 export async function generateCustomerId(): Promise<string> {
   const count = await prisma.customer.count({ where: { businessId: getCurrentBusinessId() } });
   const next = count + 1;
@@ -40,13 +55,16 @@ export async function getCustomers(filters: CustomerFilters = {}) {
 
   const where: Prisma.CustomerWhereInput = { deletedAt: null, businessId: getCurrentBusinessId() };
   if (filters.search) {
-    where.OR = [
-      { name: { contains: filters.search } },
-      { customerId: { contains: filters.search } },
-      { email: { contains: filters.search } },
-      { mobile: { contains: filters.search } },
-      { city: { contains: filters.search } },
-    ];
+    const variants = lookupVariants(filters.search);
+    if (variants.length > 0) {
+      where.OR = variants.flatMap((variant) => [
+        { name: { contains: variant } },
+        { customerId: { contains: variant } },
+        { email: { contains: variant } },
+        { mobile: { contains: variant } },
+        { city: { contains: variant } },
+      ]);
+    }
   }
   if (filters.status) where.status = filters.status;
   if (filters.from || filters.to) {
@@ -81,16 +99,20 @@ export async function getCustomerById(id: number) {
 }
 
 export async function getCustomerByIdOrCustomerId(idOrCustomerId: string) {
-  const numId = Number(idOrCustomerId);
-  const isNumeric = !isNaN(numId) && isFinite(numId);
+  const lookup = normalizeLookupInput(idOrCustomerId);
+  if (!lookup) return null;
+
+  const numId = Number(lookup);
+  const isNumeric = isNumericLookup(lookup);
+  const variants = lookupVariants(lookup);
 
   return prisma.customer.findFirst({
     where: {
       deletedAt: null,
       businessId: getCurrentBusinessId(),
       OR: isNumeric
-        ? [{ id: numId }, { customerId: idOrCustomerId }]
-        : [{ customerId: idOrCustomerId }],
+        ? [{ id: numId }, { customerId: { in: variants } }]
+        : [{ customerId: { in: variants } }],
     },
   });
 }

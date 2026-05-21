@@ -53,6 +53,8 @@ model User {
   passwordResetTokens    PasswordResetToken[]
   lastLoginAt           DateTime?
   lastLoginIp           String?    @db.VarChar(45)
+  subscriptionRequests  SubscriptionRequest[]
+  requestNotes          RequestNote[]
 }
 
 model Notification {
@@ -409,6 +411,7 @@ model Business {
   subscription Subscription?
   usages    Usage[]
   usageOverrides UsageOverride[]
+  subscriptionRequests SubscriptionRequest[]
 }
 
 model BusinessMember {
@@ -591,5 +594,41 @@ model FeatureFlag {
   description String?   @db.VarChar(255)
   defaultValue Boolean  @default(false)
   createdAt   DateTime  @default(now())
+}
+
+model PlatformSetting {
+  id            Int       @id @default(autoincrement())
+  key           String    @unique @db.VarChar(100)
+  value         String?   @db.Text
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model SubscriptionRequest {
+  id              Int          @id @default(autoincrement())
+  businessId      Int
+  userId          Int
+  type            String       @db.VarChar(50)
+  currentPlan     String?      @db.VarChar(50)
+  requestedPlan   String?      @db.VarChar(50)
+  reason          String?      @db.VarChar(255)
+  message         String?      @db.Text
+  status          String       @default("pending") @db.VarChar(20)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  business        Business     @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  user            User         @relation(fields: [userId], references: [id])
+  notes           RequestNote[]
+}
+
+model RequestNote {
+  id          Int       @id @default(autoincrement())
+  requestId   Int
+  userId      Int
+  note        String    @db.Text
+  visibility  String    @default("internal") @db.VarChar(20)
+  createdAt   DateTime  @default(now())
+  request     SubscriptionRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id])
 }
 

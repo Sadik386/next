@@ -10,7 +10,8 @@ const DEFAULT_ADMIN_EMAIL = "admin@accoraze.com";
 const DEFAULT_ADMIN_PASSWORD =
   process.env.SEED_ADMIN_PASSWORD ?? "Accoraze@123";
 const DEFAULT_BRAND_COLOR = "#C4973A";
-const ACTIVE_MEMBER_STATUS = "ACTIVE";
+const ACTIVE_MEMBER_STATUS = "active";
+const ACTIVE_MEMBER_STATUSES = [ACTIVE_MEMBER_STATUS, "ACTIVE"];
 
 const roles = [
   {
@@ -423,7 +424,7 @@ async function backfillUserMemberships(businessId: number) {
     const activeDefaultMembership = await prisma.businessMember.findFirst({
       where: {
         userId: user.id,
-        status: ACTIVE_MEMBER_STATUS,
+        status: { in: ACTIVE_MEMBER_STATUSES },
         isDefault: true,
         business: { isActive: true },
       },
@@ -435,7 +436,7 @@ async function backfillUserMemberships(businessId: number) {
     const activeMembership = await prisma.businessMember.findFirst({
       where: {
         userId: user.id,
-        status: ACTIVE_MEMBER_STATUS,
+        status: { in: ACTIVE_MEMBER_STATUSES },
         business: { isActive: true },
       },
       orderBy: { createdAt: "asc" },

@@ -2,10 +2,46 @@ import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { createLog } from "@/services/activity-log.service";
 import { generateOrderId } from "@/services/order.service";
+import { findProductByFlexibleCode } from "@/services/product.service";
 import { applyStockDelta } from "@/lib/stockHelper";
 import { getCurrentBusinessId } from "@/lib/business";
+import { createHmac, timingSafeEqual } from "crypto";
 
 const SHORT_ID_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+function getSessionSecret() {
+  const secret = process.env.JWT_SECRET;
+  if (!secret || secret.length < 32) {
+    throw new Error("JWT_SECRET must be at least 32 characters long");
+  }
+  return secret;
+}
+
+function signPosSessionScope(shortId: string, businessId: number) {
+  return createHmac("sha256", getSessionSecret())
+    .update(`${businessId}:${shortId}`)
+    .digest("base64url");
+}
+
+export function createPosSessionAccessToken(shortId: string, businessId: number) {
+  return `${businessId}.${signPosSessionScope(shortId, businessId)}`;
+}
+
+export function getBusinessIdFromPosSessionToken(shortId: string, token: string | null) {
+  if (!token) return null;
+  const [businessIdRaw, signature, ...rest] = token.split(".");
+  if (rest.length > 0 || !businessIdRaw || !signature) return null;
+
+  const businessId = Number(businessIdRaw);
+  if (!Number.isInteger(businessId) || businessId <= 0) return null;
+
+  const expected = signPosSessionScope(shortId, businessId);
+  const signatureBuffer = Buffer.from(signature);
+  const expectedBuffer = Buffer.from(expected);
+
+  if (signatureBuffer.length !== expectedBuffer.length) return null;
+  return timingSafeEqual(signatureBuffer, expectedBuffer) ? businessId : null;
+}
 
 export function generateShortId(): string {
   let result = "MOB-";
@@ -15,7 +51,7 @@ export function generateShortId(): string {
   return result;
 }
 
-export async function createPosSession(userId: number) {
+export async function createPosSession(userId: number, businessId: number) {
   let shortId = generateShortId();
   for (let attempt = 0; attempt < 5; attempt++) {
     const exists = await prisma.posSession.findUnique({ where: { shortId } });
@@ -29,7 +65,7 @@ export async function createPosSession(userId: number) {
     data: {
       id,
       shortId,
-      businessId: getCurrentBusinessId(),
+      businessId,
       createdBy: userId,
       status: "active",
       scans: "[]",
@@ -39,12 +75,12 @@ export async function createPosSession(userId: number) {
   return session;
 }
 
-export async function getPosSession(shortId: string) {
-  const session = await prisma.posSession.findUnique({ where: { shortId } });
+export async function getPosSession(shortId: string, businessId: number) {
+  const session = await prisma.posSession.findFirst({ where: { shortId, businessId } });
   if (!session) return null;
   if (session.status === "active" && session.expiresAt < new Date()) {
-    await prisma.posSession.update({
-      where: { shortId },
+    await prisma.posSession.updateMany({
+      where: { shortId, businessId },
       data: { status: "expired" },
     });
     return { ...session, status: "expired" };
@@ -52,38 +88,32 @@ export async function getPosSession(shortId: string) {
   return session;
 }
 
-export async function endPosSession(shortId: string) {
-  const session = await prisma.posSession.findUnique({ where: { shortId } });
+export async function endPosSession(shortId: string, businessId: number) {
+  const session = await prisma.posSession.findFirst({ where: { shortId, businessId } });
   if (!session) return null;
-  return prisma.posSession.update({
-    where: { shortId },
+  await prisma.posSession.updateMany({
+    where: { shortId, businessId },
     data: { status: "expired" },
   });
+  return { ...session, status: "expired" };
 }
 
-export async function appendScan(shortId: string, barcode: string) {
-  const session = await prisma.posSession.findUnique({ where: { shortId } });
+export async function appendScan(shortId: string, barcode: string, businessId: number) {
+  const session = await prisma.posSession.findFirst({ where: { shortId, businessId } });
   if (!session) return { error: "Session not found" as const };
   if (session.status !== "active") return { error: "Session is not active" as const };
   if (session.expiresAt < new Date()) {
-    await prisma.posSession.update({ where: { shortId }, data: { status: "expired" } });
+    await prisma.posSession.updateMany({
+      where: { shortId, businessId },
+      data: { status: "expired" },
+    });
     return { error: "Session expired" as const };
   }
 
-  const trimmed = barcode.trim().toLowerCase();
+  const trimmed = barcode.trim();
   if (!trimmed) return { error: "Barcode is required" as const };
 
-  const product = await prisma.product.findFirst({
-    where: {
-      businessId: session.businessId,
-      deletedAt: null,
-      OR: [
-        { sku: { contains: trimmed } },
-        { productId: { contains: trimmed } },
-      ],
-    },
-    select: { id: true, productId: true, name: true, sku: true, salePrice: true, unit: true },
-  });
+  const product = await findProductByFlexibleCode(trimmed, businessId);
 
   let scans: Array<{ barcode: string; productId?: number; name?: string; at: string }> = [];
   try {
@@ -101,10 +131,11 @@ export async function appendScan(shortId: string, barcode: string) {
   };
   scans.push(entry);
 
-  await prisma.posSession.update({
-    where: { shortId },
+  const updatedSession = await prisma.posSession.updateMany({
+    where: { shortId, businessId },
     data: { scans: JSON.stringify(scans) },
   });
+  if (updatedSession.count !== 1) return { error: "Session not found" as const };
 
   if (!product) {
     return { success: true, productName: null, message: "Scan recorded but product not found" };
@@ -170,7 +201,7 @@ export async function checkoutPos(data: PosCheckoutInput, userId: number) {
 
   const itemRows = data.items.map((it) => {
     const product = productMap.get(it.productId);
-    if (!product) throw new Error(`Product ${it.productId} not found`);
+    if (!product) throw new Error("Product not found");
     const qty = Math.max(1, Math.floor(Number(it.quantity) || 1));
     const unitPrice = toDecimal(it.unitPrice ?? product.salePrice);
     const totalPrice = unitPrice.mul(qty);
@@ -195,7 +226,7 @@ export async function checkoutPos(data: PosCheckoutInput, userId: number) {
   let paymentStatus = data.paymentStatus ?? "paid";
   if (!["paid", "partial", "unpaid"].includes(paymentStatus)) paymentStatus = "paid";
 
-  const orderId = await generateOrderId();
+  const orderId = await generateOrderId(businessId);
 
   const result = await prisma.$transaction(async (tx) => {
     const order = await tx.order.create({
@@ -212,7 +243,7 @@ export async function checkoutPos(data: PosCheckoutInput, userId: number) {
         paidAmount,
         notes: data.notes ?? null,
         businessId,
-      createdBy: userId,
+        createdBy: userId,
         items: {
           create: itemRows.map((r) => ({
             businessId,
@@ -229,7 +260,7 @@ export async function checkoutPos(data: PosCheckoutInput, userId: number) {
 
     const sales: Array<{ id: number; saleId: string }> = [];
     for (const row of itemRows) {
-      await applyStockDelta(tx, row.product.id, -row.qty, `POS ${orderId}`, userId);
+      await applyStockDelta(tx, businessId, row.product.id, -row.qty, `POS ${orderId}`, userId);
 
       const saleId = `SL-${String((await tx.sale.count()) + 1).padStart(3, "0")}`;
       const sale = await tx.sale.create({
@@ -248,7 +279,7 @@ export async function checkoutPos(data: PosCheckoutInput, userId: number) {
           paymentMethod: data.paymentMethod ?? null,
           notes: data.notes ?? null,
           businessId,
-      createdBy: userId,
+          createdBy: userId,
         },
       });
       sales.push({ id: sale.id, saleId: sale.saleId });
@@ -281,17 +312,17 @@ export interface HeldOrderInput {
   notes?: string | null;
 }
 
-export async function listHeldOrders(userId: number) {
+export async function listHeldOrders(userId: number, businessId: number) {
   return prisma.heldOrder.findMany({
-    where: { createdBy: userId },
+    where: { businessId, createdBy: userId },
     orderBy: { id: "desc" },
   });
 }
 
-export async function holdOrder(input: HeldOrderInput, userId: number) {
+export async function holdOrder(input: HeldOrderInput, userId: number, businessId: number) {
   return prisma.heldOrder.create({
     data: {
-      businessId: getCurrentBusinessId(),
+      businessId,
       createdBy: userId,
       items: JSON.stringify(input.items ?? []),
       customerData: input.customerData ? JSON.stringify(input.customerData) : null,
@@ -301,8 +332,11 @@ export async function holdOrder(input: HeldOrderInput, userId: number) {
   });
 }
 
-export async function deleteHeldOrder(id: number, userId: number) {
-  const held = await prisma.heldOrder.findUnique({ where: { id } });
-  if (!held || held.createdBy !== userId) return null;
-  return prisma.heldOrder.delete({ where: { id } });
+export async function deleteHeldOrder(id: number, userId: number, businessId: number) {
+  const held = await prisma.heldOrder.findFirst({
+    where: { id, businessId, createdBy: userId },
+  });
+  if (!held) return null;
+  await prisma.heldOrder.deleteMany({ where: { id, businessId, createdBy: userId } });
+  return held;
 }

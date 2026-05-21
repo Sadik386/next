@@ -21,16 +21,19 @@ function ScannerContent() {
   const [manual, setManual] = useState("");
   const [cameraOn, setCameraOn] = useState(false);
   const [sessionId, setSessionId] = useState<string>("");
+  const [accessToken, setAccessToken] = useState<string>("");
 
   useEffect(() => {
     const pathParts = window.location.pathname.split("/");
     const sid = pathParts[pathParts.length - 1] || "";
     setSessionId(sid);
+    setAccessToken(new URLSearchParams(window.location.search).get("token") ?? "");
   }, []);
 
   useEffect(() => {
     if (!sessionId) return;
-    fetch(`/api/pos/session/${sessionId}`)
+    const tokenParam = accessToken ? `?token=${encodeURIComponent(accessToken)}` : "";
+    fetch(`/api/pos/session/${sessionId}${tokenParam}`)
       .then((r) => r.json())
       .then((d) => {
         if (d.error) {
@@ -41,7 +44,7 @@ function ScannerContent() {
         }
       })
       .catch(() => setError("Failed to load session"));
-  }, [sessionId]);
+  }, [sessionId, accessToken]);
 
   const submitScan = useCallback(
     async (barcode: string) => {
@@ -54,7 +57,8 @@ function ScannerContent() {
       lastScanRef.current = { code, at: now };
 
       try {
-        const res = await fetch(`/api/pos/session/${sessionId}/scan`, {
+        const tokenParam = accessToken ? `?token=${encodeURIComponent(accessToken)}` : "";
+        const res = await fetch(`/api/pos/session/${sessionId}/scan${tokenParam}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ barcode: code }),
@@ -73,7 +77,7 @@ function ScannerContent() {
         setLastResult({ ok: false, message: "Network error" });
       }
     },
-    [sessionId]
+    [sessionId, accessToken]
   );
 
   useEffect(() => {

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/password";
 import { checkRateLimit, getRateLimitResponse } from "@/lib/rate-limit";
 import { getRequestInfo } from "@/lib/request-info";
+import { activeBusinessMemberStatusWhere } from "@/constants/business-member-status";
 
 export async function POST(req: NextRequest) {
   const { ip } = getRequestInfo(req);
@@ -61,13 +62,13 @@ export async function POST(req: NextRequest) {
         role: { name: { in: ["super_admin", "admin"] } },
         isActive: true,
         businessMemberships: {
-          some: { status: "active", business: { isActive: true } },
+          some: { status: activeBusinessMemberStatusWhere(), business: { isActive: true } },
         },
       },
       select: {
         id: true,
         businessMemberships: {
-          where: { status: "active", business: { isActive: true } },
+          where: { status: activeBusinessMemberStatusWhere(), business: { isActive: true } },
           orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
           take: 1,
           select: { businessId: true },

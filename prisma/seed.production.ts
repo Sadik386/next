@@ -1,16 +1,6 @@
-import { Prisma, PrismaClient } from "@prisma/client";
-import bcrypt from "bcryptjs";
+import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
-
-const DEFAULT_BUSINESS_NAME = "Accoraze";
-const DEFAULT_BUSINESS_SLUG = "accoraze";
-const DEFAULT_ADMIN_NAME = "Accoraze Admin";
-const DEFAULT_ADMIN_EMAIL = "admin@accoraze.com";
-const DEFAULT_ADMIN_PASSWORD =
-  process.env.SEED_ADMIN_PASSWORD ?? "Accoraze@123";
-const DEFAULT_BRAND_COLOR = "#C4973A";
-const ACTIVE_MEMBER_STATUS = "ACTIVE";
 
 const roles = [
   {
@@ -265,12 +255,6 @@ const subscriptionPlans = [
   },
 ];
 
-function addDays(date: Date, days: number) {
-  const next = new Date(date);
-  next.setDate(next.getDate() + days);
-  return next;
-}
-
 async function ensureRoles() {
   for (const role of roles) {
     await prisma.role.upsert({
@@ -291,177 +275,6 @@ async function ensureRoles() {
   if (!superAdminRole) {
     throw new Error("Failed to seed super_admin role");
   }
-
-  return superAdminRole;
-}
-
-async function ensureDefaultBusiness() {
-  return prisma.business.upsert({
-    where: { slug: DEFAULT_BUSINESS_SLUG },
-    update: { name: DEFAULT_BUSINESS_NAME, isActive: true },
-    create: {
-      name: DEFAULT_BUSINESS_NAME,
-      slug: DEFAULT_BUSINESS_SLUG,
-      isActive: true,
-    },
-  });
-}
-
-async function getAvailableUsername() {
-  const candidates = ["admin", "accoraze", "accoraze_admin"];
-
-  for (const username of candidates) {
-    const existing = await prisma.user.findUnique({ where: { username } });
-    if (!existing) return username;
-  }
-
-  return `accoraze_admin_${Date.now()}`;
-}
-
-async function ensureDefaultAdminUser(roleId: number) {
-  const existing = await prisma.user.findUnique({
-    where: { email: DEFAULT_ADMIN_EMAIL },
-  });
-  const shouldRefreshPassword = process.env.SEED_RESET_ADMIN_PASSWORD === "true";
-  const password = await bcrypt.hash(DEFAULT_ADMIN_PASSWORD, 12);
-
-  if (existing) {
-    return prisma.user.update({
-      where: { id: existing.id },
-      data: {
-        name: DEFAULT_ADMIN_NAME,
-        ...(shouldRefreshPassword ? { password } : {}),
-        roleId,
-        isActive: true,
-        isFounder: true,
-      },
-    });
-  }
-
-  return prisma.user.create({
-    data: {
-      name: DEFAULT_ADMIN_NAME,
-      username: await getAvailableUsername(),
-      email: DEFAULT_ADMIN_EMAIL,
-      password,
-      roleId,
-      isActive: true,
-      isFounder: true,
-    },
-  });
-}
-
-async function ensureDefaultBusinessMember(userId: number, businessId: number) {
-  await prisma.businessMember.updateMany({
-    where: {
-      userId,
-      businessId: { not: businessId },
-      isDefault: true,
-    },
-    data: { isDefault: false },
-  });
-
-  return prisma.businessMember.upsert({
-    where: {
-      userId_businessId: {
-        userId,
-        businessId,
-      },
-    },
-    update: { isDefault: true, status: ACTIVE_MEMBER_STATUS },
-    create: {
-      userId,
-      businessId,
-      isDefault: true,
-      status: ACTIVE_MEMBER_STATUS,
-    },
-  });
-}
-
-async function backfillUserMemberships(businessId: number) {
-  const users = await prisma.user.findMany({
-    select: { id: true },
-  });
-
-  for (const user of users) {
-    const activeDefaultMembership = await prisma.businessMember.findFirst({
-      where: {
-        userId: user.id,
-        status: ACTIVE_MEMBER_STATUS,
-        isDefault: true,
-        business: { isActive: true },
-      },
-      select: { id: true },
-    });
-
-    if (activeDefaultMembership) continue;
-
-    const activeMembership = await prisma.businessMember.findFirst({
-      where: {
-        userId: user.id,
-        status: ACTIVE_MEMBER_STATUS,
-        business: { isActive: true },
-      },
-      orderBy: { createdAt: "asc" },
-      select: { id: true },
-    });
-
-    if (activeMembership) {
-      await prisma.businessMember.update({
-        where: { id: activeMembership.id },
-        data: { isDefault: true },
-      });
-      continue;
-    }
-
-    await prisma.businessMember.upsert({
-      where: {
-        userId_businessId: {
-          userId: user.id,
-          businessId,
-        },
-      },
-      update: { isDefault: true, status: ACTIVE_MEMBER_STATUS },
-      create: {
-        userId: user.id,
-        businessId,
-        isDefault: true,
-        status: ACTIVE_MEMBER_STATUS,
-      },
-    });
-  }
-}
-
-async function ensureDefaultSetting(businessId: number) {
-  const existing = await prisma.setting.findUnique({
-    where: { businessId },
-  });
-
-  if (!existing) {
-    return prisma.setting.create({
-      data: {
-        businessId,
-        businessName: DEFAULT_BUSINESS_NAME,
-        email: DEFAULT_ADMIN_EMAIL,
-        currency: "BDT",
-        brandColor: DEFAULT_BRAND_COLOR,
-        weekStartDay: 0,
-      },
-    });
-  }
-
-  const updateData: Prisma.SettingUpdateInput = {};
-  if (!existing.businessName.trim()) updateData.businessName = DEFAULT_BUSINESS_NAME;
-  if (!existing.email) updateData.email = DEFAULT_ADMIN_EMAIL;
-  if (!existing.currency.trim()) updateData.currency = "BDT";
-  if (!existing.brandColor) updateData.brandColor = DEFAULT_BRAND_COLOR;
-
-  if (Object.keys(updateData).length === 0) return existing;
-
-  return prisma.setting.update({
-    where: { businessId },
-    data: updateData,
-  });
 }
 
 async function seedSubscriptionPlans() {
@@ -481,51 +294,6 @@ async function seedSubscriptionPlans() {
   });
 }
 
-async function ensureDefaultSubscription(businessId: number) {
-  const freePlan = await prisma.subscriptionPlan.findUnique({
-    where: { name: "free" },
-  });
-
-  if (!freePlan) {
-    throw new Error("Failed to seed free subscription plan");
-  }
-
-  const now = new Date();
-  const currentPeriodEnd = addDays(now, 30);
-  const existing = await prisma.subscription.findUnique({
-    where: { businessId },
-  });
-
-  if (!existing) {
-    return prisma.subscription.create({
-      data: {
-        businessId,
-        planId: freePlan.id,
-        status: "active",
-        billingCycle: "monthly",
-        currentPeriodStart: now,
-        currentPeriodEnd,
-      },
-    });
-  }
-
-  return prisma.subscription.update({
-    where: { businessId },
-    data: {
-      planId: freePlan.id,
-      status: "active",
-      billingCycle: "monthly",
-      currentPeriodStart:
-        existing.currentPeriodStart <= now ? existing.currentPeriodStart : now,
-      currentPeriodEnd:
-        existing.currentPeriodEnd > now ? existing.currentPeriodEnd : currentPeriodEnd,
-      cancelAtPeriodEnd: false,
-      canceledAt: null,
-      pausedAt: null,
-    },
-  });
-}
-
 async function seedFeatureFlags() {
   for (const flag of featureFlags) {
     await prisma.featureFlag.upsert({
@@ -539,20 +307,13 @@ async function seedFeatureFlags() {
 async function main() {
   console.log("Production seed starting...");
 
-  const superAdminRole = await ensureRoles();
-  const defaultBusiness = await ensureDefaultBusiness();
-  const defaultAdmin = await ensureDefaultAdminUser(superAdminRole.id);
-
-  await ensureDefaultBusinessMember(defaultAdmin.id, defaultBusiness.id);
-  await backfillUserMemberships(defaultBusiness.id);
-  await ensureDefaultSetting(defaultBusiness.id);
+  await ensureRoles();
   await seedSubscriptionPlans();
-  await ensureDefaultSubscription(defaultBusiness.id);
   await seedFeatureFlags();
 
   console.log("Production seed complete");
-  console.log(`Default admin email: ${DEFAULT_ADMIN_EMAIL}`);
-  console.log("Use SEED_ADMIN_PASSWORD to control the seeded admin password.");
+  console.log("No production admin user was created.");
+  console.log("Create the founder account through the first-run setup wizard.");
 }
 
 main()
