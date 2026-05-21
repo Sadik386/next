@@ -2,6 +2,9 @@ import nodemailer, { Transporter } from "nodemailer";
 import { prisma } from "@/lib/prisma";
 import { getCurrentBusinessId } from "@/lib/business";
 import { decryptSecret } from "@/lib/crypto/secret";
+import { USAGE_KEYS } from "@/lib/pricing";
+import { guardEmailSend } from "@/lib/subscription-guard";
+import { incrementUsageSafely } from "@/lib/usage-service";
 
 export interface EmailSettings {
   smtpProvider: string;
@@ -205,13 +208,22 @@ export interface SendEmailParams {
 }
 
 export async function sendEmail(params: SendEmailParams): Promise<EmailResult> {
-  const settings = await getEmailSettings(params.businessId);
+  const businessId = params.businessId ?? getCurrentBusinessId();
+  const settings = await getEmailSettings(businessId);
   if (!settings) {
     return { success: false, message: "SMTP settings not configured." };
   }
 
   if (!params.to || !params.to.includes("@")) {
     return { success: false, message: "Invalid recipient email address." };
+  }
+
+  const guard = await guardEmailSend(businessId);
+  if (!guard.allowed) {
+    return {
+      success: false,
+      message: guard.reason ?? "Email quota exceeded for your current plan.",
+    };
   }
 
   try {
@@ -243,6 +255,8 @@ export async function sendEmail(params: SendEmailParams): Promise<EmailResult> {
       text: params.text || params.html.replace(/<[^>]*>/g, ""),
       html: htmlContent,
     });
+
+    await incrementUsageSafely(businessId, USAGE_KEYS.EMAILS_SENT);
 
     return { success: true, message: "Email sent successfully." };
   } catch (error) {

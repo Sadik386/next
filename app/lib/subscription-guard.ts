@@ -1,6 +1,7 @@
 import { prisma } from "./prisma";
 import { activeBusinessMemberStatusWhere } from "@/constants/business-member-status";
 import {
+  FEATURE_KEYS,
   PLAN_NAMES,
   SUBSCRIPTION_STATUS,
   USAGE_KEYS,
@@ -21,10 +22,19 @@ function getCurrentPeriod(): { start: Date; end: Date } {
   return { start, end };
 }
 
-interface SubscriptionGuardResult {
+export interface SubscriptionGuardResult {
   allowed: boolean;
   reason?: string;
   code?: string;
+}
+
+export class SubscriptionGuardError extends Error {
+  status = 403;
+
+  constructor(message: string, public code?: string) {
+    super(message);
+    this.name = "SubscriptionGuardError";
+  }
 }
 
 interface CheckLimitOptions {
@@ -136,12 +146,15 @@ function getDefaultLimit(usageKey: string): number {
     [USAGE_KEYS.ORDERS_CREATED]: 10,
     [USAGE_KEYS.SALES_CREATED]: 20,
     [USAGE_KEYS.PRODUCTS_CREATED]: -1,
+    [USAGE_KEYS.USERS_CREATED]: -1,
     [USAGE_KEYS.CUSTOMERS_CREATED]: 10,
     [USAGE_KEYS.SUPPLIERS_CREATED]: 5,
     [USAGE_KEYS.EXPENSES_CREATED]: 5,
     [USAGE_KEYS.INVOICES_CREATED]: 5,
     [USAGE_KEYS.POS_SESSIONS]: -1,
     [USAGE_KEYS.API_CALLS]: 50,
+    [USAGE_KEYS.API_KEYS_CREATED]: -1,
+    [USAGE_KEYS.EMAILS_SENT]: 100,
     [USAGE_KEYS.STORAGE_MB]: 50,
   };
   return defaults[usageKey] ?? -1;
@@ -314,7 +327,7 @@ export async function guardApiKeyCreation(businessId: number): Promise<Subscript
     };
   }
   
-  const hasApiAccess = await hasFeatureAccess(businessId, 'apiAccess');
+  const hasApiAccess = await hasFeatureAccess(businessId, FEATURE_KEYS.API_ACCESS);
   
   if (!hasApiAccess) {
     return {

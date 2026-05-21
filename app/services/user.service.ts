@@ -16,6 +16,9 @@ import {
   isRoleName,
   type RoleName,
 } from "@/constants/roles";
+import { USAGE_KEYS } from "@/lib/pricing";
+import { guardUserCreation } from "@/lib/subscription-guard";
+import { incrementUsageSafely } from "@/lib/usage-service";
 
 type UserMutationActor = {
   id: number;
@@ -363,10 +366,16 @@ export async function createUser(
   const existing = await prisma.user.findUnique({ where: { email: data.email } });
   if (existing) return serviceError("Email already in use", 409);
 
-  const hashedPassword = await hashPassword(data.password);
   const username = data.email.split("@")[0];
   const existingUsername = await prisma.user.findUnique({ where: { username } });
   if (existingUsername) return serviceError("Username already in use", 409);
+
+  const guard = await guardUserCreation(businessId);
+  if (!guard.allowed) {
+    return serviceError(guard.reason ?? "User limit reached for your current plan.", 403);
+  }
+
+  const hashedPassword = await hashPassword(data.password);
 
   const user = await prisma.$transaction(async (tx) => {
     const createdUser = await tx.user.create({
@@ -391,6 +400,8 @@ export async function createUser(
 
     return createdUser;
   });
+
+  await incrementUsageSafely(businessId, USAGE_KEYS.USERS_CREATED);
 
   return {
     success: true,
@@ -522,6 +533,11 @@ export async function approveRegistrationRequest(
     return serviceError("A user with this email or username already exists", 409);
   }
 
+  const guard = await guardUserCreation(assignment.actor.businessId);
+  if (!guard.allowed) {
+    return serviceError(guard.reason ?? "User limit reached for your current plan.", 403);
+  }
+
   const user = await prisma.$transaction(async (tx) => {
     const createdUser = await tx.user.create({
       data: {
@@ -571,6 +587,8 @@ export async function approveRegistrationRequest(
 
     return createdUser;
   });
+
+  await incrementUsageSafely(assignment.actor.businessId, USAGE_KEYS.USERS_CREATED);
 
   return { success: true, user: serializeUser(user) };
 }

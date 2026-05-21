@@ -6,6 +6,7 @@ import { runWithBusinessContext } from "@/lib/business-context";
 import { hasPermission } from "@/lib/rbac";
 import { RoleName } from "@/constants/roles";
 import { parseDateRangeFromSearchParams } from "@/lib/date-filter";
+import { SubscriptionGuardError } from "@/lib/subscription-guard";
 
 export async function GET(req: NextRequest) {
   const user = await getAuthUser();
@@ -54,6 +55,9 @@ export async function POST(req: NextRequest) {
       const product = await createProduct(body, user.id);
       return NextResponse.json({ product });
     } catch (error) {
+      if (error instanceof SubscriptionGuardError) {
+        return NextResponse.json({ error: error.message }, { status: error.status });
+      }
       console.error("Error creating product:", error);
       const message =
         error instanceof Error && process.env.NODE_ENV !== "production"

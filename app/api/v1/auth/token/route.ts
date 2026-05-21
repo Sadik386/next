@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/rbac";
 import { generateApiKey, hashKey } from "@/lib/api-key";
 import { prisma } from "@/lib/prisma";
+import { USAGE_KEYS } from "@/lib/pricing";
+import { guardApiKeyCreation } from "@/lib/subscription-guard";
+import { incrementUsageSafely } from "@/lib/usage-service";
 
 export async function POST(req: NextRequest) {
   const auth = await requireAuth(req);
@@ -9,6 +12,14 @@ export async function POST(req: NextRequest) {
 
   const { name, permissions } = await req.json();
   if (!name) return NextResponse.json({ error: "Name is required" }, { status: 400 });
+
+  const guard = await guardApiKeyCreation(auth.businessId);
+  if (!guard.allowed) {
+    return NextResponse.json(
+      { error: guard.reason ?? "API access is not available on your current plan." },
+      { status: 403 }
+    );
+  }
 
   const rawKey = generateApiKey();
   const hashed = hashKey(rawKey);
@@ -21,6 +32,8 @@ export async function POST(req: NextRequest) {
       permissions: JSON.stringify(permissions || ["read:products"]),
     },
   });
+
+  await incrementUsageSafely(auth.businessId, USAGE_KEYS.API_KEYS_CREATED);
 
   // Return the RAW key only ONCE
   return NextResponse.json({

@@ -132,6 +132,22 @@ export async function incrementUsage(
 }
 
 /**
+ * Increment usage without failing an already-successful business action.
+ */
+export async function incrementUsageSafely(
+  businessId: number,
+  usageKey: string,
+  amount: number = 1
+): Promise<number | null> {
+  try {
+    return await incrementUsage(businessId, usageKey, amount);
+  } catch (error) {
+    console.error("Usage increment failed:", { businessId, usageKey, amount, error });
+    return null;
+  }
+}
+
+/**
  * Get current usage value
  */
 export async function getCurrentUsage(
@@ -327,12 +343,15 @@ function getDefaultLimit(usageKey: string): number {
     [USAGE_KEYS.ORDERS_CREATED]: 10,
     [USAGE_KEYS.SALES_CREATED]: 20,
     [USAGE_KEYS.PRODUCTS_CREATED]: -1,
+    [USAGE_KEYS.USERS_CREATED]: -1,
     [USAGE_KEYS.CUSTOMERS_CREATED]: 10,
     [USAGE_KEYS.SUPPLIERS_CREATED]: 5,
     [USAGE_KEYS.EXPENSES_CREATED]: 5,
     [USAGE_KEYS.INVOICES_CREATED]: 5,
     [USAGE_KEYS.POS_SESSIONS]: -1,
     [USAGE_KEYS.API_CALLS]: 50,
+    [USAGE_KEYS.API_KEYS_CREATED]: -1,
+    [USAGE_KEYS.EMAILS_SENT]: 100,
     [USAGE_KEYS.STORAGE_MB]: 50,
   };
   return defaults[usageKey] ?? -1;

@@ -3,6 +3,9 @@ import { Prisma } from "@prisma/client";
 import { createLog } from "@/services/activity-log.service";
 import { notifyDeleteRequest } from "@/services/delete-request.service";
 import { getCurrentBusinessId } from "@/lib/business";
+import { USAGE_KEYS } from "@/lib/pricing";
+import { guardProductCreation, SubscriptionGuardError } from "@/lib/subscription-guard";
+import { incrementUsageSafely } from "@/lib/usage-service";
 
 export interface ProductFilters {
   search?: string;
@@ -141,10 +144,19 @@ export async function findProductByFlexibleCode(code: string, businessId = getCu
 }
 
 export async function createProduct(data: ProductInput, userId: number) {
+  const businessId = getCurrentBusinessId();
+  const guard = await guardProductCreation(businessId);
+  if (!guard.allowed) {
+    throw new SubscriptionGuardError(
+      guard.reason ?? "Product limit reached for your current plan.",
+      guard.code
+    );
+  }
+
   const productId = await generateProductId();
   const product = await prisma.product.create({
     data: {
-      businessId: getCurrentBusinessId(),
+      businessId,
       productId,
       name: data.name,
       sku: data.sku ?? null,
@@ -164,7 +176,7 @@ export async function createProduct(data: ProductInput, userId: number) {
   const threshold = Math.max(0, Math.floor(Number(data.lowStockThreshold) || 10));
 
   await prisma.stock.create({
-    data: { productId: product.id, quantity: openingStock, threshold, businessId: getCurrentBusinessId() },
+    data: { productId: product.id, quantity: openingStock, threshold, businessId },
   });
 
   if (openingStock > 0) {
@@ -188,6 +200,8 @@ export async function createProduct(data: ProductInput, userId: number) {
     description: `Created product: ${product.name} (${product.productId})`,
     metadata: { productId: product.productId, name: product.name },
   });
+
+  await incrementUsageSafely(businessId, USAGE_KEYS.PRODUCTS_CREATED);
 
   return product;
 }
