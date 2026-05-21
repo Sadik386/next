@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requirePlatformAdmin } from "@/lib/platform-auth";
-import { getSubscriptionRequestById, updateSubscriptionRequestStatus, addRequestNote } from "@/services/subscription-request.service";
+import { getSubscriptionRequestById, updateSubscriptionRequestStatus } from "@/services/subscription-request.service";
 import { sendSupportReplyEmail, isPlatformEmailConfigured } from "@/services/platform-email.service";
 
 async function sendReplyEmail(requestId: number, note: string, requestData: any) {
@@ -47,7 +47,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   try {
     const { id } = await params;
     const body = await req.json();
-    const { status, adminNote, visibility, userId } = body;
+    const { status, adminNote, visibility } = body;
 
     if (!status) {
       return NextResponse.json({ success: false, message: "Status is required" }, { status: 400 });
@@ -59,13 +59,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
 
     const requestData = await getSubscriptionRequestById(parseInt(id));
+    if (!requestData) {
+      return NextResponse.json({ success: false, message: "Request not found" }, { status: 404 });
+    }
 
     const updated = await updateSubscriptionRequestStatus({
       id: parseInt(id),
       status,
       adminNote,
       visibility,
-      userId: userId || auth.user.id,
+      userId: auth.user.id,
     });
 
     if (visibility === "public" && adminNote) {

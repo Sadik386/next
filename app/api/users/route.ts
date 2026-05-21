@@ -61,14 +61,12 @@ export async function POST(req: NextRequest) {
 
       const result = await createUser(
         { name, email, password, roleName },
-        user.role as RoleName,
-        user.id,
-        user.businessId
+        { id: user.id, role: user.role as RoleName, businessId: user.businessId }
       );
-      if (result.error) {
-        return NextResponse.json({ error: result.error }, { status: 400 });
+      if ("error" in result) {
+        return NextResponse.json({ error: result.error }, { status: result.status ?? 400 });
       }
-      return NextResponse.json({ user: (result as any).user });
+      return NextResponse.json({ user: result.user }, { status: 201 });
     } catch (error) {
       console.error("Error creating user:", error);
       return NextResponse.json({ error: "Server error" }, { status: 500 });

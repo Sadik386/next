@@ -24,13 +24,19 @@ export const ROLE_LABELS: Record<RoleName, string> = {
   staff: "Staff",
 };
 
+export function isRoleName(role: string | null | undefined): role is RoleName {
+  return Object.values(ROLES).includes(role as RoleName);
+}
+
 export function isHigherRole(roleA: RoleName, roleB: RoleName): boolean {
   return ROLE_HIERARCHY[roleA] > ROLE_HIERARCHY[roleB];
 }
 
-export function canManageRole(actorRole: RoleName, targetRole: RoleName): boolean {
-  if (actorRole === ROLES.SUPER_ADMIN) return true;
+export function canManageBusinessRole(actorRole: RoleName, targetRole: RoleName): boolean {
   if (targetRole === ROLES.SUPER_ADMIN) return false;
-  if (actorRole === ROLES.ADMIN) return targetRole !== ROLES.ADMIN;
   return ROLE_HIERARCHY[actorRole] > ROLE_HIERARCHY[targetRole];
+}
+
+export function canManageRole(actorRole: RoleName, targetRole: RoleName): boolean {
+  return canManageBusinessRole(actorRole, targetRole);
 }

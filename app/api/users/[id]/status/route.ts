@@ -16,13 +16,12 @@ export async function PUT(req: NextRequest, ctx: { params: Promise<{ id: string 
     const result = await changeStatus(
       Number(id),
       body.isActive,
-      auth.user.role as RoleName,
-      auth.user.id
+      { id: auth.user.id, role: auth.user.role as RoleName, businessId: auth.businessId }
     );
-    if (result.error) {
-      return NextResponse.json({ error: result.error }, { status: 400 });
+    if ("error" in result) {
+      return NextResponse.json({ error: result.error }, { status: result.status ?? 400 });
     }
-    return NextResponse.json({ user: (result as any).user });
+    return NextResponse.json({ user: result.user });
   } catch {
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }

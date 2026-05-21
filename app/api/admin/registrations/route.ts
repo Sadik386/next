@@ -6,6 +6,7 @@ import { PERMISSIONS } from "@/constants/permissions";
 export async function GET(req: NextRequest) {
   try {
     const auth = await requirePermission(req, PERMISSIONS.VIEW_USERS);
+    if (auth instanceof NextResponse) return auth;
 
     const { searchParams } = new URL(req.url);
     const status = searchParams.get("status");
