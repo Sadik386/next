@@ -35,6 +35,19 @@ type ProductOption = {
   imageUrl: string | null;
   category: { id: number; name: string } | null;
   stock: { quantity: number; threshold: number } | null;
+  variants: ProductVariantOption[];
+  matchedVariant?: ProductVariantOption | null;
+};
+
+type ProductVariantOption = {
+  id: number;
+  label: string;
+  sku: string | null;
+  barcode: string | null;
+  stockQuantity: number;
+  lowStockThreshold: number;
+  salePriceOverride: string | null;
+  status: string;
 };
 
 type CategoryOption = { id: number; name: string };
@@ -48,8 +61,11 @@ type CustomerOption = {
 };
 
 type CartLine = {
+  lineKey: string;
   productId: number;
+  productVariantId: number | null;
   productName: string;
+  variantLabel: string | null;
   productCode: string;
   sku: string | null;
   quantity: number;
@@ -77,7 +93,9 @@ type SessionInfo = {
 type SessionScan = {
   barcode: string;
   productId?: number;
+  productVariantId?: number | null;
   name?: string;
+  variantLabel?: string;
   at: string;
 };
 
@@ -88,20 +106,91 @@ function normalizeScanValue(value: string | null | undefined) {
   return (value ?? "").trim().toLowerCase();
 }
 
+function activeVariants(product: ProductOption) {
+  return (product.variants ?? []).filter((variant) => variant.status === "active");
+}
+
+function cartLineKey(productId: number, productVariantId?: number | null) {
+  return `${productId}:${productVariantId ?? "simple"}`;
+}
+
+function variantPrice(product: ProductOption, variant?: ProductVariantOption | null) {
+  return Number(variant?.salePriceOverride ?? product.salePrice);
+}
+
+function variantStock(product: ProductOption, variant?: ProductVariantOption | null) {
+  return variant ? variant.stockQuantity : product.stock?.quantity ?? 0;
+}
+
+function isProductOut(product: ProductOption) {
+  if ((product.variants ?? []).length > 0) {
+    return !activeVariants(product).some((variant) => variant.stockQuantity > 0);
+  }
+  return (product.stock?.quantity ?? 0) <= 0;
+}
+
+function priceLabel(product: ProductOption, currency: string) {
+  const variants = activeVariants(product);
+  if ((product.variants ?? []).length === 0 || variants.length === 0) {
+    return `${currency} ${Number(product.salePrice).toFixed(2)}`;
+  }
+  const prices = variants.map((variant) => variantPrice(product, variant));
+  const min = Math.min(...prices);
+  const max = Math.max(...prices);
+  return min === max
+    ? `${currency} ${min.toFixed(2)}`
+    : `${currency} ${min.toFixed(2)}+`;
+}
+
+type ScanMatch = {
+  product: ProductOption;
+  variant: ProductVariantOption | null;
+};
+
 function findProductForScan(
   products: ProductOption[],
   code: string,
-  scannedProductId?: number
-) {
+  scannedProductId?: number,
+  scannedVariantId?: number | null
+): ScanMatch | null {
   const normalizedCode = normalizeScanValue(code);
-  return products.find((p) => {
-    if (scannedProductId && p.id === scannedProductId) return true;
-    return (
-      normalizeScanValue(p.productId) === normalizedCode ||
-      normalizeScanValue(p.sku) === normalizedCode ||
-      normalizeScanValue(p.name) === normalizedCode
+  for (const product of products) {
+    const variantById =
+      scannedVariantId && product.variants
+        ? product.variants.find((variant) => variant.id === scannedVariantId)
+        : null;
+    if (variantById) return { product, variant: variantById };
+
+    const variantByCode = (product.variants ?? []).find(
+      (variant) =>
+        normalizeScanValue(variant.sku) === normalizedCode ||
+        normalizeScanValue(variant.barcode) === normalizedCode ||
+        normalizeScanValue(variant.label) === normalizedCode
     );
-  });
+    if (variantByCode) return { product, variant: variantByCode };
+
+    if (scannedProductId && product.id === scannedProductId) {
+      return { product, variant: null };
+    }
+    if (
+      normalizeScanValue(product.productId) === normalizedCode ||
+      normalizeScanValue(product.sku) === normalizedCode ||
+      normalizeScanValue(product.name) === normalizedCode
+    ) {
+      return { product, variant: null };
+    }
+  }
+  return null;
+}
+
+function normalizeCartLine(line: CartLine): CartLine {
+  const productVariantId = line.productVariantId ?? null;
+  return {
+    ...line,
+    productVariantId,
+    variantLabel: line.variantLabel ?? null,
+    lineKey: line.lineKey ?? cartLineKey(line.productId, productVariantId),
+  };
 }
 
 export default function PosPage() {
@@ -119,6 +208,7 @@ export default function PosPage() {
   const customerSearchRef = useRef<HTMLInputElement | null>(null);
 
   const [cart, setCart] = useState<CartLine[]>([]);
+  const [variantPickerProduct, setVariantPickerProduct] = useState<ProductOption | null>(null);
   const [discountMode, setDiscountMode] = useState<"fixed" | "percent">("fixed");
   const [discountValue, setDiscountValue] = useState<string>("0");
 
@@ -155,7 +245,14 @@ export default function PosPage() {
     paidAmount: string;
     paymentMethod: string | null;
     paymentStatus: string;
-    items: { productName: string; quantity: number; unitPrice: string; totalPrice: string }[];
+    items: {
+      productName: string;
+      variantLabel: string | null;
+      skuSnapshot: string | null;
+      quantity: number;
+      unitPrice: string;
+      totalPrice: string;
+    }[];
     customer: { name: string; customerId: string };
     createdAt: string;
   } | null>(null);
@@ -209,7 +306,13 @@ export default function PosPage() {
       return (
         p.name.toLowerCase().includes(q) ||
         p.productId.toLowerCase().includes(q) ||
-        (p.sku ?? "").toLowerCase().includes(q)
+        (p.sku ?? "").toLowerCase().includes(q) ||
+        (p.variants ?? []).some(
+          (variant) =>
+            variant.label.toLowerCase().includes(q) ||
+            (variant.sku ?? "").toLowerCase().includes(q) ||
+            (variant.barcode ?? "").toLowerCase().includes(q)
+        )
       );
     });
   }, [products, search, activeCategory]);
@@ -251,12 +354,35 @@ export default function PosPage() {
     return Math.max(0, (Number(cashTendered) || 0) - totals.total);
   }, [paymentStatus, paymentMethod, cashTendered, totals.total]);
 
-  const addToCart = useCallback((product: ProductOption, qty = 1) => {
+  const flashFeedback = useCallback((ok: boolean, text: string) => {
+    setFeedback({ ok, text });
+    setTimeout(() => setFeedback((f) => (f && f.text === text ? null : f)), 2000);
+  }, []);
+
+  const addToCart = useCallback((product: ProductOption, qty = 1, variant?: ProductVariantOption | null) => {
+    const variants = activeVariants(product);
+    if (variants.length > 0 && !variant) {
+      setVariantPickerProduct(product);
+      return false;
+    }
+    if (variant && variant.status !== "active") {
+      flashFeedback(false, `${product.name} / ${variant.label} is inactive`);
+      return false;
+    }
+    const stockQty = variantStock(product, variant);
+    if (stockQty <= 0) {
+      flashFeedback(
+        false,
+        variant ? `${product.name} / ${variant.label} is out of stock` : `${product.name} is out of stock`
+      );
+      return false;
+    }
+    const key = cartLineKey(product.id, variant?.id ?? null);
     setCart((prev) => {
-      const existing = prev.find((l) => l.productId === product.id);
+      const existing = prev.find((l) => normalizeCartLine(l).lineKey === key);
       if (existing) {
         return prev.map((l) =>
-          l.productId === product.id
+          normalizeCartLine(l).lineKey === key
             ? { ...l, quantity: l.quantity + qty }
             : l
         );
@@ -264,35 +390,43 @@ export default function PosPage() {
       return [
         ...prev,
         {
+          lineKey: key,
           productId: product.id,
+          productVariantId: variant?.id ?? null,
           productName: product.name,
+          variantLabel: variant?.label ?? null,
           productCode: product.productId,
-          sku: product.sku,
+          sku: variant?.sku ?? product.sku,
           quantity: qty,
-          unitPrice: Number(product.salePrice),
+          unitPrice: variantPrice(product, variant),
           taxRate: Number(product.taxRate ?? 0),
           unit: product.unit,
-          stockQty: product.stock?.quantity ?? null,
+          stockQty,
         },
       ];
     });
-  }, []);
-
-  const flashFeedback = useCallback((ok: boolean, text: string) => {
-    setFeedback({ ok, text });
-    setTimeout(() => setFeedback((f) => (f && f.text === text ? null : f)), 2000);
-  }, []);
+    return true;
+  }, [flashFeedback]);
 
   const resolveProductForScan = useCallback(
-    async (code: string, scannedProductId?: number) => {
-      const localMatch = findProductForScan(products, code, scannedProductId);
+    async (code: string, scannedProductId?: number, scannedVariantId?: number | null) => {
+      const localMatch = findProductForScan(products, code, scannedProductId, scannedVariantId);
       if (localMatch) return localMatch;
 
       if (scannedProductId) {
         const res = await fetch(`/api/products/${scannedProductId}`);
         if (res.ok) {
           const data = await res.json();
-          if (data.product) return data.product as ProductOption;
+          if (data.product) {
+            const product = data.product as ProductOption;
+            return {
+              product,
+              variant:
+                product.matchedVariant ??
+                product.variants?.find((variant) => variant.id === scannedVariantId) ??
+                null,
+            };
+          }
         }
       }
 
@@ -302,26 +436,27 @@ export default function PosPage() {
 
       const data = await res.json();
       const fetchedProducts = (data.items ?? []) as ProductOption[];
-      return findProductForScan(fetchedProducts, code, scannedProductId) ?? null;
+      return findProductForScan(fetchedProducts, code, scannedProductId, scannedVariantId) ?? null;
     },
     [products]
   );
 
   const handleScan = useCallback(
-    async (rawCode: string, scannedProductId?: number) => {
+    async (rawCode: string, scannedProductId?: number, scannedVariantId?: number | null) => {
       const code = rawCode.trim();
       if (!code) return;
-      const product = await resolveProductForScan(code, scannedProductId);
-      if (!product) {
+      const match = await resolveProductForScan(code, scannedProductId, scannedVariantId);
+      if (!match) {
         flashFeedback(false, `No product found for "${code}"`);
         return;
       }
-      if ((product.stock?.quantity ?? 0) <= 0) {
-        flashFeedback(false, `${product.name} is out of stock`);
-        return;
+      const added = addToCart(match.product, 1, match.variant);
+      if (added) {
+        flashFeedback(
+          true,
+          `Added ${match.variant ? `${match.product.name} / ${match.variant.label}` : match.product.name}`
+        );
       }
-      addToCart(product);
-      flashFeedback(true, `Added ${product.name}`);
     },
     [resolveProductForScan, addToCart, flashFeedback]
   );
@@ -334,11 +469,11 @@ export default function PosPage() {
     scanInputRef.current?.focus();
   }
 
-  function updateCartQty(productId: number, delta: number) {
+  function updateCartQty(lineKey: string, delta: number) {
     setCart((prev) =>
       prev
         .map((l) =>
-          l.productId === productId
+          normalizeCartLine(l).lineKey === lineKey
             ? { ...l, quantity: Math.max(1, l.quantity + delta) }
             : l
         )
@@ -346,12 +481,13 @@ export default function PosPage() {
     );
   }
 
-  function removeCartLine(productId: number) {
-    setCart((prev) => prev.filter((l) => l.productId !== productId));
+  function removeCartLine(lineKey: string) {
+    setCart((prev) => prev.filter((l) => normalizeCartLine(l).lineKey !== lineKey));
   }
 
   function clearCart() {
     setCart([]);
+    setVariantPickerProduct(null);
     setDiscountValue("0");
     setNotes("");
     setPaidAmount("");
@@ -448,7 +584,7 @@ export default function PosPage() {
             const key = `${scan.barcode}|${scan.at}`;
             if (processedScanRef.current.has(key)) continue;
             processedScanRef.current.add(key);
-            void handleScan(scan.barcode, scan.productId);
+            void handleScan(scan.barcode, scan.productId, scan.productVariantId);
           }
         }
       } catch {
@@ -492,7 +628,7 @@ export default function PosPage() {
   }
 
   function loadHeldOrder(h: HeldOrder) {
-    setCart(h.items);
+    setCart(h.items.map(normalizeCartLine));
     setDiscountValue(String(h.discount ?? 0));
     setNotes(h.notes ?? "");
     if (h.customerData?.id) setCustomerId(h.customerData.id);
@@ -519,6 +655,7 @@ export default function PosPage() {
       customerId,
       items: cart.map((l) => ({
         productId: l.productId,
+        productVariantId: l.productVariantId,
         quantity: l.quantity,
         unitPrice: l.unitPrice,
       })),
@@ -553,8 +690,17 @@ export default function PosPage() {
       paidAmount: String(order.paidAmount),
       paymentMethod: order.paymentMethod,
       paymentStatus: order.paymentStatus,
-      items: order.items.map((i: { productName: string; quantity: number; unitPrice: string; totalPrice: string }) => ({
+      items: order.items.map((i: {
+        productName: string;
+        variantLabel: string | null;
+        skuSnapshot: string | null;
+        quantity: number;
+        unitPrice: string;
+        totalPrice: string;
+      }) => ({
         productName: i.productName,
+        variantLabel: i.variantLabel ?? null,
+        skuSnapshot: i.skuSnapshot ?? null,
         quantity: i.quantity,
         unitPrice: String(i.unitPrice),
         totalPrice: String(i.totalPrice),
@@ -792,7 +938,7 @@ export default function PosPage() {
               }}
             >
               {filteredProducts.map((p) => {
-                const out = (p.stock?.quantity ?? 0) <= 0;
+                const out = isProductOut(p);
                 return (
                   <button
                     key={p.id}
@@ -834,7 +980,7 @@ export default function PosPage() {
                     </div>
                     <div style={{ display: "flex", justifyContent: "space-between", marginTop: "4px" }}>
                       <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--brand)" }}>
-                        {currency} {Number(p.salePrice).toFixed(2)}
+                        {priceLabel(p, currency)}
                       </span>
                       <StockBadge product={p} />
                     </div>
@@ -850,7 +996,7 @@ export default function PosPage() {
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
               {filteredProducts.map((p) => {
-                const out = (p.stock?.quantity ?? 0) <= 0;
+                const out = isProductOut(p);
                 return (
                   <button
                     key={p.id}
@@ -870,7 +1016,7 @@ export default function PosPage() {
                     <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                       <StockBadge product={p} />
                       <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--brand)" }}>
-                        {currency} {Number(p.salePrice).toFixed(2)}
+                        {priceLabel(p, currency)}
                       </span>
                     </div>
                   </button>
@@ -913,19 +1059,22 @@ export default function PosPage() {
               Cart is empty. Scan or click a product to start.
             </div>
           ) : (
-            cart.map((line) => (
-              <div key={line.productId} style={cartRow}>
+            cart.map((rawLine) => {
+              const line = normalizeCartLine(rawLine);
+              return (
+              <div key={line.lineKey} style={cartRow}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: "12px", fontWeight: 600, color: "var(--text-primary)" }}>
                     {line.productName}
                   </div>
                   <div style={{ fontSize: "10px", color: "var(--text-muted)" }}>
+                    {line.variantLabel ? `${line.variantLabel} · ` : ""}
                     {line.productCode}
                     {line.sku ? ` · ${line.sku}` : ""}
                   </div>
                 </div>
                 <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                  <button onClick={() => updateCartQty(line.productId, -1)} style={qtyBtn} title="Decrease">
+                  <button onClick={() => updateCartQty(line.lineKey, -1)} style={qtyBtn} title="Decrease">
                     <Minus size={11} />
                   </button>
                   <input
@@ -934,12 +1083,14 @@ export default function PosPage() {
                     onChange={(e) => {
                       const v = Math.max(1, Number(e.target.value) || 1);
                       setCart((prev) =>
-                        prev.map((l) => (l.productId === line.productId ? { ...l, quantity: v } : l))
+                        prev.map((l) =>
+                          normalizeCartLine(l).lineKey === line.lineKey ? { ...l, quantity: v } : l
+                        )
                       );
                     }}
                     style={qtyInput}
                   />
-                  <button onClick={() => updateCartQty(line.productId, 1)} style={qtyBtn} title="Increase">
+                  <button onClick={() => updateCartQty(line.lineKey, 1)} style={qtyBtn} title="Increase">
                     <Plus size={11} />
                   </button>
                 </div>
@@ -947,14 +1098,15 @@ export default function PosPage() {
                   {(line.quantity * line.unitPrice).toFixed(2)}
                 </div>
                 <button
-                  onClick={() => removeCartLine(line.productId)}
+                  onClick={() => removeCartLine(line.lineKey)}
                   style={removeBtn}
                   title="Remove"
                 >
                   <X size={12} />
                 </button>
               </div>
-            ))
+            );
+            })
           )}
         </div>
 
@@ -1202,6 +1354,62 @@ export default function PosPage() {
         </>
       )}
 
+      {variantPickerProduct && (
+        <>
+          <div onClick={() => setVariantPickerProduct(null)} style={modalOverlay} />
+          <div style={variantModal}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+              <div>
+                <h3 style={{ fontSize: "15px", fontWeight: 700, color: "var(--text-primary)" }}>
+                  {variantPickerProduct.name}
+                </h3>
+                <div style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "2px" }}>
+                  {variantPickerProduct.productId}
+                </div>
+              </div>
+              <button onClick={() => setVariantPickerProduct(null)} style={smallGhost}>
+                <X size={14} />
+              </button>
+            </div>
+            <div style={{ display: "grid", gap: "8px", maxHeight: "50vh", overflowY: "auto" }}>
+              {activeVariants(variantPickerProduct).map((variant) => {
+                const out = variant.stockQuantity <= 0;
+                return (
+                  <button
+                    key={variant.id}
+                    disabled={out}
+                    onClick={() => {
+                      const added = addToCart(variantPickerProduct, 1, variant);
+                      if (added) setVariantPickerProduct(null);
+                    }}
+                    style={{
+                      ...variantRow,
+                      opacity: out ? 0.55 : 1,
+                      cursor: out ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    <div style={{ display: "flex", flexDirection: "column", textAlign: "left", gap: "2px" }}>
+                      <span style={{ fontSize: "13px", fontWeight: 600 }}>{variant.label}</span>
+                      <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+                        {variant.sku ?? variant.barcode ?? "No SKU"}
+                      </span>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontSize: "13px", fontWeight: 700, color: "var(--brand)" }}>
+                        {currency} {variantPrice(variantPickerProduct, variant).toFixed(2)}
+                      </div>
+                      <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+                        {out ? "Out of stock" : `${variant.stockQuantity} in stock`}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </>
+      )}
+
       {/* Checkout receipt modal */}
       {checkoutOpen && completedOrder && (
         <>
@@ -1231,7 +1439,8 @@ export default function PosPage() {
                   {completedOrder.items.map((it, i) => (
                     <tr key={i}>
                       <td style={{ padding: "4px 0" }}>
-                        {it.productName} × {it.quantity}
+                        {it.productName}
+                        {it.variantLabel ? ` / ${it.variantLabel}` : ""} × {it.quantity}
                       </td>
                       <td style={{ padding: "4px 0", textAlign: "right" }}>
                         {Number(it.totalPrice).toFixed(2)}
@@ -1354,6 +1563,31 @@ export default function PosPage() {
 }
 
 function StockBadge({ product }: { product: ProductOption }) {
+  const variants = activeVariants(product);
+  if (variants.length > 0) {
+    const available = variants.filter((variant) => variant.stockQuantity > 0).length;
+    const total = variants.length;
+    const color =
+      available === 0
+        ? { bg: "#fee2e2", fg: "#991b1b" }
+        : available < total
+        ? { bg: "#fef3c7", fg: "#92400e" }
+        : { bg: "#dcfce7", fg: "#166534" };
+    return (
+      <span
+        style={{
+          fontSize: "10px",
+          fontWeight: 600,
+          backgroundColor: color.bg,
+          color: color.fg,
+          padding: "2px 6px",
+          borderRadius: "999px",
+        }}
+      >
+        {available}/{total} variants
+      </span>
+    );
+  }
   const qty = product.stock?.quantity ?? 0;
   const threshold = product.stock?.threshold ?? 10;
   let color = { bg: "#dcfce7", fg: "#166534" };
@@ -1467,7 +1701,14 @@ function buildPrintHtml(
     paidAmount: string;
     paymentMethod: string | null;
     paymentStatus: string;
-    items: { productName: string; quantity: number; unitPrice: string; totalPrice: string }[];
+    items: {
+      productName: string;
+      variantLabel: string | null;
+      skuSnapshot: string | null;
+      quantity: number;
+      unitPrice: string;
+      totalPrice: string;
+    }[];
     customer: { name: string; customerId: string };
     createdAt: string;
   }>,
@@ -1481,7 +1722,9 @@ function buildPrintHtml(
     .map(
       (i) => `
         <tr>
-          <td style="padding:4px 0;">${escapeHtml(i.productName)}</td>
+          <td style="padding:4px 0;">${escapeHtml(
+            i.variantLabel ? `${i.productName} / ${i.variantLabel}` : i.productName
+          )}</td>
           <td style="padding:4px 0;text-align:right;">${i.quantity}</td>
           <td style="padding:4px 0;text-align:right;">${Number(i.unitPrice).toFixed(2)}</td>
           <td style="padding:4px 0;text-align:right;">${Number(i.totalPrice).toFixed(2)}</td>
@@ -1868,6 +2111,32 @@ const receiptModal: React.CSSProperties = {
   padding: "16px",
   zIndex: 201,
   border: "1px solid var(--card-border)",
+};
+const variantModal: React.CSSProperties = {
+  position: "fixed",
+  top: "50%",
+  left: "50%",
+  transform: "translate(-50%, -50%)",
+  width: "420px",
+  maxWidth: "92vw",
+  backgroundColor: "var(--card-bg)",
+  border: "1px solid var(--card-border)",
+  borderRadius: "12px",
+  padding: "14px",
+  zIndex: 201,
+  boxShadow: "0 12px 40px rgba(0,0,0,0.18)",
+};
+const variantRow: React.CSSProperties = {
+  width: "100%",
+  border: "1px solid var(--card-border)",
+  backgroundColor: "var(--input-bg)",
+  borderRadius: "8px",
+  padding: "10px 12px",
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: "12px",
+  color: "var(--text-primary)",
 };
 const receiptPreview: React.CSSProperties = {
   backgroundColor: "#fff",

@@ -19,6 +19,7 @@ export interface OrderFilters {
 
 export interface OrderItemInput {
   productId: number;
+  productVariantId?: number | null;
   quantity: number;
   unitPrice?: number | string;
 }
@@ -118,6 +119,7 @@ export async function getOrderById(id: number) {
       items: {
         include: {
           product: { select: { id: true, productId: true, name: true, unit: true, imageUrl: true } },
+          productVariant: { select: { id: true, label: true, sku: true } },
         },
         orderBy: { id: "asc" },
       },
@@ -147,6 +149,7 @@ export async function getOrderByIdOrOrderId(idOrOrderId: string) {
       items: {
         include: {
           product: { select: { id: true, productId: true, name: true, unit: true, imageUrl: true } },
+          productVariant: { select: { id: true, label: true, sku: true } },
         },
         orderBy: { id: "asc" },
       },
@@ -180,21 +183,41 @@ export async function createOrder(data: OrderInput, userId: number) {
   });
   if (!customer) throw new Error("Customer not found");
 
-  const productIds = data.items.map((i) => i.productId);
+  const productIds = Array.from(new Set(data.items.map((i) => i.productId)));
   const products = await prisma.product.findMany({
     where: { id: { in: productIds }, businessId, deletedAt: null },
+    include: { variants: { where: { deletedAt: null } } },
   });
   const productMap = new Map(products.map((p) => [p.id, p]));
+  const variantMap = new Map(
+    products.flatMap((p) => p.variants.map((variant) => [variant.id, variant] as const))
+  );
 
   const itemRows = data.items.map((item) => {
     const product = productMap.get(item.productId);
     if (!product) throw new Error("Product not found");
+    const variantId =
+      item.productVariantId !== undefined && item.productVariantId !== null
+        ? Number(item.productVariantId)
+        : null;
+    const variant = variantId ? variantMap.get(variantId) : null;
+    if (variantId && !variant) throw new Error("Product variant not found");
+    if (variant && variant.productId !== product.id) throw new Error("Product variant mismatch");
+    if (product.variants.length > 0 && !variant) {
+      throw new Error(`Select a variant for ${product.name}`);
+    }
+    if (variant && variant.status !== "active") {
+      throw new Error(`Product variant is inactive: ${product.name} / ${variant.label}`);
+    }
     const qty = Math.max(1, Math.floor(item.quantity));
-    const unitPrice = toDecimal(item.unitPrice ?? product.salePrice);
+    const unitPrice = toDecimal(item.unitPrice ?? variant?.salePriceOverride ?? product.salePrice);
     const totalPrice = unitPrice.mul(qty);
     return {
       productId: product.id,
+      productVariantId: variant?.id ?? null,
       productName: product.name,
+      variantLabel: variant?.label ?? null,
+      skuSnapshot: variant?.sku ?? product.sku,
       quantity: qty,
       unitPrice,
       totalPrice,
@@ -236,7 +259,10 @@ export async function createOrder(data: OrderInput, userId: number) {
           create: itemRows.map((r) => ({
             businessId,
             productId: r.productId,
+            productVariantId: r.productVariantId,
             productName: r.productName,
+            variantLabel: r.variantLabel,
+            skuSnapshot: r.skuSnapshot,
             quantity: r.quantity,
             unitPrice: r.unitPrice,
             totalPrice: r.totalPrice,
@@ -247,7 +273,15 @@ export async function createOrder(data: OrderInput, userId: number) {
     });
 
     for (const row of itemRows) {
-      await applyStockDelta(tx, businessId, row.productId, -row.quantity, `Order ${orderId}`, userId);
+      await applyStockDelta(
+        tx,
+        businessId,
+        row.productId,
+        -row.quantity,
+        `Order ${orderId}`,
+        userId,
+        row.productVariantId
+      );
     }
 
     return created;

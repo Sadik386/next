@@ -7,6 +7,18 @@ import BarcodeDisplay from "@/components/ui/BarcodeDisplay";
 import QrDisplay from "@/components/ui/QrDisplay";
 
 type Category = { id: number; name: string };
+type ProductVariant = {
+  id: number;
+  label: string;
+  sku: string | null;
+  barcode: string | null;
+  stockQuantity: number;
+  lowStockThreshold: number;
+  location: string | null;
+  salePriceOverride: string | null;
+  costPriceOverride: string | null;
+  status: string;
+};
 type Product = {
   id: number;
   productId: string;
@@ -21,6 +33,7 @@ type Product = {
   status: string;
   categoryId: number | null;
   category: Category | null;
+  variants: ProductVariant[];
 };
 
 type MobileScanProduct = {
@@ -34,6 +47,19 @@ type MobileSessionInfo = { sessionId: string; mobileUrl: string; expiresAt: stri
 
 const UNITS = ["Piece", "Kg", "Liter", "Box", "Pack", "Dozen", "Meter", "Set", "Pair", "Other"];
 
+type VariantForm = {
+  id?: number;
+  label: string;
+  sku: string;
+  barcode: string;
+  stockQuantity: string;
+  lowStockThreshold: string;
+  location: string;
+  salePriceOverride: string;
+  costPriceOverride: string;
+  status: string;
+};
+
 const emptyForm = {
   name: "",
   sku: "",
@@ -45,7 +71,22 @@ const emptyForm = {
   description: "",
   imageUrl: "",
   status: "active",
+  variants: [] as VariantForm[],
 };
+
+function emptyVariant(): VariantForm {
+  return {
+    label: "",
+    sku: "",
+    barcode: "",
+    stockQuantity: "0",
+    lowStockThreshold: "10",
+    location: "",
+    salePriceOverride: "",
+    costPriceOverride: "",
+    status: "active",
+  };
+}
 
 function normalizeScanValue(value: string | null | undefined) {
   return (value ?? "").trim().toLowerCase();
@@ -238,7 +279,7 @@ export default function ProductsPage() {
 
   function openCreate() {
     setEditing(null);
-    setForm(emptyForm);
+    setForm({ ...emptyForm, variants: [] });
     setError(null);
     setNewCategoryName("");
     setDrawerOpen(true);
@@ -257,6 +298,24 @@ export default function ProductsPage() {
       description: p.description ?? "",
       imageUrl: p.imageUrl ?? "",
       status: p.status,
+      variants: (p.variants ?? []).map((variant) => ({
+        id: variant.id,
+        label: variant.label,
+        sku: variant.sku ?? "",
+        barcode: variant.barcode ?? "",
+        stockQuantity: String(variant.stockQuantity ?? 0),
+        lowStockThreshold: String(variant.lowStockThreshold ?? 10),
+        location: variant.location ?? "",
+        salePriceOverride:
+          variant.salePriceOverride === null || variant.salePriceOverride === undefined
+            ? ""
+            : String(variant.salePriceOverride),
+        costPriceOverride:
+          variant.costPriceOverride === null || variant.costPriceOverride === undefined
+            ? ""
+            : String(variant.costPriceOverride),
+        status: variant.status,
+      })),
     });
     setError(null);
     setNewCategoryName("");
@@ -306,6 +365,13 @@ export default function ProductsPage() {
     if (!form.unit) return setError("Unit is required");
     if (form.salePrice === "" || form.costPrice === "")
       return setError("Sale and cost price are required");
+    for (const variant of form.variants) {
+      if (!variant.label.trim()) return setError("Variant label is required");
+      if (Number(variant.stockQuantity) < 0) return setError("Variant stock cannot be negative");
+      if (Number(variant.lowStockThreshold) < 0) {
+        return setError("Variant low stock threshold cannot be negative");
+      }
+    }
 
     setSaving(true);
     const body = {
@@ -319,6 +385,20 @@ export default function ProductsPage() {
       description: form.description.trim() || null,
       imageUrl: form.imageUrl || null,
       status: form.status,
+      variants: form.variants.map((variant) => ({
+        id: variant.id,
+        label: variant.label.trim(),
+        sku: variant.sku.trim() || null,
+        barcode: variant.barcode.trim() || null,
+        stockQuantity: Number(variant.stockQuantity || 0),
+        lowStockThreshold: Number(variant.lowStockThreshold || 10),
+        location: variant.location.trim() || null,
+        salePriceOverride:
+          variant.salePriceOverride === "" ? null : Number(variant.salePriceOverride),
+        costPriceOverride:
+          variant.costPriceOverride === "" ? null : Number(variant.costPriceOverride),
+        status: variant.status,
+      })),
     };
     const url = editing ? `/api/products/${editing.id}` : "/api/products";
     const method = editing ? "PUT" : "POST";
@@ -335,6 +415,26 @@ export default function ProductsPage() {
     }
     setDrawerOpen(false);
     loadProducts();
+  }
+
+  function addVariant() {
+    setForm((f) => ({ ...f, variants: [...f.variants, emptyVariant()] }));
+  }
+
+  function updateVariant(index: number, patch: Partial<VariantForm>) {
+    setForm((f) => ({
+      ...f,
+      variants: f.variants.map((variant, i) =>
+        i === index ? { ...variant, ...patch } : variant
+      ),
+    }));
+  }
+
+  function removeVariant(index: number) {
+    setForm((f) => ({
+      ...f,
+      variants: f.variants.filter((_, i) => i !== index),
+    }));
   }
 
   async function submitDeleteRequest() {
@@ -560,7 +660,16 @@ export default function ProductsPage() {
                       />
                     )}
                   </Td>
-                  <Td>{p.name}</Td>
+                  <Td>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                      <span>{p.name}</span>
+                      {p.variants?.length > 0 && (
+                        <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+                          {p.variants.length} variant{p.variants.length === 1 ? "" : "s"}
+                        </span>
+                      )}
+                    </div>
+                  </Td>
                   <Td>{p.category?.name ?? "—"}</Td>
                   <Td>{p.sku ?? "—"}</Td>
                   <Td>{p.unit}</Td>
@@ -798,6 +907,129 @@ export default function ProductsPage() {
                   value={form.costPrice}
                   onChange={(v) => setForm((f) => ({ ...f, costPrice: v }))}
                 />
+              </div>
+
+              <div style={{ display: "grid", gap: "8px" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: "8px",
+                  }}
+                >
+                  <Label>Variants</Label>
+                  <button type="button" onClick={addVariant} style={btnSecondary}>
+                    <Plus size={13} /> Add Variant
+                  </button>
+                </div>
+                {form.variants.length > 0 && (
+                  <div style={{ display: "grid", gap: "8px" }}>
+                    {form.variants.map((variant, index) => (
+                      <div
+                        key={variant.id ?? index}
+                        style={{
+                          border: "1px solid var(--card-border)",
+                          borderRadius: "8px",
+                          padding: "10px",
+                          display: "grid",
+                          gap: "8px",
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            gap: "8px",
+                          }}
+                        >
+                          <div style={{ fontSize: "12px", fontWeight: 600 }}>
+                            Variant {index + 1}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeVariant(index)}
+                            style={iconBtnPlain}
+                            title="Remove variant"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                        <Field
+                          label="Label"
+                          required
+                          value={variant.label}
+                          onChange={(v) => updateVariant(index, { label: v })}
+                          placeholder="Black / M"
+                        />
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                          <Field
+                            label="SKU"
+                            value={variant.sku}
+                            onChange={(v) => updateVariant(index, { sku: v })}
+                            placeholder="Optional"
+                          />
+                          <Field
+                            label="Barcode"
+                            value={variant.barcode}
+                            onChange={(v) => updateVariant(index, { barcode: v })}
+                            placeholder="Optional"
+                          />
+                        </div>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                          <Field
+                            label="Stock"
+                            type="number"
+                            value={variant.stockQuantity}
+                            onChange={(v) => updateVariant(index, { stockQuantity: v })}
+                          />
+                          <Field
+                            label="Low Stock"
+                            type="number"
+                            value={variant.lowStockThreshold}
+                            onChange={(v) => updateVariant(index, { lowStockThreshold: v })}
+                          />
+                        </div>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                          <Field
+                            label="Sale Override"
+                            type="number"
+                            value={variant.salePriceOverride}
+                            onChange={(v) => updateVariant(index, { salePriceOverride: v })}
+                            placeholder="Optional"
+                          />
+                          <Field
+                            label="Cost Override"
+                            type="number"
+                            value={variant.costPriceOverride}
+                            onChange={(v) => updateVariant(index, { costPriceOverride: v })}
+                            placeholder="Optional"
+                          />
+                        </div>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                          <Field
+                            label="Location"
+                            value={variant.location}
+                            onChange={(v) => updateVariant(index, { location: v })}
+                            placeholder="Optional"
+                          />
+                          <div>
+                            <Label>Status</Label>
+                            <select
+                              value={variant.status}
+                              onChange={(e) => updateVariant(index, { status: e.target.value })}
+                              style={inputStyle}
+                            >
+                              <option value="active">Active</option>
+                              <option value="inactive">Inactive</option>
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <Field
@@ -1168,6 +1400,19 @@ const btnSecondary: React.CSSProperties = {
   color: "var(--text-primary)",
   fontSize: "13px",
   fontWeight: 500,
+  cursor: "pointer",
+};
+
+const iconBtnPlain: React.CSSProperties = {
+  width: "28px",
+  height: "28px",
+  borderRadius: "6px",
+  border: "1px solid var(--card-border)",
+  backgroundColor: "transparent",
+  color: "var(--text-secondary)",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
   cursor: "pointer",
 };
 

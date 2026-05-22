@@ -137,6 +137,37 @@ model Product {
   stockLogs   StockLog[]
   orderItems  OrderItem[]
   sales       Sale[]
+  variants    ProductVariant[]
+}
+
+model ProductVariant {
+  id                Int       @id @default(autoincrement())
+  businessId        Int
+  productId         Int
+  label             String    @db.VarChar(255)
+  optionSignature   String    @db.VarChar(255)
+  sku               String?   @db.VarChar(100)
+  barcode           String?   @db.VarChar(100)
+  stockQuantity     Int       @default(0)
+  lowStockThreshold Int       @default(10)
+  location          String?   @db.VarChar(255)
+  salePriceOverride Decimal?  @db.Decimal(10, 2)
+  costPriceOverride Decimal?  @db.Decimal(10, 2)
+  status            String    @default("active") @db.VarChar(20)
+  sortOrder         Int       @default(0)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  deletedAt         DateTime?
+  product           Product   @relation(fields: [productId], references: [id])
+  stockLogs         StockLog[]
+  orderItems        OrderItem[]
+  sales             Sale[]
+
+  @@unique([productId, optionSignature])
+  @@unique([businessId, sku])
+  @@unique([businessId, barcode])
+  @@index([businessId, productId])
+  @@index([businessId, status])
 }
 
 model Stock {
@@ -156,6 +187,7 @@ model StockLog {
   businessId    Int
   stockId       Int
   productId     Int
+  productVariantId Int?
   type          String   @db.VarChar(20)
   quantity      Int
   reason        String?  @db.VarChar(255)
@@ -165,7 +197,10 @@ model StockLog {
   createdAt     DateTime @default(now())
   stock         Stock    @relation(fields: [stockId], references: [id])
   product       Product  @relation(fields: [productId], references: [id])
+  productVariant ProductVariant? @relation(fields: [productVariantId], references: [id], onDelete: SetNull)
   createdByUser User     @relation(fields: [createdBy], references: [id])
+
+  @@index([productVariantId])
 }
 
 model DeleteRequest {
@@ -335,12 +370,18 @@ model OrderItem {
   businessId  Int
   orderId     Int
   productId   Int
+  productVariantId Int?
   productName String   @db.VarChar(255)
+  variantLabel String? @db.VarChar(255)
+  skuSnapshot String?  @db.VarChar(100)
   quantity    Int
   unitPrice   Decimal  @db.Decimal(10, 2)
   totalPrice  Decimal  @db.Decimal(10, 2)
   order       Order    @relation(fields: [orderId], references: [id])
   product     Product  @relation(fields: [productId], references: [id])
+  productVariant ProductVariant? @relation(fields: [productVariantId], references: [id], onDelete: SetNull)
+
+  @@index([productVariantId])
 }
 
 model Sale {
@@ -350,7 +391,10 @@ model Sale {
   orderId         Int?
   customerId      Int?
   productId       Int?
+  productVariantId Int?
   productName     String?   @db.VarChar(255)
+  variantLabel    String?   @db.VarChar(255)
+  skuSnapshot     String?   @db.VarChar(100)
   date            DateTime  @default(now())
   quantity        Int       @default(1)
   unitPrice       Decimal   @db.Decimal(10, 2)
@@ -374,7 +418,10 @@ model Sale {
   order           Order?    @relation(fields: [orderId], references: [id])
   customer        Customer? @relation(fields: [customerId], references: [id])
   product         Product?  @relation(fields: [productId], references: [id])
+  productVariant  ProductVariant? @relation(fields: [productVariantId], references: [id], onDelete: SetNull)
   createdByUser   User      @relation("SaleCreatedBy", fields: [createdBy], references: [id])
+
+  @@index([productVariantId])
 }
 
 model Expense {

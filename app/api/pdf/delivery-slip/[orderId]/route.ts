@@ -63,7 +63,9 @@ export async function GET(
         codAmount: balanceDue > 0 ? balanceDue : undefined,
         currencySymbol,
         items: order.items.map((item) => ({
-          name: item.productName,
+          name: item.variantLabel
+            ? `${item.productName} / ${item.variantLabel}`
+            : item.productName,
           quantity: item.quantity,
           unit: item.product?.unit ?? "pcs",
         })),

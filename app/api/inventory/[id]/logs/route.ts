@@ -14,6 +14,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
 
   const sp = req.nextUrl.searchParams;
   const limit = sp.get("limit") ? Number(sp.get("limit")) : 20;
-  const logs = await getStockLogsByProductId(productId, limit);
+  const variantId = sp.get("variantId") ? Number(sp.get("variantId")) : null;
+  const logs = await getStockLogsByProductId(productId, limit, variantId);
   return NextResponse.json({ logs });
 }

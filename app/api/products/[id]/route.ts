@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, requirePermission } from "@/lib/rbac";
 import { PERMISSIONS } from "@/constants/permissions";
-import { getProductByIdOrProductId, updateProduct } from "@/services/product.service";
+import {
+  getProductByIdOrProductId,
+  updateProduct,
+  ProductValidationError,
+} from "@/services/product.service";
 import { runWithBusinessContext } from "@/lib/business-context";
 
 export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
@@ -30,6 +34,9 @@ export async function PUT(req: NextRequest, ctx: { params: Promise<{ id: string 
       if (!product) return NextResponse.json({ error: "Product not found" }, { status: 404 });
       return NextResponse.json({ product });
     } catch (err) {
+      if (err instanceof ProductValidationError) {
+        return NextResponse.json({ error: err.message }, { status: err.status });
+      }
       console.error("Product update error:", err);
       const message =
         err instanceof Error && process.env.NODE_ENV !== "production"

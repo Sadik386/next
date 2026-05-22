@@ -62,7 +62,9 @@ export async function GET(
       let items: { name: string; quantity: number; unitPrice: number; total: number }[] = [];
       if (sale.order?.items && sale.order.items.length > 0) {
         items = sale.order.items.map((item) => ({
-          name: item.productName,
+          name: item.variantLabel
+            ? `${item.productName} / ${item.variantLabel}`
+            : item.productName,
           quantity: item.quantity,
           unitPrice: Number(item.unitPrice),
           total: Number(item.totalPrice),
@@ -70,7 +72,9 @@ export async function GET(
       } else {
         items = [
           {
-            name: sale.productName ?? "Product",
+            name: sale.variantLabel
+              ? `${sale.productName ?? "Product"} / ${sale.variantLabel}`
+              : sale.productName ?? "Product",
             quantity: sale.quantity,
             unitPrice: Number(sale.unitPrice),
             total: Number(sale.totalAmount),

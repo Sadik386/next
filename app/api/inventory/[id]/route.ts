@@ -37,7 +37,10 @@ export async function PUT(req: NextRequest, ctx: { params: Promise<{ id: string 
           threshold: body.threshold !== undefined && body.threshold !== "" ? Number(body.threshold) : undefined,
           location: body.location !== undefined ? (body.location || null) : undefined,
         },
-        auth.user.id
+        auth.user.id,
+        body.variantId !== undefined && body.variantId !== null && body.variantId !== ""
+          ? Number(body.variantId)
+          : null
       );
 
       if (!result) return NextResponse.json({ error: "Product not found" }, { status: 404 });

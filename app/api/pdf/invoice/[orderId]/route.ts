@@ -66,7 +66,9 @@ export async function GET(
           shippingAddress: order.shippingAddress || undefined,
         },
         items: order.items.map((item) => ({
-          name: item.productName,
+          name: item.variantLabel
+            ? `${item.productName} / ${item.variantLabel}`
+            : item.productName,
           quantity: item.quantity,
           unitPrice: Number(item.unitPrice),
           totalPrice: Number(item.totalPrice),

@@ -119,7 +119,14 @@ export async function appendScan(shortId: string, barcode: string, businessId: n
 
   const product = await findProductByFlexibleCode(trimmed, businessId);
 
-  let scans: Array<{ barcode: string; productId?: number; name?: string; at: string }> = [];
+  let scans: Array<{
+    barcode: string;
+    productId?: number;
+    productVariantId?: number;
+    name?: string;
+    variantLabel?: string;
+    at: string;
+  }> = [];
   try {
     scans = JSON.parse(session.scans ?? "[]");
     if (!Array.isArray(scans)) scans = [];
@@ -127,10 +134,13 @@ export async function appendScan(shortId: string, barcode: string, businessId: n
     scans = [];
   }
 
+  const matchedVariant = product?.matchedVariant ?? null;
   const entry = {
     barcode: trimmed,
     productId: product?.id,
+    productVariantId: matchedVariant?.id,
     name: product?.name,
+    variantLabel: matchedVariant?.label,
     at: new Date().toISOString(),
   };
   scans.push(entry);
@@ -144,11 +154,18 @@ export async function appendScan(shortId: string, barcode: string, businessId: n
   if (!product) {
     return { success: true, productName: null, message: "Scan recorded but product not found" };
   }
-  return { success: true, productName: product.name, productId: product.id };
+  return {
+    success: true,
+    productName: matchedVariant ? `${product.name} / ${matchedVariant.label}` : product.name,
+    productId: product.id,
+    productVariantId: matchedVariant?.id ?? null,
+    variantLabel: matchedVariant?.label ?? null,
+  };
 }
 
 export interface PosCheckoutItem {
   productId: number;
+  productVariantId?: number | null;
   quantity: number;
   unitPrice: number | string;
 }
@@ -193,11 +210,15 @@ export async function checkoutPos(data: PosCheckoutInput, userId: number) {
   }
 
   const businessId = getCurrentBusinessId();
-  const productIds = data.items.map((i) => i.productId);
+  const productIds = Array.from(new Set(data.items.map((i) => i.productId)));
   const products = await prisma.product.findMany({
     where: { id: { in: productIds }, businessId, deletedAt: null },
+    include: { variants: { where: { deletedAt: null } } },
   });
   const productMap = new Map(products.map((p) => [p.id, p]));
+  const variantMap = new Map(
+    products.flatMap((p) => p.variants.map((variant) => [variant.id, variant] as const))
+  );
 
   let customer = null;
   if (data.customerId) {
@@ -225,10 +246,31 @@ export async function checkoutPos(data: PosCheckoutInput, userId: number) {
   const itemRows = data.items.map((it) => {
     const product = productMap.get(it.productId);
     if (!product) throw new Error("Product not found");
+    const variantId =
+      it.productVariantId !== undefined && it.productVariantId !== null
+        ? Number(it.productVariantId)
+        : null;
+    const variant = variantId ? variantMap.get(variantId) : null;
+    if (variantId && !variant) throw new Error("Product variant not found");
+    if (variant && variant.productId !== product.id) throw new Error("Product variant mismatch");
+    if (product.variants.length > 0 && !variant) {
+      throw new Error(`Select a variant for ${product.name}`);
+    }
+    if (variant && variant.status !== "active") {
+      throw new Error(`Product variant is inactive: ${product.name} / ${variant.label}`);
+    }
     const qty = Math.max(1, Math.floor(Number(it.quantity) || 1));
-    const unitPrice = toDecimal(it.unitPrice ?? product.salePrice);
+    const unitPrice = toDecimal(it.unitPrice ?? variant?.salePriceOverride ?? product.salePrice);
     const totalPrice = unitPrice.mul(qty);
-    return { product, qty, unitPrice, totalPrice };
+    return {
+      product,
+      variant,
+      qty,
+      unitPrice,
+      totalPrice,
+      variantLabel: variant?.label ?? null,
+      skuSnapshot: variant?.sku ?? product.sku,
+    };
   });
 
   const subtotal = itemRows.reduce(
@@ -271,7 +313,10 @@ export async function checkoutPos(data: PosCheckoutInput, userId: number) {
           create: itemRows.map((r) => ({
             businessId,
             productId: r.product.id,
+            productVariantId: r.variant?.id ?? null,
             productName: r.product.name,
+            variantLabel: r.variantLabel,
+            skuSnapshot: r.skuSnapshot,
             quantity: r.qty,
             unitPrice: r.unitPrice,
             totalPrice: r.totalPrice,
@@ -283,7 +328,15 @@ export async function checkoutPos(data: PosCheckoutInput, userId: number) {
 
     const sales: Array<{ id: number; saleId: string }> = [];
     for (const row of itemRows) {
-      await applyStockDelta(tx, businessId, row.product.id, -row.qty, `POS ${orderId}`, userId);
+      await applyStockDelta(
+        tx,
+        businessId,
+        row.product.id,
+        -row.qty,
+        `POS ${orderId}`,
+        userId,
+        row.variant?.id ?? null
+      );
 
       const saleId = `SL-${String((await tx.sale.count()) + 1).padStart(3, "0")}`;
       const sale = await tx.sale.create({
@@ -292,7 +345,10 @@ export async function checkoutPos(data: PosCheckoutInput, userId: number) {
           orderId: order.id,
           customerId: customer.id,
           productId: row.product.id,
+          productVariantId: row.variant?.id ?? null,
           productName: row.product.name,
+          variantLabel: row.variantLabel,
+          skuSnapshot: row.skuSnapshot,
           quantity: row.qty,
           unitPrice: row.unitPrice,
           totalAmount: row.totalPrice,

@@ -7,9 +7,13 @@ type StockStatus = "in_stock" | "low" | "out_of_stock";
 
 type InventoryItem = {
   id: number;
+  inventoryKey: string;
   productId: string;
+  variantId: number | null;
+  variantLabel: string | null;
   name: string;
   sku: string | null;
+  barcode: string | null;
   unit: string;
   categoryName: string | null;
   productStatus: string;
@@ -19,6 +23,7 @@ type InventoryItem = {
   location: string | null;
   updatedAt: string;
   stockStatus: StockStatus;
+  isVariant: boolean;
 };
 
 type StockLogEntry = {
@@ -31,6 +36,7 @@ type StockLogEntry = {
   createdAt: string;
   createdByUser: { id: number; name: string; email: string } | null;
   product: { id: number; productId: string; name: string; unit: string } | null;
+  productVariant: { id: number; label: string; sku: string | null } | null;
 };
 
 type AdjustmentType = "add" | "subtract" | "set";
@@ -111,6 +117,7 @@ export default function InventoryPage() {
       body: JSON.stringify({
         type: adjustType,
         quantity: qtyNum,
+        variantId: adjustTarget.variantId,
         threshold: adjustThreshold === "" ? undefined : Number(adjustThreshold),
         location: adjustLocation.trim() || null,
         reason: adjustReason,
@@ -132,7 +139,9 @@ export default function InventoryPage() {
     setHistoryTarget(item);
     setHistoryLogs([]);
     setHistoryLoading(true);
-    const res = await fetch(`/api/inventory/${item.id}/logs?limit=20`);
+    const params = new URLSearchParams({ limit: "20" });
+    if (item.variantId) params.set("variantId", String(item.variantId));
+    const res = await fetch(`/api/inventory/${item.id}/logs?${params}`);
     if (res.ok) {
       const data = await res.json();
       setHistoryLogs(data.logs ?? []);
@@ -257,9 +266,18 @@ export default function InventoryPage() {
               </tr>
             ) : (
               items.map((item) => (
-                <tr key={item.id} style={{ borderTop: "1px solid var(--card-border)" }}>
+                <tr key={item.inventoryKey} style={{ borderTop: "1px solid var(--card-border)" }}>
                   <Td mono>{item.productId}</Td>
-                  <Td>{item.name}</Td>
+                  <Td>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                      <span>{item.name}</span>
+                      {item.variantLabel && (
+                        <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+                          {item.variantLabel}
+                        </span>
+                      )}
+                    </div>
+                  </Td>
                   <Td>{item.sku ?? "—"}</Td>
                   <Td align="right">
                     {item.quantity} <span style={{ color: "var(--text-muted)" }}>{item.unit}</span>
@@ -301,7 +319,15 @@ export default function InventoryPage() {
             <div style={{ display: "grid", gap: "12px" }}>
               <div>
                 <Label>Product</Label>
-                <input value={adjustTarget.name} readOnly style={{ ...inputStyle, opacity: 0.7 }} />
+                <input
+                  value={
+                    adjustTarget.variantLabel
+                      ? `${adjustTarget.name} / ${adjustTarget.variantLabel}`
+                      : adjustTarget.name
+                  }
+                  readOnly
+                  style={{ ...inputStyle, opacity: 0.7 }}
+                />
               </div>
 
               <div
@@ -448,7 +474,9 @@ export default function InventoryPage() {
               <div>
                 <h3 style={modalTitle}>Stock History</h3>
                 <p style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "2px" }}>
-                  {historyTarget.name}
+                  {historyTarget.variantLabel
+                    ? `${historyTarget.name} / ${historyTarget.variantLabel}`
+                    : historyTarget.name}
                 </p>
               </div>
               <button onClick={closeHistory} style={iconBtnPlain}>
@@ -489,7 +517,14 @@ export default function InventoryPage() {
                         <Td align="right">
                           {log.previousQty} → {log.newQty}
                         </Td>
-                        <Td>{log.reason ?? "—"}</Td>
+                        <Td>
+                          {log.reason ?? "—"}
+                          {log.productVariant && (
+                            <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+                              {log.productVariant.label}
+                            </div>
+                          )}
+                        </Td>
                         <Td>{log.createdByUser?.name ?? "—"}</Td>
                         <Td>{formatDate(log.createdAt)}</Td>
                       </tr>

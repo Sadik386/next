@@ -40,6 +40,16 @@ type ProductOption = {
   name: string;
   unit: string;
   salePrice: string;
+  variants: ProductVariantOption[];
+};
+
+type ProductVariantOption = {
+  id: number;
+  label: string;
+  sku: string | null;
+  stockQuantity: number;
+  salePriceOverride: string | null;
+  status: string;
 };
 
 const STATUS_OPTIONS = ["pending", "confirmed", "delivered", "cancelled"] as const;
@@ -49,6 +59,7 @@ const PAYMENT_METHODS = ["Cash", "bKash", "Nagad", "Rocket", "Upay", "Bank", "Ca
 type OrderItemDraft = {
   key: string;
   productId: number | null;
+  productVariantId: number | null;
   quantity: number;
   unitPrice: string;
 };
@@ -56,9 +67,18 @@ type OrderItemDraft = {
 const newItem = (): OrderItemDraft => ({
   key: Math.random().toString(36).slice(2),
   productId: null,
+  productVariantId: null,
   quantity: 1,
   unitPrice: "",
 });
+
+function activeVariants(product: ProductOption | undefined) {
+  return (product?.variants ?? []).filter((variant) => variant.status === "active");
+}
+
+function variantPrice(product: ProductOption, variant: ProductVariantOption) {
+  return String(variant.salePriceOverride ?? product.salePrice);
+}
 
 export default function OrdersPage() {
   const searchParams = useSearchParams();
@@ -177,9 +197,17 @@ export default function OrdersPage() {
         const next = { ...r, ...patch };
         if (patch.productId !== undefined && patch.productId !== null) {
           const p = products.find((x) => x.id === patch.productId);
-          if (p && (!r.unitPrice || r.productId !== patch.productId)) {
+          next.productVariantId = null;
+          if (p && activeVariants(p).length > 0) {
+            next.unitPrice = "";
+          } else if (p && (!r.unitPrice || r.productId !== patch.productId)) {
             next.unitPrice = p.salePrice;
           }
+        }
+        if (patch.productVariantId !== undefined && patch.productVariantId !== null) {
+          const p = products.find((x) => x.id === next.productId);
+          const variant = activeVariants(p).find((x) => x.id === patch.productVariantId);
+          if (p && variant) next.unitPrice = variantPrice(p, variant);
         }
         return next;
       })
@@ -209,6 +237,10 @@ export default function OrdersPage() {
     if (cleanItems.length === 0) return setError("Add at least one item");
     for (const i of cleanItems) {
       if (!i.unitPrice || Number(i.unitPrice) < 0) return setError("Unit price is required for all items");
+      const product = products.find((p) => p.id === i.productId);
+      if (activeVariants(product).length > 0 && !i.productVariantId) {
+        return setError(`Select a variant for ${product?.name ?? "the selected product"}`);
+      }
     }
 
     setSaving(true);
@@ -223,6 +255,7 @@ export default function OrdersPage() {
       paidAmount: Number(paidAmount) || 0,
       items: cleanItems.map((i) => ({
         productId: i.productId!,
+        productVariantId: i.productVariantId,
         quantity: Number(i.quantity),
         unitPrice: Number(i.unitPrice),
       })),
@@ -586,9 +619,28 @@ export default function OrdersPage() {
                           {products.map((p) => (
                             <option key={p.id} value={p.id}>
                               {p.name} ({p.productId})
+                              {activeVariants(p).length > 0 ? ` - ${activeVariants(p).length} variants` : ""}
                             </option>
                           ))}
                         </select>
+                        {activeVariants(product).length > 0 && (
+                          <select
+                            value={row.productVariantId ?? ""}
+                            onChange={(e) =>
+                              updateItem(row.key, {
+                                productVariantId: e.target.value ? Number(e.target.value) : null,
+                              })
+                            }
+                            style={{ ...inputStyle, gridColumn: "span 2" }}
+                          >
+                            <option value="">Select variant</option>
+                            {activeVariants(product).map((variant) => (
+                              <option key={variant.id} value={variant.id}>
+                                {variant.label} ({variant.sku ?? `${variant.stockQuantity} in stock`})
+                              </option>
+                            ))}
+                          </select>
+                        )}
                         <input
                           type="number"
                           min={1}
@@ -638,6 +690,9 @@ export default function OrdersPage() {
                             }}
                           >
                             Unit: {product.unit}
+                            {row.productVariantId
+                              ? ` · ${activeVariants(product).find((v) => v.id === row.productVariantId)?.label ?? ""}`
+                              : ""}
                           </p>
                         )}
                       </div>

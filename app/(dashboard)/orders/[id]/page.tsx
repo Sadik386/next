@@ -11,7 +11,10 @@ import { readErrorMessage } from "@/lib/read-error-message";
 type OrderItem = {
   id: number;
   productId: number;
+  productVariantId: number | null;
   productName: string;
+  variantLabel: string | null;
+  skuSnapshot: string | null;
   quantity: number;
   unitPrice: string;
   totalPrice: string;
@@ -415,6 +418,8 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                       <span>{it.productName}</span>
                       <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
                         {it.product?.productId}
+                        {it.variantLabel ? ` / ${it.variantLabel}` : ""}
+                        {it.skuSnapshot ? ` · ${it.skuSnapshot}` : ""}
                       </span>
                     </div>
                   </Td>

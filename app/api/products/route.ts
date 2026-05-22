@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
 import { PERMISSIONS } from "@/constants/permissions";
-import { getProducts, createProduct } from "@/services/product.service";
+import { getProducts, createProduct, ProductValidationError } from "@/services/product.service";
 import { runWithBusinessContext } from "@/lib/business-context";
 import { hasPermission } from "@/lib/rbac";
 import { RoleName } from "@/constants/roles";
@@ -56,6 +56,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ product });
     } catch (error) {
       if (error instanceof SubscriptionGuardError) {
+        return NextResponse.json({ error: error.message }, { status: error.status });
+      }
+      if (error instanceof ProductValidationError) {
         return NextResponse.json({ error: error.message }, { status: error.status });
       }
       console.error("Error creating product:", error);

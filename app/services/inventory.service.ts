@@ -25,6 +25,27 @@ export interface AdjustStockInput {
   location?: string | null;
 }
 
+type InventoryRow = {
+  id: number;
+  inventoryKey: string;
+  productId: string;
+  variantId: number | null;
+  variantLabel: string | null;
+  name: string;
+  sku: string | null;
+  barcode: string | null;
+  unit: string;
+  categoryName: string | null;
+  productStatus: string;
+  stockId: number | null;
+  quantity: number;
+  threshold: number;
+  location: string | null;
+  updatedAt: Date;
+  stockStatus: StockStatus;
+  isVariant: boolean;
+};
+
 export function getStockStatus(quantity: number, threshold: number): StockStatus {
   if (quantity <= 0) return "out_of_stock";
   if (quantity <= threshold) return "low";
@@ -38,34 +59,91 @@ export async function ensureStockForProduct(productId: number) {
   return prisma.stock.create({ data: { productId, quantity: 0, threshold: 10, businessId } });
 }
 
+function matchesSearch(values: Array<string | null | undefined>, search?: string) {
+  const q = search?.trim().toLowerCase();
+  if (!q) return true;
+  return values.some((value) => (value ?? "").toLowerCase().includes(q));
+}
+
 export async function getInventory(filters: InventoryFilters = {}) {
   const page = Math.max(1, filters.page ?? 1);
   const pageSize = Math.min(100, Math.max(1, filters.pageSize ?? 20));
   const skip = (page - 1) * pageSize;
 
-  const productWhere: Prisma.ProductWhereInput = { deletedAt: null, businessId: getCurrentBusinessId() };
+  const productWhere: Prisma.ProductWhereInput = {
+    deletedAt: null,
+    businessId: getCurrentBusinessId(),
+  };
   if (filters.search) {
     productWhere.OR = [
       { name: { contains: filters.search } },
       { productId: { contains: filters.search } },
       { sku: { contains: filters.search } },
+      { variants: { some: { deletedAt: null, label: { contains: filters.search } } } },
+      { variants: { some: { deletedAt: null, sku: { contains: filters.search } } } },
+      { variants: { some: { deletedAt: null, barcode: { contains: filters.search } } } },
     ];
   }
 
   const products = await prisma.product.findMany({
     where: productWhere,
-    include: { stock: true, category: true },
+    include: {
+      stock: true,
+      category: true,
+      variants: {
+        where: { deletedAt: null },
+        orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+      },
+    },
     orderBy: { id: "desc" },
   });
 
-  const enriched = products.map((p) => {
+  const enriched: InventoryRow[] = products.flatMap((p): InventoryRow[] => {
+    if (p.variants.length > 0) {
+      return p.variants
+        .map((variant) => {
+          const quantity = variant.stockQuantity;
+          const threshold = variant.lowStockThreshold;
+          return {
+            id: p.id,
+            inventoryKey: `${p.id}:${variant.id}`,
+            productId: p.productId,
+            variantId: variant.id,
+            variantLabel: variant.label,
+            name: p.name,
+            sku: variant.sku ?? p.sku,
+            barcode: variant.barcode,
+            unit: p.unit,
+            categoryName: p.category?.name ?? null,
+            productStatus: p.status,
+            stockId: p.stock?.id ?? null,
+            quantity,
+            threshold,
+            location: variant.location ?? p.stock?.location ?? null,
+            updatedAt: variant.updatedAt,
+            stockStatus: getStockStatus(quantity, threshold),
+            isVariant: true,
+          };
+        })
+        .filter((row) =>
+          matchesSearch(
+            [row.productId, row.name, row.sku, row.barcode, row.variantLabel],
+            filters.search
+          )
+        );
+    }
+
     const quantity = p.stock?.quantity ?? 0;
     const threshold = p.stock?.threshold ?? 10;
-    return {
+    const row = {
       id: p.id,
+      inventoryKey: String(p.id),
       productId: p.productId,
+      variantId: null,
+      variantLabel: null,
       name: p.name,
       sku: p.sku,
+      barcode: null,
       unit: p.unit,
       categoryName: p.category?.name ?? null,
       productStatus: p.status,
@@ -75,7 +153,9 @@ export async function getInventory(filters: InventoryFilters = {}) {
       location: p.stock?.location ?? null,
       updatedAt: p.stock?.updatedAt ?? p.updatedAt,
       stockStatus: getStockStatus(quantity, threshold),
+      isVariant: false,
     };
+    return matchesSearch([row.productId, row.name, row.sku], filters.search) ? [row] : [];
   });
 
   const filtered =
@@ -107,7 +187,8 @@ export async function getInventory(filters: InventoryFilters = {}) {
 export async function adjustStock(
   productId: number,
   input: AdjustStockInput,
-  userId: number
+  userId: number,
+  productVariantId?: number | null
 ) {
   const businessId = getCurrentBusinessId();
   const product = await prisma.product.findFirst({
@@ -115,9 +196,96 @@ export async function adjustStock(
   });
   if (!product) return null;
 
+  const qty = Math.max(0, Math.floor(input.quantity));
+
+  if (productVariantId) {
+    const variant = await prisma.productVariant.findFirst({
+      where: { id: productVariantId, productId, businessId, deletedAt: null },
+    });
+    if (!variant) return null;
+
+    const previousQty = variant.stockQuantity;
+    let newQty = previousQty;
+    if (input.type === "add") newQty = previousQty + qty;
+    else if (input.type === "subtract") newQty = Math.max(0, previousQty - qty);
+    else if (input.type === "set") newQty = qty;
+
+    const threshold =
+      input.threshold !== undefined && input.threshold !== null
+        ? Math.max(0, Math.floor(input.threshold))
+        : variant.lowStockThreshold;
+    const location = input.location !== undefined ? input.location : variant.location;
+    const stock = await ensureStockForProduct(productId);
+
+    const updated = await prisma.productVariant.update({
+      where: { id: variant.id },
+      data: {
+        stockQuantity: newQty,
+        lowStockThreshold: threshold,
+        location: location ?? null,
+      },
+    });
+
+    await prisma.stockLog.create({
+      data: {
+        businessId,
+        stockId: stock.id,
+        productId,
+        productVariantId: variant.id,
+        type: input.type,
+        quantity: qty,
+        reason: input.reason ?? null,
+        previousQty,
+        newQty,
+        createdBy: userId,
+      },
+    });
+
+    await createLog({
+      userId,
+      action: "adjust_stock",
+      module: "inventory",
+      entityId: String(variant.id),
+      entityName: `${product.name} / ${variant.label}`,
+      description: `Adjusted stock for ${product.name} / ${variant.label} (${input.type} ${qty}, new quantity: ${newQty})`,
+      metadata: {
+        productId: product.productId,
+        productVariantId: variant.id,
+        variantLabel: variant.label,
+        type: input.type,
+        quantity: qty,
+        previousQty,
+        newQty,
+        reason: input.reason ?? null,
+      },
+    });
+
+    const previousStatus = getStockStatus(previousQty, variant.lowStockThreshold);
+    const status = getStockStatus(newQty, threshold);
+    if (status !== previousStatus) {
+      const variantName = `${product.name} / ${variant.label}`;
+      if (status === "out_of_stock") {
+        await createNotification({
+          type: "out_of_stock",
+          title: "Out of Stock",
+          message: `Variant ${variantName} is out of stock`,
+          link: `/inventory`,
+        });
+      } else if (status === "low") {
+        await createNotification({
+          type: "low_stock",
+          title: "Low Stock Alert",
+          message: `Variant ${variantName} is running low (${newQty} units)`,
+          link: `/inventory`,
+        });
+      }
+    }
+
+    return { variant: updated, status };
+  }
+
   const stock = await ensureStockForProduct(productId);
   const previousQty = stock.quantity;
-  const qty = Math.max(0, Math.floor(input.quantity));
 
   let newQty = previousQty;
   if (input.type === "add") newQty = previousQty + qty;
@@ -209,18 +377,28 @@ export async function getStockLogs(stockId: number, limit = 20) {
     include: {
       createdByUser: { select: { id: true, name: true, email: true } },
       product: { select: { id: true, productId: true, name: true, unit: true } },
+      productVariant: { select: { id: true, label: true, sku: true } },
     },
     orderBy: { id: "desc" },
     take: Math.min(100, Math.max(1, limit)),
   });
 }
 
-export async function getStockLogsByProductId(productId: number, limit = 20) {
+export async function getStockLogsByProductId(
+  productId: number,
+  limit = 20,
+  productVariantId?: number | null
+) {
   return prisma.stockLog.findMany({
-    where: { productId, businessId: getCurrentBusinessId() },
+    where: {
+      productId,
+      businessId: getCurrentBusinessId(),
+      ...(productVariantId ? { productVariantId } : {}),
+    },
     include: {
       createdByUser: { select: { id: true, name: true, email: true } },
       product: { select: { id: true, productId: true, name: true, unit: true } },
+      productVariant: { select: { id: true, label: true, sku: true } },
     },
     orderBy: { id: "desc" },
     take: Math.min(100, Math.max(1, limit)),
