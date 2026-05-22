@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requirePermission } from "@/lib/rbac";
 import { PERMISSIONS } from "@/constants/permissions";
 import { runWithBusinessContext } from "@/lib/business-context";
-import { checkoutPos } from "@/services/pos.service";
+import { checkoutPos, POS_PAYMENT_METHOD_REQUIRED_MESSAGE } from "@/services/pos.service";
 
 export async function POST(req: NextRequest) {
   const auth = await requirePermission(req, PERMISSIONS.USE_POS);
@@ -16,13 +16,30 @@ export async function POST(req: NextRequest) {
       if (!Array.isArray(body.items) || body.items.length === 0) {
         return NextResponse.json({ error: "Cart is empty" }, { status: 400 });
       }
+      const paymentStatus =
+        typeof body.paymentStatus === "string" ? body.paymentStatus : "paid";
+      const paymentMethod =
+        typeof body.paymentMethod === "string" ? body.paymentMethod.trim() : null;
+      const normalizedPaymentMethod =
+        paymentStatus === "unpaid" ? null : paymentMethod;
+
+      if (
+        (paymentStatus === "paid" || paymentStatus === "partial") &&
+        !normalizedPaymentMethod
+      ) {
+        return NextResponse.json(
+          { error: POS_PAYMENT_METHOD_REQUIRED_MESSAGE },
+          { status: 400 }
+        );
+      }
+
       const order = await checkoutPos(
         {
           customerId: body.customerId ?? null,
           items: body.items,
           discountAmount: body.discountAmount ?? 0,
-          paymentMethod: body.paymentMethod ?? null,
-          paymentStatus: body.paymentStatus ?? "paid",
+          paymentMethod: normalizedPaymentMethod,
+          paymentStatus,
           paidAmount: body.paidAmount,
           notes: body.notes ?? null,
         },

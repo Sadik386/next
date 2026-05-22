@@ -126,8 +126,9 @@ export default function PosPage() {
   const [customerSearch, setCustomerSearch] = useState("");
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
 
-  const [paymentMethod, setPaymentMethod] = useState<string>("Cash");
+  const [paymentMethod, setPaymentMethod] = useState<string>("");
   const [paymentStatus, setPaymentStatus] = useState<(typeof PAYMENT_STATUSES)[number]>("paid");
+  const isPaymentMethodRequired = paymentStatus === "paid" || paymentStatus === "partial";
   const [paidAmount, setPaidAmount] = useState<string>("");
   const [cashTendered, setCashTendered] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
@@ -356,9 +357,18 @@ export default function PosPage() {
     setPaidAmount("");
     setCashTendered("");
     setPaymentStatus("paid");
-    setPaymentMethod("Cash");
+    setPaymentMethod("");
     setCustomerId(null);
     setCustomerSearch("");
+  }
+
+  function handlePaymentStatusChange(nextStatus: (typeof PAYMENT_STATUSES)[number]) {
+    setPaymentStatus(nextStatus);
+    if (nextStatus === "unpaid") {
+      setPaymentMethod("");
+      setPaidAmount("");
+      setCashTendered("");
+    }
   }
 
   // ----- camera modal -----
@@ -498,6 +508,12 @@ export default function PosPage() {
   // ----- checkout -----
   async function performCheckout() {
     if (cart.length === 0) return;
+    const normalizedPaymentMethod =
+      paymentStatus === "unpaid" ? null : paymentMethod.trim();
+    if (isPaymentMethodRequired && !normalizedPaymentMethod) {
+      flashFeedback(false, "Payment method is required for paid or partial payments.");
+      return;
+    }
     setSubmitting(true);
     const body = {
       customerId,
@@ -507,7 +523,7 @@ export default function PosPage() {
         unitPrice: l.unitPrice,
       })),
       discountAmount: totals.discount,
-      paymentMethod,
+      paymentMethod: normalizedPaymentMethod,
       paymentStatus,
       paidAmount:
         paymentStatus === "paid"
@@ -1026,26 +1042,12 @@ export default function PosPage() {
           )}
         </div>
 
-        {/* Payment Method */}
-        <div style={{ marginTop: "10px" }}>
-          <Label>Payment Method</Label>
-          <select
-            value={paymentMethod}
-            onChange={(e) => setPaymentMethod(e.target.value)}
-            style={{ width: "100%", padding: "8px", borderRadius: "8px", border: "1px solid var(--card-border)", backgroundColor: "var(--input-bg)", color: "var(--text-primary)", fontSize: "13px" }}
-          >
-            {PAYMENT_METHODS.map((m) => (
-              <option key={m} value={m}>{m}</option>
-            ))}
-          </select>
-        </div>
-
         {/* Payment Status */}
         <div style={{ marginTop: "10px" }}>
           <Label>Payment Status</Label>
           <select
             value={paymentStatus}
-            onChange={(e) => setPaymentStatus(e.target.value as "paid"|"partial"|"unpaid")}
+            onChange={(e) => handlePaymentStatusChange(e.target.value as (typeof PAYMENT_STATUSES)[number])}
             style={{ width: "100%", padding: "8px", borderRadius: "8px", border: "1px solid var(--card-border)", backgroundColor: "var(--input-bg)", color: "var(--text-primary)", fontSize: "13px", textTransform: "capitalize" }}
           >
             {PAYMENT_STATUSES.map((s) => (
@@ -1053,6 +1055,24 @@ export default function PosPage() {
             ))}
           </select>
         </div>
+
+        {isPaymentMethodRequired && (
+          <div style={{ marginTop: "10px" }}>
+            <Label>Payment Method</Label>
+            <select
+              value={paymentMethod}
+              onChange={(e) => setPaymentMethod(e.target.value)}
+              required
+              aria-required="true"
+              style={{ width: "100%", padding: "8px", borderRadius: "8px", border: "1px solid var(--card-border)", backgroundColor: "var(--input-bg)", color: "var(--text-primary)", fontSize: "13px" }}
+            >
+              <option value="" disabled>Select payment method</option>
+              {PAYMENT_METHODS.map((m) => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {paymentStatus === "partial" && (
           <div style={{ marginTop: "10px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>

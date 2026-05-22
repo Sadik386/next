@@ -8,6 +8,10 @@ import { getCurrentBusinessId } from "@/lib/business";
 import { createHmac, timingSafeEqual } from "crypto";
 
 const SHORT_ID_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const POS_PAYMENT_STATUSES = ["paid", "partial", "unpaid"] as const;
+type PosPaymentStatus = (typeof POS_PAYMENT_STATUSES)[number];
+export const POS_PAYMENT_METHOD_REQUIRED_MESSAGE =
+  "Payment method is required for paid or partial payments.";
 
 function getSessionSecret() {
   const secret = process.env.JWT_SECRET;
@@ -164,6 +168,25 @@ function toDecimal(v: number | string | undefined | null, fallback = 0): Prisma.
   return new Prisma.Decimal(v);
 }
 
+function normalizePosPaymentStatus(status: string | null | undefined): PosPaymentStatus {
+  return POS_PAYMENT_STATUSES.includes(status as PosPaymentStatus)
+    ? (status as PosPaymentStatus)
+    : "paid";
+}
+
+function normalizePosPaymentMethod(
+  paymentStatus: PosPaymentStatus,
+  paymentMethod: string | null | undefined
+): string | null {
+  if (paymentStatus === "unpaid") return null;
+
+  const normalizedPaymentMethod = paymentMethod?.trim() ?? "";
+  if (!normalizedPaymentMethod) {
+    throw new Error(POS_PAYMENT_METHOD_REQUIRED_MESSAGE);
+  }
+  return normalizedPaymentMethod;
+}
+
 export async function checkoutPos(data: PosCheckoutInput, userId: number) {
   if (!data.items || data.items.length === 0) {
     throw new Error("Cart is empty");
@@ -223,8 +246,8 @@ export async function checkoutPos(data: PosCheckoutInput, userId: number) {
       ? toDecimal(data.paidAmount)
       : totalAmount;
 
-  let paymentStatus = data.paymentStatus ?? "paid";
-  if (!["paid", "partial", "unpaid"].includes(paymentStatus)) paymentStatus = "paid";
+  const paymentStatus = normalizePosPaymentStatus(data.paymentStatus);
+  const paymentMethod = normalizePosPaymentMethod(paymentStatus, data.paymentMethod);
 
   const orderId = await generateOrderId(businessId);
 
@@ -235,7 +258,7 @@ export async function checkoutPos(data: PosCheckoutInput, userId: number) {
         customerId: customer.id,
         status: "delivered",
         paymentStatus,
-        paymentMethod: data.paymentMethod ?? null,
+        paymentMethod,
         subtotal,
         taxAmount,
         discountAmount,
@@ -276,7 +299,7 @@ export async function checkoutPos(data: PosCheckoutInput, userId: number) {
           taxAmount: row.totalPrice.mul(new Prisma.Decimal(row.product.taxRate ?? 0)).div(100),
           discountAmount: new Prisma.Decimal(0),
           paymentStatus,
-          paymentMethod: data.paymentMethod ?? null,
+          paymentMethod,
           notes: data.notes ?? null,
           businessId,
           createdBy: userId,
