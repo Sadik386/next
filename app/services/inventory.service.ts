@@ -65,6 +65,14 @@ function matchesSearch(values: Array<string | null | undefined>, search?: string
   return values.some((value) => (value ?? "").toLowerCase().includes(q));
 }
 
+function nonNegativeInt(value: unknown, field: string) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    throw new Error(`${field} must be a non-negative number`);
+  }
+  return Math.floor(parsed);
+}
+
 export async function getInventory(filters: InventoryFilters = {}) {
   const page = Math.max(1, filters.page ?? 1);
   const pageSize = Math.min(100, Math.max(1, filters.pageSize ?? 20));
@@ -196,7 +204,7 @@ export async function adjustStock(
   });
   if (!product) return null;
 
-  const qty = Math.max(0, Math.floor(input.quantity));
+  const qty = nonNegativeInt(input.quantity, "Quantity");
 
   if (productVariantId) {
     const variant = await prisma.productVariant.findFirst({
@@ -212,7 +220,7 @@ export async function adjustStock(
 
     const threshold =
       input.threshold !== undefined && input.threshold !== null
-        ? Math.max(0, Math.floor(input.threshold))
+        ? nonNegativeInt(input.threshold, "Low stock threshold")
         : variant.lowStockThreshold;
     const location = input.location !== undefined ? input.location : variant.location;
     const stock = await ensureStockForProduct(productId);
@@ -294,7 +302,7 @@ export async function adjustStock(
 
   const threshold =
     input.threshold !== undefined && input.threshold !== null
-      ? Math.max(0, Math.floor(input.threshold))
+      ? nonNegativeInt(input.threshold, "Low stock threshold")
       : stock.threshold;
   const location = input.location !== undefined ? input.location : stock.location;
 
@@ -389,11 +397,27 @@ export async function getStockLogsByProductId(
   limit = 20,
   productVariantId?: number | null
 ) {
+  const businessId = getCurrentBusinessId();
+  const variantFilter: Prisma.StockLogWhereInput =
+    productVariantId === undefined
+      ? {}
+      : productVariantId === null
+        ? { productVariantId: null }
+        : { productVariantId };
+
+  if (productVariantId !== undefined && productVariantId !== null) {
+    const variant = await prisma.productVariant.findFirst({
+      where: { id: productVariantId, productId, businessId, deletedAt: null },
+      select: { id: true },
+    });
+    if (!variant) return [];
+  }
+
   return prisma.stockLog.findMany({
     where: {
       productId,
-      businessId: getCurrentBusinessId(),
-      ...(productVariantId ? { productVariantId } : {}),
+      businessId,
+      ...variantFilter,
     },
     include: {
       createdByUser: { select: { id: true, name: true, email: true } },

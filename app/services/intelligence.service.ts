@@ -61,6 +61,65 @@ export interface IntelligenceAlert {
   data: Record<string, unknown>;
 }
 
+type ProductInventorySnapshot = Prisma.ProductGetPayload<{
+  include: {
+    stock: true;
+    category: { select: { name: true } };
+    variants: true;
+  };
+}>;
+
+type InventoryUnit = {
+  inventoryKey: string;
+  productDbId: number;
+  productId: string;
+  productName: string;
+  productVariantId: number | null;
+  variantLabel: string | null;
+  name: string;
+  category: string | null;
+  stock: number;
+  threshold: number;
+};
+
+function inventoryUnitKey(productId: number, productVariantId?: number | null) {
+  return `${productId}:${productVariantId ?? "simple"}`;
+}
+
+function inventoryUnitsFromProducts(products: ProductInventorySnapshot[]): InventoryUnit[] {
+  return products.flatMap((product): InventoryUnit[] => {
+    if (product.variants.length > 0) {
+      return product.variants.map((variant) => ({
+        inventoryKey: inventoryUnitKey(product.id, variant.id),
+        productDbId: product.id,
+        productId: product.productId,
+        productName: product.name,
+        productVariantId: variant.id,
+        variantLabel: variant.label,
+        name: `${product.name} / ${variant.label}`,
+        category: product.category?.name ?? null,
+        stock: variant.stockQuantity,
+        threshold: variant.lowStockThreshold,
+      }));
+    }
+
+    return [
+      {
+        inventoryKey: inventoryUnitKey(product.id, null),
+        productDbId: product.id,
+        productId: product.productId,
+        productName: product.name,
+        productVariantId: null,
+        variantLabel: null,
+        name: product.name,
+        category: product.category?.name ?? null,
+        stock: product.stock?.quantity ?? 0,
+        threshold: product.stock?.threshold ?? 10,
+      },
+    ];
+  });
+}
+
 export async function getIntelligenceAlerts(): Promise<IntelligenceAlert[]> {
   const businessId = getCurrentBusinessId();
   const alerts: IntelligenceAlert[] = [];
@@ -71,7 +130,14 @@ export async function getIntelligenceAlerts(): Promise<IntelligenceAlert[]> {
   const [products, recentSales, openOrders] = await Promise.all([
     prisma.product.findMany({
       where: { deletedAt: null, businessId },
-      include: { stock: true, category: { select: { name: true } } },
+      include: {
+        stock: true,
+        category: { select: { name: true } },
+        variants: {
+          where: { deletedAt: null },
+          orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+        },
+      },
     }),
     prisma.sale.findMany({
       where: {
@@ -79,7 +145,7 @@ export async function getIntelligenceAlerts(): Promise<IntelligenceAlert[]> {
         businessId,
         deletedAt: null,
       },
-      select: { productId: true, quantity: true, date: true, totalAmount: true },
+      select: { productId: true, productVariantId: true, quantity: true, date: true, totalAmount: true },
     }),
     prisma.order.findMany({
       where: {
@@ -94,58 +160,77 @@ export async function getIntelligenceAlerts(): Promise<IntelligenceAlert[]> {
         paymentStatus: true,
         totalAmount: true,
         createdAt: true,
-        items: { select: { productId: true, quantity: true } },
+        items: { select: { productId: true, productVariantId: true, quantity: true } },
       },
     }),
   ]);
 
+  const inventoryUnits = inventoryUnitsFromProducts(products);
+  const salesByUnit = new Map<string, { qty: number; lastSale: Date | null }>();
   const salesByProduct = new Map<number, { qty: number; lastSale: Date | null }>();
   for (const s of recentSales) {
     if (!s.productId) continue;
+    const unitKey = inventoryUnitKey(s.productId, s.productVariantId);
+    const unitEntry = salesByUnit.get(unitKey) ?? { qty: 0, lastSale: null };
+    unitEntry.qty += s.quantity;
+    if (!unitEntry.lastSale || s.date > unitEntry.lastSale) unitEntry.lastSale = s.date;
+    salesByUnit.set(unitKey, unitEntry);
+
     const entry = salesByProduct.get(s.productId) ?? { qty: 0, lastSale: null };
     entry.qty += s.quantity;
     if (!entry.lastSale || s.date > entry.lastSale) entry.lastSale = s.date;
     salesByProduct.set(s.productId, entry);
   }
 
-  const pendingByProduct = new Map<number, number>();
+  const pendingByUnit = new Map<string, number>();
   for (const o of openOrders) {
     if (o.status === "delivered") continue;
     for (const item of o.items) {
-      pendingByProduct.set(item.productId, (pendingByProduct.get(item.productId) ?? 0) + item.quantity);
+      const unitKey = inventoryUnitKey(item.productId, item.productVariantId);
+      pendingByUnit.set(unitKey, (pendingByUnit.get(unitKey) ?? 0) + item.quantity);
     }
   }
 
   // CRITICAL: stock = 0 with pending orders
-  for (const p of products) {
-    const qty = p.stock?.quantity ?? 0;
-    const pending = pendingByProduct.get(p.id) ?? 0;
+  for (const unit of inventoryUnits) {
+    const qty = unit.stock;
+    const pending = pendingByUnit.get(unit.inventoryKey) ?? 0;
     if (qty === 0 && pending > 0) {
       alerts.push({
-        id: `critical-stockout-pending-${p.id}`,
+        id: `critical-stockout-pending-${unit.inventoryKey}`,
         type: "critical",
-        title: `Stock out — ${p.name}`,
+        title: `Stock out - ${unit.name}`,
         description: `${pending} unit(s) committed to pending orders but stock is empty. Immediate restock required.`,
-        action: { label: "Place PO now →", href: "/suppliers" },
-        data: { productId: p.productId, pending, stock: qty },
+        action: { label: "Restock", href: "/inventory" },
+        data: {
+          productId: unit.productId,
+          productVariantId: unit.productVariantId,
+          pending,
+          stock: qty,
+        },
       });
     }
   }
 
   // CRITICAL: stock-out 7+ days with recent sales history
-  for (const p of products) {
-    const qty = p.stock?.quantity ?? 0;
-    const sales = salesByProduct.get(p.id);
+  for (const unit of inventoryUnits) {
+    const qty = unit.stock;
+    const sales = salesByUnit.get(unit.inventoryKey);
     if (qty === 0 && sales && sales.qty > 0 && sales.lastSale) {
       const daysSinceLast = Math.floor((now.getTime() - sales.lastSale.getTime()) / 86400_000);
       if (daysSinceLast >= 7) {
         alerts.push({
-          id: `critical-stockout-history-${p.id}`,
+          id: `critical-stockout-history-${unit.inventoryKey}`,
           type: "critical",
-          title: `Lost sales — ${p.name}`,
+          title: `Lost sales - ${unit.name}`,
           description: `Out of stock for ${daysSinceLast} days. Sold ${sales.qty} units in the prior period.`,
-          action: { label: "Restock →", href: "/inventory" },
-          data: { productId: p.productId, daysOut: daysSinceLast, prevSales: sales.qty },
+          action: { label: "Restock", href: "/inventory" },
+          data: {
+            productId: unit.productId,
+            productVariantId: unit.productVariantId,
+            daysOut: daysSinceLast,
+            prevSales: sales.qty,
+          },
         });
       }
     }
@@ -169,21 +254,27 @@ export async function getIntelligenceAlerts(): Promise<IntelligenceAlert[]> {
   }
 
   // WARNING: stock below threshold AND selling 2+ units/week
-  for (const p of products) {
-    const qty = p.stock?.quantity ?? 0;
-    const threshold = p.stock?.threshold ?? 10;
+  for (const unit of inventoryUnits) {
+    const qty = unit.stock;
+    const threshold = unit.threshold;
     if (qty <= 0 || qty > threshold) continue;
-    const sales = salesByProduct.get(p.id);
+    const sales = salesByUnit.get(unit.inventoryKey);
     if (!sales) continue;
     const perWeek = sales.qty / (30 / 7);
     if (perWeek >= 2) {
       alerts.push({
-        id: `warning-low-${p.id}`,
+        id: `warning-low-${unit.inventoryKey}`,
         type: "warning",
-        title: `Low stock — ${p.name}`,
+        title: `Low stock - ${unit.name}`,
         description: `${qty} units left, selling ~${perWeek.toFixed(1)}/week. Threshold is ${threshold}.`,
-        action: { label: "Restock →", href: "/inventory" },
-        data: { productId: p.productId, stock: qty, threshold, perWeek: Number(perWeek.toFixed(2)) },
+        action: { label: "Restock", href: "/inventory" },
+        data: {
+          productId: unit.productId,
+          productVariantId: unit.productVariantId,
+          stock: qty,
+          threshold,
+          perWeek: Number(perWeek.toFixed(2)),
+        },
       });
     }
   }
@@ -195,20 +286,26 @@ export async function getIntelligenceAlerts(): Promise<IntelligenceAlert[]> {
       type: "add",
       createdAt: { gte: thirtyDaysAgo },
     },
-    select: { productId: true },
+    select: { productId: true, productVariantId: true },
   });
-  const restockedRecently = new Set(stockLogs.map((l) => l.productId));
-  for (const p of products) {
-    if (restockedRecently.has(p.id)) continue;
-    const sales = salesByProduct.get(p.id);
+  const restockedRecently = new Set(
+    stockLogs.map((log) => inventoryUnitKey(log.productId, log.productVariantId))
+  );
+  for (const unit of inventoryUnits) {
+    if (restockedRecently.has(unit.inventoryKey)) continue;
+    const sales = salesByUnit.get(unit.inventoryKey);
     if (!sales || sales.qty < 5) continue;
     alerts.push({
-      id: `warning-no-restock-${p.id}`,
+      id: `warning-no-restock-${unit.inventoryKey}`,
       type: "warning",
-      title: `No restock in 30d — ${p.name}`,
+      title: `No restock in 30d - ${unit.name}`,
       description: `Sold ${sales.qty} units last 30 days but never restocked. Plan an order.`,
-      action: { label: "Order today →", href: "/orders" },
-      data: { productId: p.productId, sales30d: sales.qty },
+      action: { label: "Restock", href: "/inventory" },
+      data: {
+        productId: unit.productId,
+        productVariantId: unit.productVariantId,
+        sales30d: sales.qty,
+      },
     });
   }
 
@@ -609,53 +706,65 @@ export async function getInventoryInsights() {
   const [products, recentSales] = await Promise.all([
     prisma.product.findMany({
       where: { deletedAt: null, businessId },
-      include: { stock: true, category: { select: { name: true } } },
+      include: {
+        stock: true,
+        category: { select: { name: true } },
+        variants: {
+          where: { deletedAt: null },
+          orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+        },
+      },
     }),
     prisma.sale.findMany({
       where: { businessId, deletedAt: null, date: { gte: thirtyDaysAgo } },
-      select: { productId: true, quantity: true, date: true },
+      select: { productId: true, productVariantId: true, quantity: true, date: true },
     }),
   ]);
 
-  const salesByProduct = new Map<number, { qty: number; lastSale: Date | null }>();
+  const inventoryUnits = inventoryUnitsFromProducts(products);
+  const salesByUnit = new Map<string, { qty: number; lastSale: Date | null }>();
   for (const s of recentSales) {
     if (!s.productId) continue;
-    const e = salesByProduct.get(s.productId) ?? { qty: 0, lastSale: null };
-    e.qty += s.quantity;
-    if (!e.lastSale || s.date > e.lastSale) e.lastSale = s.date;
-    salesByProduct.set(s.productId, e);
+    const unitKey = inventoryUnitKey(s.productId, s.productVariantId);
+    const unitEntry = salesByUnit.get(unitKey) ?? { qty: 0, lastSale: null };
+    unitEntry.qty += s.quantity;
+    if (!unitEntry.lastSale || s.date > unitEntry.lastSale) unitEntry.lastSale = s.date;
+    salesByUnit.set(unitKey, unitEntry);
   }
 
-  const decorate = (p: (typeof products)[number]) => ({
-    productId: p.productId,
-    name: p.name,
-    category: p.category?.name ?? null,
-    stock: p.stock?.quantity ?? 0,
-    threshold: p.stock?.threshold ?? 10,
-    sold30d: salesByProduct.get(p.id)?.qty ?? 0,
-    lastSold: salesByProduct.get(p.id)?.lastSale?.toISOString() ?? null,
+  const decorate = (unit: InventoryUnit) => ({
+    inventoryKey: unit.inventoryKey,
+    productId: unit.productId,
+    productVariantId: unit.productVariantId,
+    variantLabel: unit.variantLabel,
+    name: unit.name,
+    category: unit.category,
+    stock: unit.stock,
+    threshold: unit.threshold,
+    sold30d: salesByUnit.get(unit.inventoryKey)?.qty ?? 0,
+    lastSold: salesByUnit.get(unit.inventoryKey)?.lastSale?.toISOString() ?? null,
   });
 
-  const slowMoving = products
-    .filter((p) => {
-      const qty = p.stock?.quantity ?? 0;
-      const sold = salesByProduct.get(p.id)?.qty ?? 0;
+  const slowMoving = inventoryUnits
+    .filter((unit) => {
+      const qty = unit.stock;
+      const sold = salesByUnit.get(unit.inventoryKey)?.qty ?? 0;
       return qty > 10 && sold < 2;
     })
     .map(decorate)
     .sort((a, b) => b.stock - a.stock)
     .slice(0, 50);
 
-  const fastMoving = products
-    .filter((p) => (salesByProduct.get(p.id)?.qty ?? 0) > 10)
+  const fastMoving = inventoryUnits
+    .filter((unit) => (salesByUnit.get(unit.inventoryKey)?.qty ?? 0) > 10)
     .map(decorate)
     .sort((a, b) => b.sold30d - a.sold30d)
     .slice(0, 50);
 
-  const overstocked = products
-    .filter((p) => {
-      const qty = p.stock?.quantity ?? 0;
-      const sold = salesByProduct.get(p.id)?.qty ?? 0;
+  const overstocked = inventoryUnits
+    .filter((unit) => {
+      const qty = unit.stock;
+      const sold = salesByUnit.get(unit.inventoryKey)?.qty ?? 0;
       if (sold === 0) return qty > 30;
       return qty > sold * 3;
     })
@@ -663,10 +772,10 @@ export async function getInventoryInsights() {
     .sort((a, b) => b.stock - a.stock)
     .slice(0, 50);
 
-  const understocked = products
-    .filter((p) => {
-      const qty = p.stock?.quantity ?? 0;
-      const sold = salesByProduct.get(p.id)?.qty ?? 0;
+  const understocked = inventoryUnits
+    .filter((unit) => {
+      const qty = unit.stock;
+      const sold = salesByUnit.get(unit.inventoryKey)?.qty ?? 0;
       if (sold === 0) return false;
       const dailyRate = sold / 30;
       const daysLeft = dailyRate > 0 ? qty / dailyRate : Infinity;
@@ -677,7 +786,10 @@ export async function getInventoryInsights() {
     .slice(0, 50);
 
   type ReorderSuggestion = {
+    inventoryKey: string;
     productId: string;
+    productVariantId: number | null;
+    variantLabel: string | null;
     name: string;
     category: string | null;
     currentStock: number;
@@ -686,9 +798,9 @@ export async function getInventoryInsights() {
     suggestedOrderQty: number;
   };
   const reorderSuggestions: ReorderSuggestion[] = [];
-  for (const p of products) {
-    const qty = p.stock?.quantity ?? 0;
-    const sold = salesByProduct.get(p.id)?.qty ?? 0;
+  for (const unit of inventoryUnits) {
+    const qty = unit.stock;
+    const sold = salesByUnit.get(unit.inventoryKey)?.qty ?? 0;
     if (sold === 0) continue;
     const dailyRate = sold / 30;
     if (dailyRate <= 0) continue;
@@ -697,9 +809,12 @@ export async function getInventoryInsights() {
     const target = Math.ceil(dailyRate * 30);
     const suggestedOrderQty = Math.max(target - qty, Math.ceil(dailyRate * 14));
     reorderSuggestions.push({
-      productId: p.productId,
-      name: p.name,
-      category: p.category?.name ?? null,
+      inventoryKey: unit.inventoryKey,
+      productId: unit.productId,
+      productVariantId: unit.productVariantId,
+      variantLabel: unit.variantLabel,
+      name: unit.name,
+      category: unit.category,
       currentStock: qty,
       dailySalesRate: Number(dailyRate.toFixed(2)),
       daysLeft: Number(daysLeft.toFixed(1)),

@@ -140,7 +140,7 @@ export default function InventoryPage() {
     setHistoryLogs([]);
     setHistoryLoading(true);
     const params = new URLSearchParams({ limit: "20" });
-    if (item.variantId) params.set("variantId", String(item.variantId));
+    if (item.variantId !== null) params.set("variantId", String(item.variantId));
     const res = await fetch(`/api/inventory/${item.id}/logs?${params}`);
     if (res.ok) {
       const data = await res.json();
@@ -521,7 +521,9 @@ export default function InventoryPage() {
                           {log.reason ?? "—"}
                           {log.productVariant && (
                             <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>
-                              {log.productVariant.label}
+                              {log.productVariant.sku
+                                ? `${log.productVariant.label} / SKU: ${log.productVariant.sku}`
+                                : log.productVariant.label}
                             </div>
                           )}
                         </Td>

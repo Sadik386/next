@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/rbac";
 import { getStockLogsByProductId } from "@/services/inventory.service";
+import { runWithBusinessContext } from "@/lib/business-context";
 
 export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const auth = await requireAuth(req);
@@ -14,7 +15,16 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
 
   const sp = req.nextUrl.searchParams;
   const limit = sp.get("limit") ? Number(sp.get("limit")) : 20;
-  const variantId = sp.get("variantId") ? Number(sp.get("variantId")) : null;
-  const logs = await getStockLogsByProductId(productId, limit, variantId);
-  return NextResponse.json({ logs });
+  const variantParam = sp.get("variantId");
+  let variantId: number | null = null;
+  if (variantParam !== null && variantParam !== "") {
+    variantId = Number(variantParam);
+    if (!Number.isInteger(variantId) || variantId <= 0) {
+      return NextResponse.json({ error: "Invalid product variant id" }, { status: 400 });
+    }
+  }
+  return runWithBusinessContext({ ...auth.user, businessId: auth.businessId }, async () => {
+    const logs = await getStockLogsByProductId(productId, limit, variantId);
+    return NextResponse.json({ logs });
+  });
 }

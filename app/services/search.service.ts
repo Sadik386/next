@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getCurrentBusinessId } from "@/lib/business";
+import { getInventory } from "@/services/inventory.service";
 
 const DEFAULT_LIMIT = 5;
 
@@ -17,6 +18,8 @@ interface SearchResult {
   inventory?: {
     id: number;
     productId: string;
+    variantId: number | null;
+    variantLabel: string | null;
     name: string;
     sku: string | null;
     quantity: number;
@@ -118,43 +121,20 @@ export async function globalSearch(query: string): Promise<SearchResult> {
     }));
   }
 
-  // Inventory - search by product name, productId, SKU
-  const inventory = await prisma.stock.findMany({
-    where: {
-      product: {
-        businessId,
-        deletedAt: null,
-      },
-      OR: normalized
-        ? [
-            { product: { name: { contains: normalized } } },
-            { product: { productId: { contains: codeNormalized } } },
-            { product: { productId: { contains: originalCode } } },
-            { product: { sku: { contains: codeNormalized } } },
-          ]
-        : [
-            { product: { productId: { contains: codeNormalized } } },
-            { product: { productId: { contains: originalCode } } },
-            { product: { sku: { contains: codeNormalized } } },
-          ],
-    },
-    include: {
-      product: {
-        select: { productId: true, name: true, sku: true },
-      },
-    },
-    take: limit,
-  });
+  // Inventory - flatten simple products and variants through the inventory service.
+  const inventory = await getInventory({ search: query, pageSize: limit });
 
-  if (inventory.length > 0) {
-    results.inventory = inventory.map((s) => ({
-      id: s.id,
-      productId: (s as any).product?.productId ?? "",
-      name: (s as any).product?.name ?? "",
-      sku: (s as any).product?.sku ?? null,
-      quantity: s.quantity,
-      threshold: s.threshold,
-      status: s.quantity <= 0 ? "out_of_stock" : s.quantity <= s.threshold ? "low_stock" : "in_stock",
+  if (inventory.items.length > 0) {
+    results.inventory = inventory.items.map((item) => ({
+      id: item.id,
+      productId: item.productId,
+      variantId: item.variantId,
+      variantLabel: item.variantLabel,
+      name: item.variantLabel ? `${item.name} / ${item.variantLabel}` : item.name,
+      sku: item.sku,
+      quantity: item.quantity,
+      threshold: item.threshold,
+      status: item.stockStatus === "low" ? "low_stock" : item.stockStatus,
     }));
   }
 

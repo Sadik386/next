@@ -80,7 +80,10 @@ type TimePatterns = {
 };
 
 type InventoryItem = {
+  inventoryKey: string;
   productId: string;
+  productVariantId: number | null;
+  variantLabel: string | null;
   name: string;
   category: string | null;
   stock: number;
@@ -90,7 +93,10 @@ type InventoryItem = {
 };
 
 type ReorderItem = {
+  inventoryKey: string;
   productId: string;
+  productVariantId: number | null;
+  variantLabel: string | null;
   name: string;
   category: string | null;
   currentStock: number;
@@ -663,7 +669,7 @@ function InventoryTab({ data, loading }: { data: InventoryInsights | null; loadi
                   const urgency =
                     r.daysLeft < 7 ? "#ef4444" : r.daysLeft < 14 ? "#f59e0b" : "var(--text-primary)";
                   return (
-                    <tr key={r.productId}>
+                    <tr key={r.inventoryKey}>
                       <Td>
                         <span style={{ fontWeight: 500, color: "var(--text-primary)" }}>{r.name}</span>
                       </Td>
@@ -754,7 +760,7 @@ function InventorySection({
             </thead>
             <tbody>
               {items.map((p) => (
-                <tr key={p.productId}>
+                <tr key={p.inventoryKey}>
                   <Td>
                     <span style={{ fontWeight: 500, color: "var(--text-primary)" }}>{p.name}</span>
                   </Td>

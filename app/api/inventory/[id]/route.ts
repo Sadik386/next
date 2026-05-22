@@ -24,26 +24,42 @@ export async function PUT(req: NextRequest, ctx: { params: Promise<{ id: string 
       if (!VALID_TYPES.includes(body.type)) {
         return NextResponse.json({ error: "Invalid adjustment type" }, { status: 400 });
       }
-      if (body.quantity == null || Number(body.quantity) < 0) {
+      const quantity = Number(body.quantity);
+      if (body.quantity == null || !Number.isFinite(quantity) || quantity < 0) {
         return NextResponse.json({ error: "Quantity must be a non-negative number" }, { status: 400 });
+      }
+
+      let threshold: number | undefined;
+      if (body.threshold !== undefined && body.threshold !== null && body.threshold !== "") {
+        threshold = Number(body.threshold);
+        if (!Number.isFinite(threshold) || threshold < 0) {
+          return NextResponse.json({ error: "Low stock threshold must be a non-negative number" }, { status: 400 });
+        }
+      }
+
+      const rawVariantId = body.variantId ?? body.productVariantId;
+      let productVariantId: number | null = null;
+      if (rawVariantId !== undefined && rawVariantId !== null && rawVariantId !== "") {
+        productVariantId = Number(rawVariantId);
+        if (!Number.isInteger(productVariantId) || productVariantId <= 0) {
+          return NextResponse.json({ error: "Invalid product variant id" }, { status: 400 });
+        }
       }
 
       const result = await adjustStock(
         productId,
         {
           type: body.type as AdjustmentType,
-          quantity: Number(body.quantity),
+          quantity,
           reason: body.reason ?? null,
-          threshold: body.threshold !== undefined && body.threshold !== "" ? Number(body.threshold) : undefined,
+          threshold,
           location: body.location !== undefined ? (body.location || null) : undefined,
         },
         auth.user.id,
-        body.variantId !== undefined && body.variantId !== null && body.variantId !== ""
-          ? Number(body.variantId)
-          : null
+        productVariantId
       );
 
-      if (!result) return NextResponse.json({ error: "Product not found" }, { status: 404 });
+      if (!result) return NextResponse.json({ error: "Product or variant not found" }, { status: 404 });
       return NextResponse.json(result);
     } catch (err) {
       console.error("Inventory adjust error:", err);
