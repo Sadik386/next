@@ -1,6 +1,12 @@
 import nodemailer, { Transporter } from "nodemailer";
 import { prisma } from "@/lib/prisma";
 import { encryptSecret, decryptSecret } from "@/lib/crypto/secret";
+import {
+  getSafeSmtpErrorMessage,
+  getSmtpTransportSecurity,
+  isValidEmailAddress,
+  logSafeSmtpError,
+} from "@/lib/email-boundary";
 
 export interface PlatformEmailConfig {
   smtpHost: string;
@@ -61,8 +67,8 @@ async function getDbEmailConfig(): Promise<PlatformEmailDbConfig | null> {
       ...config,
       pass: decryptSecret(config.pass || ""),
     };
-  } catch (error) {
-    console.error("Failed to load DB email config:", error);
+  } catch {
+    console.error("Failed to load DB email config.");
     return null;
   }
 }
@@ -93,10 +99,12 @@ async function getPlatformEmailConfig(): Promise<PlatformEmailConfig | null> {
   const dbConfig = await getDbEmailConfig();
   if (dbConfig) {
     const port = dbConfig.port || 587;
+    const security = getSmtpTransportSecurity(port, dbConfig.secure);
+
     return {
       smtpHost: dbConfig.host,
       smtpPort: port,
-      smtpSecure: port === 465,
+      smtpSecure: security.secure,
       smtpUser: dbConfig.user,
       smtpPass: dbConfig.pass,
       smtpFromEmail: dbConfig.fromEmail,
@@ -108,9 +116,11 @@ async function getPlatformEmailConfig(): Promise<PlatformEmailConfig | null> {
   const envConfig = getEnvEmailConfig();
   if (envConfig) {
     const port = envConfig.smtpPort || 587;
+    const security = getSmtpTransportSecurity(port, envConfig.smtpSecure);
+
     return {
       ...envConfig,
-      smtpSecure: port === 465,
+      smtpSecure: security.secure,
     };
   }
 
@@ -118,18 +128,17 @@ async function getPlatformEmailConfig(): Promise<PlatformEmailConfig | null> {
 }
 
 function createPlatformTransporter(config: PlatformEmailConfig): Transporter {
+  const security = getSmtpTransportSecurity(config.smtpPort, config.smtpSecure);
+
   return nodemailer.createTransport({
     host: config.smtpHost,
     port: config.smtpPort,
-    secure: config.smtpSecure,
+    ...security,
     auth: {
       user: config.smtpUser,
       pass: config.smtpPass,
     },
     connectionTimeout: 10000,
-    tls: {
-      rejectUnauthorized: false,
-    },
   });
 }
 
@@ -142,12 +151,14 @@ export async function getPlatformEmailSafeConfig(): Promise<PlatformEmailSafeCon
   const dbConfig = await getDbEmailConfig();
   
   if (dbConfig) {
+    const security = getSmtpTransportSecurity(dbConfig.port, dbConfig.secure);
+
     return {
       configured: true,
       hasPassword: !!dbConfig.pass,
       host: dbConfig.host,
       port: dbConfig.port,
-      secure: dbConfig.secure,
+      secure: security.secure,
       user: dbConfig.user,
       fromEmail: dbConfig.fromEmail,
       fromName: dbConfig.fromName,
@@ -160,13 +171,15 @@ export async function getPlatformEmailSafeConfig(): Promise<PlatformEmailSafeCon
   const envFromEmail = process.env.SMTP_FROM_EMAIL || "";
   const envUser = process.env.SMTP_USER || "";
   const envConfigured = !!(envHost && envUser && envFromEmail);
+  const envPort = parseInt(process.env.SMTP_PORT || "587", 10);
+  const envSecurity = getSmtpTransportSecurity(envPort, process.env.SMTP_SECURE === "true");
 
   return {
     configured: envConfigured,
     hasPassword: !!process.env.SMTP_PASS,
     host: envConfigured ? envHost : null,
-    port: envConfigured ? parseInt(process.env.SMTP_PORT || "587", 10) : null,
-    secure: envConfigured ? process.env.SMTP_SECURE === "true" : null,
+    port: envConfigured ? envPort : null,
+    secure: envConfigured ? envSecurity.secure : null,
     user: envConfigured ? envUser : null,
     fromEmail: envConfigured ? envFromEmail : null,
     fromName: process.env.SMTP_FROM_NAME || "Accoraze Platform",
@@ -186,6 +199,9 @@ export async function savePlatformEmailConfig(config: {
   replyTo?: string;
 }): Promise<PlatformEmailResult> {
   try {
+    const port = Number(config.port) || 587;
+    const security = getSmtpTransportSecurity(port, config.secure);
+
     const existingSetting = await prisma.platformSetting.findUnique({
       where: { key: "smtp_config" },
     });
@@ -196,18 +212,16 @@ export async function savePlatformEmailConfig(config: {
       existingPass = existingConfig.pass || "";
     }
 
-    const newPassword = config.password || existingPass;
-    
-    if (!newPassword) {
+    if (!config.password && !existingPass) {
       return { success: false, message: "SMTP password is required." };
     }
 
-    const encryptedPass = encryptSecret(newPassword);
+    const encryptedPass = config.password ? encryptSecret(config.password) : existingPass;
     
     const dbConfig: PlatformEmailDbConfig = {
       host: config.host,
-      port: config.port,
-      secure: config.secure,
+      port,
+      secure: security.secure,
       user: config.user,
       pass: encryptedPass,
       fromEmail: config.fromEmail,
@@ -222,8 +236,8 @@ export async function savePlatformEmailConfig(config: {
     });
 
     return { success: true, message: "SMTP configuration saved successfully." };
-  } catch (error) {
-    console.error("Failed to save platform email config:", error);
+  } catch {
+    console.error("Failed to save platform email config.");
     return { success: false, message: "Failed to save configuration." };
   }
 }
@@ -242,19 +256,9 @@ export async function testPlatformSmtp(): Promise<PlatformEmailResult> {
     const transporter = createPlatformTransporter(config);
     await transporter.verify();
     return { success: true, message: "Platform SMTP connection successful." };
-  } catch (error: any) {
-    console.error("Platform SMTP connection test failed:", error);
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    
-    if (errorMessage.includes("535") || errorMessage.includes("authentication failed") || errorMessage.includes("Invalid login")) {
-      return { success: false, message: "SMTP authentication failed. Please verify username and app password." };
-    }
-    
-    if (errorMessage.includes("ENOTFOUND") || errorMessage.includes("ECONNREFUSED")) {
-      return { success: false, message: "SMTP connection failed. Please check host and port." };
-    }
-    
-    return { success: false, message: `Connection failed: ${errorMessage}` };
+  } catch (error) {
+    logSafeSmtpError("Platform SMTP connection test failed:", error);
+    return { success: false, message: getSafeSmtpErrorMessage(error, "test") };
   }
 }
 
@@ -275,16 +279,17 @@ export async function sendPlatformEmail(params: SendPlatformEmailParams): Promis
     return { success: false, message: "SMTP credentials are incomplete. Please check username/password." };
   }
 
-  if (!params.to || !params.to.includes("@")) {
+  if (!isValidEmailAddress(params.to)) {
     return { success: false, message: "Invalid recipient email address." };
   }
 
   try {
     const transporter = createPlatformTransporter(config);
+    const recipient = params.to.trim();
 
     const mailOptions: nodemailer.SendMailOptions = {
       from: `"${config.smtpFromName}" <${config.smtpFromEmail}>`,
-      to: params.to,
+      to: recipient,
       subject: params.subject,
       text: params.text || params.html.replace(/<[^>]*>/g, ""),
       html: params.html,
@@ -296,24 +301,14 @@ export async function sendPlatformEmail(params: SendPlatformEmailParams): Promis
 
     await transporter.sendMail(mailOptions);
     return { success: true, message: "Email sent successfully." };
-  } catch (error: any) {
-    console.error("Platform email send failed:", error);
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    
-    if (errorMessage.includes("535") || errorMessage.includes("authentication failed") || errorMessage.includes("Invalid login")) {
-      return { success: false, message: "SMTP authentication failed. Please verify username and app password." };
-    }
-    
-    if (errorMessage.includes("ENOTFOUND") || errorMessage.includes("ECONNREFUSED")) {
-      return { success: false, message: "SMTP connection failed. Please check host and port." };
-    }
-    
-    return { success: false, message: `Failed to send email: ${errorMessage}` };
+  } catch (error) {
+    logSafeSmtpError("Platform email send failed:", error);
+    return { success: false, message: getSafeSmtpErrorMessage(error, "send") };
   }
 }
 
 export async function sendTestPlatformEmail(toEmail: string): Promise<PlatformEmailResult> {
-  if (!toEmail || !toEmail.includes("@")) {
+  if (!isValidEmailAddress(toEmail)) {
     return { success: false, message: "Invalid recipient email address." };
   }
 

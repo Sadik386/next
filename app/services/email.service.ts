@@ -5,6 +5,12 @@ import { decryptSecret } from "@/lib/crypto/secret";
 import { USAGE_KEYS } from "@/lib/pricing";
 import { guardEmailSend } from "@/lib/subscription-guard";
 import { incrementUsageSafely } from "@/lib/usage-service";
+import {
+  getSafeSmtpErrorMessage,
+  getSmtpTransportSecurity,
+  isValidEmailAddress,
+  logSafeSmtpError,
+} from "@/lib/email-boundary";
 
 export interface EmailSettings {
   smtpProvider: string;
@@ -102,20 +108,27 @@ export async function getEmailSettings(businessId?: number): Promise<EmailSettin
 }
 
 function createTransporter(settings: EmailSettings): Transporter {
-  const isSSL = settings.smtpEncryption === "SSL";
+  const security = getSmtpTransportSecurity(settings.smtpPort, settings.smtpEncryption);
+
   return nodemailer.createTransport({
     host: settings.smtpHost,
     port: settings.smtpPort,
-    secure: isSSL,
+    ...security,
     auth: {
       user: settings.smtpUsername,
       pass: settings.smtpPassword,
     },
     connectionTimeout: 10000,
-    tls: {
-      rejectUnauthorized: false,
-    },
   });
+}
+
+function isBusinessSmtpReady(settings: EmailSettings): boolean {
+  return Boolean(
+    settings.smtpHost &&
+    settings.smtpUsername &&
+    settings.smtpPassword &&
+    settings.smtpFromEmail
+  );
 }
 
 export async function testSmtpConnection(businessId?: number): Promise<EmailResult> {
@@ -137,9 +150,8 @@ export async function testSmtpConnection(businessId?: number): Promise<EmailResu
     await transporter.verify();
     return { success: true, message: "SMTP connection successful." };
   } catch (error) {
-    console.error("SMTP connection test failed:", error);
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    return { success: false, message: `Connection failed: ${errorMessage}` };
+    logSafeSmtpError("Business SMTP connection test failed:", error);
+    return { success: false, message: getSafeSmtpErrorMessage(error, "test") };
   }
 }
 
@@ -149,14 +161,19 @@ export async function sendTestEmail(toEmail: string, businessId?: number): Promi
     return { success: false, message: "SMTP settings not configured." };
   }
 
-  if (!toEmail || !toEmail.includes("@")) {
+  if (!isValidEmailAddress(toEmail)) {
     return { success: false, message: "Invalid recipient email address." };
+  }
+
+  if (!isBusinessSmtpReady(settings)) {
+    return { success: false, message: "Business SMTP is not fully configured." };
   }
 
   try {
     const transporter = createTransporter(settings);
     const businessName = settings.smtpFromName || "Your Business";
     const emailHeaderLogoUrl = toAbsoluteEmailAssetUrl(settings.emailHeaderLogoUrl);
+    const recipient = toEmail.trim();
 
     const htmlContent = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -183,19 +200,24 @@ export async function sendTestEmail(toEmail: string, businessId?: number): Promi
 
     const textContent = `Test Email\n\nThis is a test email to verify your SMTP configuration is working correctly.\n\nIf you received this email, your email settings are configured properly.\n\n© ${new Date().getFullYear()} ${businessName}`;
 
-    await transporter.sendMail({
+    const mailOptions: nodemailer.SendMailOptions = {
       from: `"${settings.smtpFromName}" <${settings.smtpFromEmail}>`,
-      to: toEmail,
+      to: recipient,
       subject: `Test Email from ${businessName}`,
       text: textContent,
       html: htmlContent,
-    });
+    };
 
-    return { success: true, message: `Test email sent to ${toEmail}.` };
+    if (settings.smtpReplyTo) {
+      mailOptions.replyTo = settings.smtpReplyTo;
+    }
+
+    await transporter.sendMail(mailOptions);
+
+    return { success: true, message: `Test email sent to ${recipient}.` };
   } catch (error) {
-    console.error("Send test email failed:", error);
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    return { success: false, message: `Failed to send email: ${errorMessage}` };
+    logSafeSmtpError("Business test email send failed:", error);
+    return { success: false, message: getSafeSmtpErrorMessage(error, "test") };
   }
 }
 
@@ -214,7 +236,11 @@ export async function sendEmail(params: SendEmailParams): Promise<EmailResult> {
     return { success: false, message: "SMTP settings not configured." };
   }
 
-  if (!params.to || !params.to.includes("@")) {
+  if (!isBusinessSmtpReady(settings)) {
+    return { success: false, message: "Business SMTP is not fully configured." };
+  }
+
+  if (!isValidEmailAddress(params.to)) {
     return { success: false, message: "Invalid recipient email address." };
   }
 
@@ -230,6 +256,7 @@ export async function sendEmail(params: SendEmailParams): Promise<EmailResult> {
     const transporter = createTransporter(settings);
     const businessName = settings.smtpFromName || "Your Business";
     const emailHeaderLogoUrl = toAbsoluteEmailAssetUrl(settings.emailHeaderLogoUrl);
+    const recipient = params.to.trim();
 
     const htmlContent = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -248,25 +275,30 @@ export async function sendEmail(params: SendEmailParams): Promise<EmailResult> {
       </div>
     `;
 
-    await transporter.sendMail({
+    const mailOptions: nodemailer.SendMailOptions = {
       from: `"${settings.smtpFromName}" <${settings.smtpFromEmail}>`,
-      to: params.to,
+      to: recipient,
       subject: params.subject,
       text: params.text || params.html.replace(/<[^>]*>/g, ""),
       html: htmlContent,
-    });
+    };
+
+    if (settings.smtpReplyTo) {
+      mailOptions.replyTo = settings.smtpReplyTo;
+    }
+
+    await transporter.sendMail(mailOptions);
 
     await incrementUsageSafely(businessId, USAGE_KEYS.EMAILS_SENT);
 
     return { success: true, message: "Email sent successfully." };
   } catch (error) {
-    console.error("Send email failed:", error);
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    return { success: false, message: `Failed to send email: ${errorMessage}` };
+    logSafeSmtpError("Business email send failed:", error);
+    return { success: false, message: getSafeSmtpErrorMessage(error, "send") };
   }
 }
 
 export async function isSmtpConfigured(businessId?: number): Promise<boolean> {
   const settings = await getEmailSettings(businessId);
-  return !!(settings && settings.smtpHost && settings.smtpFromEmail);
+  return !!(settings && isBusinessSmtpReady(settings));
 }
