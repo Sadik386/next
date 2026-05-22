@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { 
   Loader2, 
   Search, 
@@ -11,6 +12,7 @@ import {
 import { toast } from "sonner";
 
 export default function PlatformBusinesses() {
+  const router = useRouter();
   const [businesses, setBusinesses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -80,7 +82,11 @@ export default function PlatformBusinesses() {
             </thead>
             <tbody>
               {filtered.map((b) => (
-                <tr key={b.id} style={{ borderBottom: "1px solid var(--card-border)" }}>
+                <tr
+                  key={b.id}
+                  style={{ borderBottom: "1px solid var(--card-border)", cursor: "pointer" }}
+                  onClick={() => router.push(`/platform/businesses/${b.id}`)}
+                >
                   <td style={tdStyle}>
                     <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                       <div style={{ width: "32px", height: "32px", borderRadius: "6px", backgroundColor: "var(--brand-light)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--brand)" }}>

@@ -91,12 +91,44 @@ type OverrideDraft = {
   emailLimitOverride: string;
 };
 
+type BusinessDetailResponse = {
+  success?: boolean;
+  business?: unknown;
+  error?: string;
+  message?: string;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isBusinessDetail(value: unknown): value is BusinessDetail {
+  if (!isRecord(value)) return false;
+
+  return (
+    isRecord(value.business) &&
+    typeof value.business.name === "string" &&
+    isRecord(value.plan) &&
+    typeof value.plan.code === "string" &&
+    isRecord(value.subscription) &&
+    isRecord(value.usage) &&
+    isRecord(value.overrides) &&
+    Array.isArray(value.featureAccess) &&
+    Array.isArray(value.plans)
+  );
+}
+
+function responseError(payload: BusinessDetailResponse, fallback: string) {
+  return payload.error || payload.message || fallback;
+}
+
 export default function PlatformBusinessDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const businessId = params.id;
   const [detail, setDetail] = useState<BusinessDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
   const [planDraft, setPlanDraft] = useState("");
   const [overrideDraft, setOverrideDraft] = useState<OverrideDraft>({
@@ -116,20 +148,40 @@ export default function PlatformBusinessDetailPage() {
   }, []);
 
   const loadDetail = useCallback(() => {
+    if (!businessId) {
+      setDetail(null);
+      setLoadError("Invalid business id");
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
+    setLoadError(null);
     fetch(`/api/platform/businesses/${businessId}`, { cache: "no-store" })
       .then((res) => res.json())
-      .then((res) => {
-        if (res.success) applyDetail(res.business);
-        else toast.error(res.error || "Failed to load business");
+      .then((payload: BusinessDetailResponse) => {
+        if (!payload.success) {
+          throw new Error(responseError(payload, "Failed to load business"));
+        }
+
+        if (!isBusinessDetail(payload.business)) {
+          throw new Error("Invalid business detail response");
+        }
+
+        applyDetail(payload.business);
       })
-      .catch(() => toast.error("Connection error"))
+      .catch((error) => {
+        const message = error instanceof Error ? error.message : "Connection error";
+        setDetail(null);
+        setLoadError(message);
+        toast.error(message);
+      })
       .finally(() => setLoading(false));
   }, [applyDetail, businessId]);
 
   useEffect(() => {
-    if (businessId) loadDetail();
-  }, [businessId, loadDetail]);
+    loadDetail();
+  }, [loadDetail]);
 
   const patchBusiness = async (body: Record<string, unknown>, savingKey: string, successMessage: string) => {
     setSaving(savingKey);
@@ -139,8 +191,9 @@ export default function PlatformBusinessDetailPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      const payload = await res.json();
-      if (!payload.success) throw new Error(payload.error || "Update failed");
+      const payload = (await res.json()) as BusinessDetailResponse;
+      if (!payload.success) throw new Error(responseError(payload, "Update failed"));
+      if (!isBusinessDetail(payload.business)) throw new Error("Invalid business detail response");
       applyDetail(payload.business);
       toast.success(successMessage);
     } catch (error) {
@@ -204,7 +257,7 @@ export default function PlatformBusinessDetailPage() {
           <ArrowLeft size={16} />
           Businesses
         </button>
-        <div style={emptyStyle}>Business not found</div>
+        <div style={emptyStyle}>{loadError || "Business not found"}</div>
       </div>
     );
   }
