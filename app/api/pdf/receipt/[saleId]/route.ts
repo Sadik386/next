@@ -9,6 +9,8 @@ import { buildDocumentProfile, toBusinessInfo } from "@/lib/pdf/documentProfile"
 import { receiptTotals } from "@/lib/pdf/documentTotals";
 import { formatDocumentDate } from "@/lib/pdf/formatters";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ saleId: string }> }
@@ -19,30 +21,49 @@ export async function GET(
   return runWithBusinessContext({ ...auth.user, businessId: auth.businessId }, async () => {
     try {
       const { saleId } = await params;
-      const numId = Number(saleId);
-      const isNumeric = !isNaN(numId) && isFinite(numId);
-
+      
+      // Try finding by exact saleId string first (e.g. SL-001)
       let sale = await prisma.sale.findFirst({
-        where: isNumeric
-          ? { id: numId, businessId: auth.businessId }
-          : { saleId: saleId, businessId: auth.businessId },
+        where: { saleId: saleId, businessId: auth.businessId },
         include: {
           customer: true,
           order: { include: { items: { include: { product: true } } } },
         },
       });
 
+      const numId = Number(saleId);
+      const isNumeric = !isNaN(numId) && isFinite(numId) && Number.isInteger(numId);
+
+      // If not found by string and it's numeric, try finding by numeric ID
+      if (!sale && isNumeric) {
+        sale = await prisma.sale.findFirst({
+          where: { id: numId, businessId: auth.businessId },
+          include: {
+            customer: true,
+            order: { include: { items: { include: { product: true } } } },
+          },
+        });
+      }
+
+      // If still not found, try finding by Order ID or Order Number
       if (!sale) {
         const order = await prisma.order.findFirst({
-          where: isNumeric
-            ? { id: numId, businessId: auth.businessId, deletedAt: null }
-            : { orderId: saleId, businessId: auth.businessId, deletedAt: null },
+          where: {
+            businessId: auth.businessId,
+            deletedAt: null,
+            OR: [
+              isNumeric ? { id: numId } : {},
+              { orderId: saleId }
+            ].filter(o => Object.keys(o).length > 0)
+          },
           include: {
             customer: true,
             items: { include: { product: true } },
           },
         });
+
         if (order) {
+          // For an order, we represent it using its first sale context
           const firstSale = await prisma.sale.findFirst({
             where: { orderId: order.id, businessId: auth.businessId },
             include: { customer: true },

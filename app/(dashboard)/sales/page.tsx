@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { Plus, X, Search, Pencil, Trash2, Receipt } from "lucide-react";
 import { toast } from "sonner";
 import { usePDF } from "@/hooks/usePDF";
@@ -365,14 +366,16 @@ export default function SalesPage() {
               sales.map((s) => (
                 <tr key={s.id} style={{ borderTop: "1px solid var(--card-border)" }}>
                   <Td mono>
-                    {s.orderIdDisplay ? (
-                      <span style={{ display: "flex", flexDirection: "column" }}>
-                        <span>{s.orderIdDisplay}</span>
-                        <span style={{ fontSize: "10px", color: "var(--text-muted)" }}>{s.saleId}</span>
-                      </span>
-                    ) : (
-                      s.saleId
-                    )}
+                    <Link href={`/sales/${s.id}`} style={{ textDecoration: "none", color: "inherit" }}>
+                      {s.orderIdDisplay ? (
+                        <span style={{ display: "flex", flexDirection: "column" }}>
+                          <span style={{ color: "var(--brand)", fontWeight: 500 }}>{s.orderIdDisplay}</span>
+                          <span style={{ fontSize: "10px", color: "var(--text-muted)" }}>{s.saleId}</span>
+                        </span>
+                      ) : (
+                        <span style={{ color: "var(--brand)", fontWeight: 500 }}>{s.saleId}</span>
+                      )}
+                    </Link>
                   </Td>
                   <Td>{new Date(s.date).toLocaleDateString()}</Td>
                   <Td>
@@ -414,7 +417,7 @@ export default function SalesPage() {
                                 <line x1="12" y1="15" x2="12" y2="3"/>
                               </svg>
                             ),
-                            onClick: () => downloadPDF(`/api/pdf/receipt/${s.orderId ?? s.id}`, `receipt-${s.orderIdDisplay ?? s.saleId}.pdf`, `rec-dl-${s.id}`),
+                            onClick: () => downloadPDF(`/api/pdf/receipt/${s.saleId}`, `receipt-${s.saleId}.pdf`, `rec-dl-${s.id}`),
                             disabled: isLoading(`rec-dl-${s.id}`),
                           },
                           {
@@ -426,7 +429,7 @@ export default function SalesPage() {
                                 <rect x="6" y="14" width="12" height="8"/>
                               </svg>
                             ),
-                            onClick: () => printPDF(`/api/pdf/receipt/${s.orderId ?? s.id}`, `rec-print-${s.id}`),
+                            onClick: () => printPDF(`/api/pdf/receipt/${s.saleId}`, `rec-print-${s.id}`),
                             disabled: isLoading(`rec-print-${s.id}`),
                           },
                         ]}
