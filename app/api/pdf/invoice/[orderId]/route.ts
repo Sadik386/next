@@ -4,6 +4,11 @@ import { requireAuth } from "@/lib/rbac";
 import { getSettings } from "@/services/setting.service";
 import { generateInvoicePDF } from "@/lib/pdf/invoice";
 import { runWithBusinessContext } from "@/lib/business-context";
+import { printLogoUrl } from "@/lib/pdf/assets";
+import { mapOrderInvoiceItems } from "@/lib/pdf/documentItems";
+import { buildDocumentProfile, toBusinessInfo } from "@/lib/pdf/documentProfile";
+import { invoiceTotals } from "@/lib/pdf/documentTotals";
+import { formatDocumentDate } from "@/lib/pdf/formatters";
 
 export async function GET(
   req: NextRequest,
@@ -13,11 +18,13 @@ export async function GET(
   if (auth instanceof NextResponse) return auth;
 
   return runWithBusinessContext({ ...auth.user, businessId: auth.businessId }, async () => {
+    const start = Date.now();
     try {
       const { orderId } = await params;
       const numId = Number(orderId);
       const isNumeric = !isNaN(numId) && isFinite(numId);
 
+      console.time(`[PDF] DB Query ${orderId}`);
       const order = await prisma.order.findFirst({
         where: {
           deletedAt: null,
@@ -31,33 +38,23 @@ export async function GET(
           items: { include: { product: true } },
         },
       });
+      console.timeEnd(`[PDF] DB Query ${orderId}`);
 
       if (!order) {
         return NextResponse.json({ error: "Order not found or access denied" }, { status: 404 });
       }
 
+      console.time(`[PDF] Settings/Profile ${orderId}`);
       const settings = await getSettings();
-      const currencySymbol = currencyPrefix(settings?.currency);
-
-      const formatDate = (date: Date) =>
-        new Date(date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
-
-      const balanceDue = Number(order.totalAmount) - Number(order.paidAmount);
+      const profile = buildDocumentProfile(settings);
+      const totals = invoiceTotals(order);
+      console.timeEnd(`[PDF] Settings/Profile ${orderId}`);
 
       const data = {
         invoiceNumber: order.orderId,
         orderId: order.orderId,
-        date: formatDate(order.createdAt),
-        business: {
-          name: settings?.businessName || "My Business",
-          address: settings?.address ? `${settings.address}${settings.city ? ", " + settings.city : ""}` : undefined,
-          phone: settings?.phone ?? undefined,
-          email: settings?.email ?? undefined,
-          taxId: settings?.taxId ?? undefined,
-          logoUrl: publicAssetUrl(settings?.printLogoUrl ?? settings?.logoUrl, req.nextUrl.origin),
-          brandColor: settings?.brandColor ?? undefined,
-          invoiceFooter: settings?.invoiceFooter ?? undefined,
-        },
+        date: formatDocumentDate(order.createdAt),
+        business: toBusinessInfo(profile, { logoUrl: printLogoUrl(profile, req.nextUrl.origin) }),
         customer: {
           name: order.customer.name,
           email: order.customer.email ?? undefined,
@@ -65,27 +62,19 @@ export async function GET(
           billingAddress: order.billingAddress || order.customer.streetAddress || undefined,
           shippingAddress: order.shippingAddress || undefined,
         },
-        items: order.items.map((item) => ({
-          name: item.variantLabel
-            ? `${item.productName} / ${item.variantLabel}`
-            : item.productName,
-          quantity: item.quantity,
-          unitPrice: Number(item.unitPrice),
-          totalPrice: Number(item.totalPrice),
-        })),
-        subtotal: Number(order.subtotal),
-        tax: Number(order.taxAmount) || undefined,
-        discount: Number(order.discountAmount) || undefined,
-        total: Number(order.totalAmount),
-        paymentMethod: order.paymentMethod || undefined,
-        paymentStatus: order.paymentStatus || undefined,
-        paidAmount: Number(order.paidAmount) || undefined,
-        balanceDue: balanceDue > 0 ? balanceDue : undefined,
+        items: mapOrderInvoiceItems(order.items),
+        ...totals,
         notes: order.notes || undefined,
-        currencySymbol,
+        currencySymbol: profile.currencySymbol,
       };
 
+      console.log(`[PDF] Business Logo URL: ${data.business.logoUrl}`);
+      
+      console.time(`[PDF] Generate PDF ${orderId}`);
       const blob = await generateInvoicePDF(data);
+      console.timeEnd(`[PDF] Generate PDF ${orderId}`);
+
+      console.log(`[PDF] Total Route Time: ${Date.now() - start}ms`);
 
       return new NextResponse(blob, {
         headers: {
@@ -99,17 +88,4 @@ export async function GET(
       return NextResponse.json({ error: message }, { status: 500 });
     }
   });
-}
-
-function publicAssetUrl(url: string | null | undefined, origin: string) {
-  if (!url) return undefined;
-  if (/^(https?:|data:)/i.test(url)) return url;
-  return new URL(url, origin).toString();
-}
-
-function currencyPrefix(currency: string | null | undefined) {
-  if (currency === "USD") return "$";
-  if (currency === "EUR") return "EUR ";
-  if (currency === "BDT" || !currency) return "Tk ";
-  return `${currency} `;
 }
