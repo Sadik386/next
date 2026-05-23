@@ -212,15 +212,90 @@ export async function getSalesGrouped(filters: SaleFilters = {}) {
 }
 
 export async function getSaleById(id: number) {
-  return prisma.sale.findFirst({
-    where: { id, businessId: getCurrentBusinessId() },
+  const businessId = getCurrentBusinessId();
+  const sale = await prisma.sale.findFirst({
+    where: { id, businessId },
     include: {
       customer: true,
-      product: true,
-      order: { select: { id: true, orderId: true } },
+      product: { select: { id: true, productId: true, name: true, unit: true } },
+      productVariant: { select: { id: true, label: true, sku: true } },
+      order: {
+        include: {
+          items: {
+            include: {
+              product: { select: { id: true, productId: true, name: true, unit: true } },
+              productVariant: { select: { id: true, label: true, sku: true } },
+            },
+            orderBy: { id: "asc" },
+          },
+        },
+      },
       createdByUser: { select: { id: true, name: true, email: true } },
     },
   });
+
+  if (!sale) return null;
+
+  if (sale.orderId) {
+    const siblings = await prisma.sale.findMany({
+      where: { orderId: sale.orderId, businessId, deletedAt: null },
+      include: {
+        product: { select: { id: true, productId: true, name: true, unit: true } },
+        productVariant: { select: { id: true, label: true, sku: true } },
+      },
+      orderBy: { id: "asc" },
+    });
+    return { ...sale, siblings };
+  }
+
+  return { ...sale, siblings: [sale] };
+}
+
+export async function getSaleByAnyId(idOrSaleId: string) {
+  const businessId = getCurrentBusinessId();
+  const numericId = Number(idOrSaleId);
+  const isNumeric = !isNaN(numericId) && isFinite(numericId) && Number.isInteger(numericId);
+
+  const sale = await prisma.sale.findFirst({
+    where: {
+      businessId,
+      deletedAt: null,
+      OR: isNumeric ? [{ id: numericId }, { saleId: idOrSaleId }] : [{ saleId: idOrSaleId }],
+    },
+    include: {
+      customer: true,
+      product: { select: { id: true, productId: true, name: true, unit: true } },
+      productVariant: { select: { id: true, label: true, sku: true } },
+      order: {
+        include: {
+          items: {
+            include: {
+              product: { select: { id: true, productId: true, name: true, unit: true } },
+              productVariant: { select: { id: true, label: true, sku: true } },
+            },
+            orderBy: { id: "asc" },
+          },
+        },
+      },
+      createdByUser: { select: { id: true, name: true, email: true } },
+    },
+  });
+
+  if (!sale) return null;
+
+  if (sale.orderId) {
+    const siblings = await prisma.sale.findMany({
+      where: { orderId: sale.orderId, businessId, deletedAt: null },
+      include: {
+        product: { select: { id: true, productId: true, name: true, unit: true } },
+        productVariant: { select: { id: true, label: true, sku: true } },
+      },
+      orderBy: { id: "asc" },
+    });
+    return { ...sale, siblings };
+  }
+
+  return { ...sale, siblings: [sale] };
 }
 
 export async function createSale(data: SaleInput, userId: number) {

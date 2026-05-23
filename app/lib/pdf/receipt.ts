@@ -31,10 +31,13 @@ export async function generateReceiptPDF(data: ReceiptData): Promise<Blob> {
   doc.setFont("helvetica", "bold")
   doc.setFontSize(11)
   doc.setTextColor(...INK)
-  doc.text(fitTextLines(doc, safe(data.business.name, "My Business"), PAGE_WIDTH - MARGIN * 2, 2), PAGE_WIDTH / 2, y, {
-    align: "center",
-  })
-  y += 8
+  const businessName = safe(data.business.name, "")
+  if (businessName) {
+    doc.text(fitTextLines(doc, businessName, PAGE_WIDTH - MARGIN * 2, 2), PAGE_WIDTH / 2, y, {
+      align: "center",
+    })
+    y += 8
+  }
 
   if (data.business.address) {
     doc.setFont("helvetica", "normal")
@@ -139,15 +142,12 @@ export async function generateReceiptPDF(data: ReceiptData): Promise<Blob> {
   doc.setFontSize(9)
   doc.setTextColor(...INK)
   doc.text("Thank you", PAGE_WIDTH / 2, y, { align: "center" })
-  y += 4.5
-
-  doc.setFont("helvetica", "normal")
-  doc.setFontSize(6.8)
-  doc.setTextColor(...MUTED)
-  doc.text("Please keep this receipt for your records.", PAGE_WIDTH / 2, y, { align: "center" })
+  y += 6
 
   if (data.business.invoiceFooter) {
-    y += 6
+    doc.setFont("helvetica", "normal")
+    doc.setFontSize(6.8)
+    doc.setTextColor(...MUTED)
     const footerLines = fitTextLines(doc, data.business.invoiceFooter, PAGE_WIDTH - MARGIN * 2, 4)
     doc.text(footerLines, PAGE_WIDTH / 2, y, { align: "center", maxWidth: PAGE_WIDTH - MARGIN * 2 })
   }

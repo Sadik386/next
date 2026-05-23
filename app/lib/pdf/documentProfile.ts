@@ -37,7 +37,7 @@ export function buildDocumentProfile(settings: DocumentSettings | null | undefin
   const email = optionalText(settings?.email)
 
   return {
-    businessName: safeText(settings?.businessName, "My Business"),
+    businessName: safeText(settings?.businessName, ""),
     address,
     addressLines: compact([
       settings?.address,
