@@ -176,11 +176,30 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (typeof window !== "undefined") {
       refreshSettings();
+      
+      // Debounced handler for brandColorChanged event
+      let debounceTimer: NodeJS.Timeout | null = null;
       function onChange() {
-        refreshSettings();
+        // Clear existing timer
+        if (debounceTimer) {
+          clearTimeout(debounceTimer);
+        }
+        
+        // Set new timer to delay refresh
+        debounceTimer = setTimeout(() => {
+          refreshSettings();
+        }, 300); // 300ms debounce
       }
+      
       window.addEventListener("brandColorChanged", onChange);
-      return () => window.removeEventListener("brandColorChanged", onChange);
+      
+      return () => {
+        window.removeEventListener("brandColorChanged", onChange);
+        // Clear timer on cleanup
+        if (debounceTimer) {
+          clearTimeout(debounceTimer);
+        }
+      };
     }
   }, [refreshSettings]);
 

@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useSidebar } from "@/contexts/SidebarContext";
 import { UserAvatar } from "@/components/ui/UserAvatar";
+import { useAuth } from "@/contexts/AuthContext";
 
 type Notification = {
   id: number;
@@ -50,23 +51,17 @@ export default function Topbar() {
   const router = useRouter();
   const pathname = usePathname();
   const { toggleMobile } = useSidebar();
+  const { user } = useAuth();
   const [isDark, setIsDark] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [showNotif, setShowNotif] = useState(false);
   const [unread, setUnread] = useState(0);
   const [recent, setRecent] = useState<Notification[]>([]);
-  const [user, setUser] = useState<{ name: string; role: string } | null>(null);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
 
-  useEffect(() => {
-    const stored = localStorage.getItem("theme");
-    if (stored === "dark") {
-      document.documentElement.classList.add("dark");
-      setIsDark(true);
-    }
-  }, []);
-
   const fetchCount = useCallback(async () => {
+    if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+    if (!user) return;
     try {
       const res = await fetch("/api/notifications/count");
       if (res.ok) {
@@ -74,7 +69,7 @@ export default function Topbar() {
         setUnread(data.count ?? 0);
       }
     } catch {}
-  }, []);
+  }, [user]);
 
   const fetchRecent = useCallback(async () => {
     try {
@@ -86,29 +81,46 @@ export default function Topbar() {
     } catch {}
   }, []);
 
-  const fetchUser = useCallback(async () => {
-    try {
-      const res = await fetch("/api/auth/me");
-      if (res.ok) {
-        const data = await res.json();
-        if (data?.user) {
-          setUser({
-            name: data.user.name || data.user.email || "User",
-            role: data.user.role || "staff",
-          });
-        }
-      }
-    } catch {}
-  }, []);
-
   useEffect(() => {
-    fetchCount();
-    fetchUser();
-    pollRef.current = setInterval(fetchCount, 30000);
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
+    if (!user) return;
+
+    // Function to start polling
+    const startPolling = () => {
+      fetchCount(); // fetch immediately when becoming visible
+      pollRef.current = setInterval(fetchCount, 60000);
     };
-  }, [fetchCount, fetchUser]);
+
+    // Function to stop polling
+    const stopPolling = () => {
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+    };
+
+    // Handle visibility change
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        startPolling();
+      } else {
+        stopPolling();
+      }
+    };
+
+    // Initial state: if visible, start polling
+    if (document.visibilityState === 'visible') {
+      startPolling();
+    }
+
+    // Add event listener
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Cleanup
+    return () => {
+      stopPolling();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [fetchCount, user]);
 
   const toggleTheme = () => {
     const newDark = !isDark;

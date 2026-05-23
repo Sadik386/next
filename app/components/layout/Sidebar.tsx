@@ -31,6 +31,8 @@ import { useSettings } from "@/contexts/SettingsContext";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { canAccessPlatform } from "@/lib/platform-client";
+import { useAuth } from "@/contexts/AuthContext";
+import { ROLES } from "@/constants/roles";
 
 const searchShortcutStyle = `
   .search-shortcut {
@@ -152,12 +154,11 @@ function NavItem({
   );
 }
 
-type UserInfo = { name: string; email: string; role: string } | null;
-
 export default function Sidebar() {
   const pathname = usePathname();
   const { isCollapsed, isMobileOpen, closeMobile, isHovered, setIsHovered, isExpanded, toggleSidebar } = useSidebar();
   const { settings } = useSettings();
+  const { user, loading: authLoading } = useAuth();
   const businessName = settings.businessName?.trim() || "My Business";
   
   // Refined isActive to handle consolidated logs and nested paths
@@ -187,8 +188,6 @@ export default function Sidebar() {
     return false;
   };
 
-  const [user, setUser] = useState<UserInfo | null>(null);
-  const [loaded, setLoaded] = useState(false);
   const [pendingRegCount, setPendingRegCount] = useState(0);
 
   // Global search state
@@ -294,25 +293,12 @@ export default function Sidebar() {
     return () => document.removeEventListener('click', handleClickOutside);
   }, [searchOpen]);
 
-  // Show skeleton placeholder until loaded - prevents layout shift
-  const showUser = loaded && user !== null;
-
+  // Only load pending registrations if user is super admin
   useEffect(() => {
-    fetch("/api/auth/me")
-      .then((r) => r.ok ? r.json() : null)
-      .then((data) => {
-        if (data?.user) {
-          setUser({ 
-            name: data.user.name || data.user.email || "User", 
-            email: data.user.email || "",
-            role: data.user.role || "staff"
-          });
-        } else {
-          setUser(null);
-        }
-        setLoaded(true);
-      })
-      .catch(() => { setUser(null); setLoaded(true); });
+    if (user?.role !== ROLES.SUPER_ADMIN) {
+      setPendingRegCount(0);
+      return;
+    }
 
     fetch("/api/admin/registrations?status=pending")
       .then((r) => r.ok ? r.json() : null)
@@ -322,7 +308,10 @@ export default function Sidebar() {
         }
       })
       .catch(() => {});
-  }, []);
+  }, [user]);
+
+  // Show skeleton placeholder until loaded - prevents layout shift
+  const showUser = !authLoading && user !== null;
 
   return (
     <>
@@ -622,6 +611,7 @@ export default function Sidebar() {
                 item={{ label: "Platform Admin", href: "/platform", icon: ShieldCheck }}
                 active={pathname.startsWith("/platform")}
                 isExpanded={isExpanded}
+                badge={pendingRegCount}
               />
             </div>
           )}
