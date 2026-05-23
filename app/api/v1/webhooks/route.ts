@@ -1,11 +1,18 @@
 import { NextRequest } from "next/server";
 import { authenticateApiRequest, apiResponse, apiError } from "@/services/api.service";
 import { registerWebhook } from "@/services/webhook.service";
+import { guardWebhookCreation } from "@/lib/subscription-guard";
 import { prisma } from "@/lib/prisma";
 
 export async function POST(req: NextRequest) {
   const auth = await authenticateApiRequest(req, "admin");
   if ("error" in auth) return apiError(auth.error, auth.status);
+
+  // Guard webhook creation based on subscription/feature access
+  const guardResult = await guardWebhookCreation(auth.businessId);
+  if (!guardResult.allowed) {
+    return apiError(guardResult.reason || "Webhook creation denied", 403);
+  }
 
   const { name, url, events } = await req.json();
   if (!name || !url || !events) {

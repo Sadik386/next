@@ -382,3 +382,32 @@ export async function guardEmailSend(businessId: number): Promise<SubscriptionGu
   
   return { allowed: true };
 }
+
+/**
+ * Guard for webhook creation - checks webhook feature access and trial status
+ */
+export async function guardWebhookCreation(businessId: number): Promise<SubscriptionGuardResult> {
+  const subscription = await getBusinessSubscription(businessId);
+  
+  // Check if trial is expired
+  if (subscription && subscription.status === SUBSCRIPTION_STATUS.TRIALING && await isTrialExpired(businessId)) {
+    return {
+      allowed: false,
+      reason: `Your trial has expired. Upgrade or switch plan to continue.`,
+      code: "TRIAL_EXPIRED"
+    };
+  }
+  
+  // Check if webhook feature is enabled
+  const hasWebhookAccess = await hasFeatureAccess(businessId, FEATURE_KEYS.WEBHOOKS);
+  
+  if (!hasWebhookAccess) {
+    return {
+      allowed: false,
+      reason: `Webhooks are not available on your current plan.`,
+      code: "WEBHOOK_ACCESS_DENIED"
+    };
+  }
+  
+  return { allowed: true };
+}
