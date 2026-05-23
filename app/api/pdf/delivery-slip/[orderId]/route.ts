@@ -4,6 +4,10 @@ import { requireAuth } from "@/lib/rbac";
 import { getSettings } from "@/services/setting.service";
 import { generateDeliverySlipPDF } from "@/lib/pdf/deliverySlip";
 import { runWithBusinessContext } from "@/lib/business-context";
+import { mapOrderDeliveryItems } from "@/lib/pdf/documentItems";
+import { buildDocumentProfile, toBusinessInfo } from "@/lib/pdf/documentProfile";
+import { deliveryTotals } from "@/lib/pdf/documentTotals";
+import { formatDocumentDate } from "@/lib/pdf/formatters";
 
 export async function GET(
   req: NextRequest,
@@ -37,22 +41,14 @@ export async function GET(
       }
 
       const settings = await getSettings();
-      const currencySymbol = settings?.currency === "USD" ? "$" : settings?.currency === "EUR" ? "€" : "৳";
-
-      const formatDate = (date: Date) =>
-        new Date(date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
-
-      const balanceDue = Number(order.totalAmount) - Number(order.paidAmount);
+      const profile = buildDocumentProfile(settings);
+      const totals = deliveryTotals(order);
 
       const data = {
         slipNumber: `DS-${order.orderId.replace("ORD-", "")}`,
         orderId: order.orderId,
-        date: formatDate(order.createdAt),
-        business: {
-          name: settings?.businessName || "My Business",
-          address: settings?.address ? `${settings.address}${settings.city ? ", " + settings.city : ""}` : undefined,
-          phone: settings?.phone ?? undefined,
-        },
+        date: formatDocumentDate(order.createdAt),
+        business: toBusinessInfo(profile),
         customer: {
           name: order.customer.name,
           phone: order.customer.mobile || undefined,
@@ -60,15 +56,11 @@ export async function GET(
         },
         courierName: undefined,
         trackingId: undefined,
-        codAmount: balanceDue > 0 ? balanceDue : undefined,
-        currencySymbol,
-        items: order.items.map((item) => ({
-          name: item.variantLabel
-            ? `${item.productName} / ${item.variantLabel}`
-            : item.productName,
-          quantity: item.quantity,
-          unit: item.product?.unit ?? "pcs",
-        })),
+        deliveryMethod: undefined,
+        deliveryStatus: order.status || undefined,
+        codAmount: totals.codAmount,
+        currencySymbol: profile.currencySymbol,
+        items: mapOrderDeliveryItems(order.items),
         notes: order.notes || undefined,
       };
 

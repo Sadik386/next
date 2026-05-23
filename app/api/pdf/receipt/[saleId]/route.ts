@@ -4,6 +4,10 @@ import { requireAuth } from "@/lib/rbac";
 import { getSettings } from "@/services/setting.service";
 import { generateReceiptPDF } from "@/lib/pdf/receipt";
 import { runWithBusinessContext } from "@/lib/business-context";
+import { mapReceiptItems } from "@/lib/pdf/documentItems";
+import { buildDocumentProfile, toBusinessInfo } from "@/lib/pdf/documentProfile";
+import { receiptTotals } from "@/lib/pdf/documentTotals";
+import { formatDocumentDate } from "@/lib/pdf/formatters";
 
 export async function GET(
   req: NextRequest,
@@ -54,52 +58,17 @@ export async function GET(
       }
 
       const settings = await getSettings();
-      const currencySymbol = settings?.currency === "USD" ? "$" : settings?.currency === "EUR" ? "€" : "৳";
-
-      const formatDate = (date: Date) =>
-        new Date(date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
-
-      let items: { name: string; quantity: number; unitPrice: number; total: number }[] = [];
-      if (sale.order?.items && sale.order.items.length > 0) {
-        items = sale.order.items.map((item) => ({
-          name: item.variantLabel
-            ? `${item.productName} / ${item.variantLabel}`
-            : item.productName,
-          quantity: item.quantity,
-          unitPrice: Number(item.unitPrice),
-          total: Number(item.totalPrice),
-        }));
-      } else {
-        items = [
-          {
-            name: sale.variantLabel
-              ? `${sale.productName ?? "Product"} / ${sale.variantLabel}`
-              : sale.productName ?? "Product",
-            quantity: sale.quantity,
-            unitPrice: Number(sale.unitPrice),
-            total: Number(sale.totalAmount),
-          },
-        ];
-      }
+      const profile = buildDocumentProfile(settings);
+      const totals = receiptTotals(sale);
 
       const data = {
         receiptId: sale.saleId,
-        date: formatDate(sale.date),
-        business: {
-          name: settings?.businessName || "My Business",
-          address: settings?.address ? `${settings.address}${settings.city ? ", " + settings.city : ""}` : undefined,
-          invoiceFooter: settings?.invoiceFooter ?? undefined,
-        },
+        date: formatDocumentDate(sale.date),
+        business: toBusinessInfo(profile),
         customer: sale.customer ? { name: sale.customer.name } : undefined,
-        items,
-        subtotal: Number(sale.totalAmount) - Number(sale.taxAmount) + Number(sale.discountAmount),
-        discount: Number(sale.discountAmount) || undefined,
-        tax: Number(sale.taxAmount) || undefined,
-        total: Number(sale.totalAmount),
-        paymentMethod: sale.paymentMethod || "Cash",
-        paidAmount: Number(sale.totalAmount),
-        change: 0,
-        currencySymbol,
+        items: mapReceiptItems(sale),
+        ...totals,
+        currencySymbol: profile.currencySymbol,
       };
 
       const blob = await generateReceiptPDF(data);

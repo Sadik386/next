@@ -158,6 +158,7 @@ export default function Sidebar() {
   const pathname = usePathname();
   const { isCollapsed, isMobileOpen, closeMobile, isHovered, setIsHovered, isExpanded, toggleSidebar } = useSidebar();
   const { settings } = useSettings();
+  const businessName = settings.businessName?.trim() || "My Business";
   
   // Refined isActive to handle consolidated logs and nested paths
   const isActive = (href: string) => {
@@ -373,7 +374,7 @@ export default function Sidebar() {
                 >
                   <Image 
                     src={settings.logoUrl} 
-                    alt="Logo" 
+                    alt={`${businessName} logo`} 
                     width={32} 
                     height={32} 
                     style={{ objectFit: "contain" }}
@@ -396,12 +397,12 @@ export default function Sidebar() {
                     flexShrink: 0,
                   }}
                 >
-                  A
+                  {businessName.charAt(0).toUpperCase()}
                 </div>
               )}
               {isExpanded && (
                 <span style={{ fontSize: "14px", fontWeight: 600, color: "var(--sidebar-text-active)" }}>
-                  Accoraze
+                  {businessName}
                 </span>
               )}
             </div>

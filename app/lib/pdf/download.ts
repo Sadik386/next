@@ -12,14 +12,40 @@ export function downloadBlob(blob: Blob, filename: string) {
 export function printBlob(blob: Blob) {
   const url = URL.createObjectURL(blob)
   const iframe = document.createElement("iframe")
-  iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:none;"
+  
+  // Minimal style to keep it hidden but functional
+  iframe.style.position = "fixed"
+  iframe.style.right = "0"
+  iframe.style.bottom = "0"
+  iframe.style.width = "0"
+  iframe.style.height = "0"
+  iframe.style.border = "none"
+  iframe.style.visibility = "hidden"
+  
+  const cleanup = () => {
+    if (document.body.contains(iframe)) {
+      document.body.removeChild(iframe)
+    }
+    URL.revokeObjectURL(url)
+  }
+
+  iframe.onload = () => {
+    try {
+      iframe.contentWindow?.focus()
+      iframe.contentWindow?.print()
+    } catch (err) {
+      console.error("PDF print error:", err)
+    }
+    
+    // Remove after a delay to ensure print dialog has opened/handled the blob
+    setTimeout(cleanup, 10000)
+  }
+
+  iframe.onerror = () => {
+    console.error("PDF iframe load error")
+    cleanup()
+  }
+
   iframe.src = url
   document.body.appendChild(iframe)
-  iframe.onload = () => {
-    iframe.contentWindow?.print()
-    setTimeout(() => {
-      document.body.removeChild(iframe)
-      URL.revokeObjectURL(url)
-    }, 3000)
-  }
 }

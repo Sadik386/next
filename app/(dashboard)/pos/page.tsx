@@ -195,6 +195,7 @@ function normalizeCartLine(line: CartLine): CartLine {
 
 export default function PosPage() {
   const { currency, settings, brandColor } = useSettings();
+  const businessName = settings.businessName?.trim() || "My Business";
 
   const [products, setProducts] = useState<ProductOption[]>([]);
   const [categories, setCategories] = useState<CategoryOption[]>([]);
@@ -1425,7 +1426,7 @@ export default function PosPage() {
             </div>
             <div style={receiptPreview}>
               <div style={{ textAlign: "center", marginBottom: "10px" }}>
-                <div style={{ fontSize: "16px", fontWeight: 700 }}>{settings?.businessName ?? "Accoraze"}</div>
+                <div style={{ fontSize: "16px", fontWeight: 700 }}>{businessName}</div>
                 {settings?.tagline && <div style={{ fontSize: "11px", color: "#6b7280" }}>{settings.tagline}</div>}
               </div>
               <div style={{ fontSize: "11px", color: "#374151", marginBottom: "8px" }}>
@@ -1718,6 +1719,7 @@ function buildPrintHtml(
 ): string {
   const title = kind === "invoice" ? "Invoice" : "Receipt";
   const widthRule = kind === "invoice" ? "max-width:600px;margin:0 auto;" : "width:280px;";
+  const businessName = settings?.businessName?.trim() || "My Business";
   const itemsHtml = order.items
     .map(
       (i) => `
@@ -1745,7 +1747,7 @@ function buildPrintHtml(
 </style>
 </head><body>
   <div style="text-align:center;margin-bottom:12px;">
-    <h1>${escapeHtml(settings?.businessName ?? "Accoraze")}</h1>
+    <h1>${escapeHtml(businessName)}</h1>
     ${settings?.tagline ? `<div class="muted">${escapeHtml(settings.tagline)}</div>` : ""}
     ${settings?.address ? `<div class="muted">${escapeHtml(settings.address)}</div>` : ""}
     ${settings?.phone ? `<div class="muted">${escapeHtml(settings.phone)}</div>` : ""}

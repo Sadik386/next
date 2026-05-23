@@ -24,6 +24,8 @@ export interface InvoiceData {
   }
   items: {
     name: string
+    variantLabel?: string | null
+    sku?: string | null
     quantity: number
     unitPrice: number
     totalPrice: number
@@ -53,10 +55,14 @@ export interface DeliverySlipData {
   }
   courierName?: string
   trackingId?: string
+  deliveryMethod?: string
+  deliveryStatus?: string
   codAmount?: number
   currencySymbol?: string
   items: {
     name: string
+    variantLabel?: string | null
+    sku?: string | null
     quantity: number
     unit: string
   }[]
@@ -90,6 +96,8 @@ export interface ReceiptData {
   customer?: { name: string }
   items: {
     name: string
+    variantLabel?: string | null
+    sku?: string | null
     quantity: number
     unitPrice: number
     total: number
@@ -99,7 +107,9 @@ export interface ReceiptData {
   discount?: number
   total: number
   paymentMethod: string
+  paymentStatus?: string
   paidAmount?: number
+  balanceDue?: number
   change?: number
   currencySymbol: string
 }
