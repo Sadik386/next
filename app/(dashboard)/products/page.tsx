@@ -49,6 +49,7 @@ const UNITS = ["Piece", "Kg", "Liter", "Box", "Pack", "Dozen", "Meter", "Set", "
 
 type VariantForm = {
   id?: number;
+  rowId: string;
   label: string;
   sku: string;
   barcode: string;
@@ -74,8 +75,9 @@ const emptyForm = {
   variants: [] as VariantForm[],
 };
 
-function emptyVariant(): VariantForm {
+function emptyVariant(rowId: string): VariantForm {
   return {
+    rowId,
     label: "",
     sku: "",
     barcode: "",
@@ -138,12 +140,18 @@ export default function ProductsPage() {
   const [highlightId, setHighlightId] = useState<number | null>(null);
   const scanInputRef = useRef<HTMLInputElement | null>(null);
   const rowRefs = useRef<Map<number, HTMLTableRowElement>>(new Map());
+  const variantRowIdRef = useRef(0);
 
   const [mobileSession, setMobileSession] = useState<MobileSessionInfo | null>(null);
   const [mobileQr, setMobileQr] = useState<string | null>(null);
   const [mobileStatus, setMobileStatus] = useState<string>("waiting");
   const [showMobileModal, setShowMobileModal] = useState(false);
   const processedScanRef = useRef<string | null>(null);
+
+  function createVariantRowId(prefix = "variant") {
+    variantRowIdRef.current += 1;
+    return `${prefix}-${variantRowIdRef.current}`;
+  }
 
   const loadProducts = useCallback(async () => {
     setLoading(true);
@@ -300,6 +308,7 @@ export default function ProductsPage() {
       status: p.status,
       variants: (p.variants ?? []).map((variant) => ({
         id: variant.id,
+        rowId: `saved-${variant.id}`,
         label: variant.label,
         sku: variant.sku ?? "",
         barcode: variant.barcode ?? "",
@@ -418,22 +427,22 @@ export default function ProductsPage() {
   }
 
   function addVariant() {
-    setForm((f) => ({ ...f, variants: [...f.variants, emptyVariant()] }));
+    setForm((f) => ({ ...f, variants: [...f.variants, emptyVariant(createVariantRowId("new"))] }));
   }
 
-  function updateVariant(index: number, patch: Partial<VariantForm>) {
+  function updateVariant(rowId: string, patch: Partial<VariantForm>) {
     setForm((f) => ({
       ...f,
-      variants: f.variants.map((variant, i) =>
-        i === index ? { ...variant, ...patch } : variant
+      variants: f.variants.map((variant) =>
+        variant.rowId === rowId ? { ...variant, ...patch } : variant
       ),
     }));
   }
 
-  function removeVariant(index: number) {
+  function removeVariant(rowId: string) {
     setForm((f) => ({
       ...f,
-      variants: f.variants.filter((_, i) => i !== index),
+      variants: f.variants.filter((variant) => variant.rowId !== rowId),
     }));
   }
 
@@ -927,7 +936,7 @@ export default function ProductsPage() {
                   <div style={{ display: "grid", gap: "8px" }}>
                     {form.variants.map((variant, index) => (
                       <div
-                        key={variant.id ?? index}
+                        key={variant.rowId}
                         style={{
                           border: "1px solid var(--card-border)",
                           borderRadius: "8px",
@@ -949,7 +958,7 @@ export default function ProductsPage() {
                           </div>
                           <button
                             type="button"
-                            onClick={() => removeVariant(index)}
+                            onClick={() => removeVariant(variant.rowId)}
                             style={iconBtnPlain}
                             title="Remove variant"
                           >
@@ -960,20 +969,20 @@ export default function ProductsPage() {
                           label="Label"
                           required
                           value={variant.label}
-                          onChange={(v) => updateVariant(index, { label: v })}
+                          onChange={(v) => updateVariant(variant.rowId, { label: v })}
                           placeholder="Black / M"
                         />
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
                           <Field
                             label="SKU"
                             value={variant.sku}
-                            onChange={(v) => updateVariant(index, { sku: v })}
+                            onChange={(v) => updateVariant(variant.rowId, { sku: v })}
                             placeholder="Optional"
                           />
                           <Field
                             label="Barcode"
                             value={variant.barcode}
-                            onChange={(v) => updateVariant(index, { barcode: v })}
+                            onChange={(v) => updateVariant(variant.rowId, { barcode: v })}
                             placeholder="Optional"
                           />
                         </div>
@@ -982,13 +991,13 @@ export default function ProductsPage() {
                             label="Stock"
                             type="number"
                             value={variant.stockQuantity}
-                            onChange={(v) => updateVariant(index, { stockQuantity: v })}
+                            onChange={(v) => updateVariant(variant.rowId, { stockQuantity: v })}
                           />
                           <Field
                             label="Low Stock"
                             type="number"
                             value={variant.lowStockThreshold}
-                            onChange={(v) => updateVariant(index, { lowStockThreshold: v })}
+                            onChange={(v) => updateVariant(variant.rowId, { lowStockThreshold: v })}
                           />
                         </div>
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
@@ -996,14 +1005,14 @@ export default function ProductsPage() {
                             label="Sale Override"
                             type="number"
                             value={variant.salePriceOverride}
-                            onChange={(v) => updateVariant(index, { salePriceOverride: v })}
+                            onChange={(v) => updateVariant(variant.rowId, { salePriceOverride: v })}
                             placeholder="Optional"
                           />
                           <Field
                             label="Cost Override"
                             type="number"
                             value={variant.costPriceOverride}
-                            onChange={(v) => updateVariant(index, { costPriceOverride: v })}
+                            onChange={(v) => updateVariant(variant.rowId, { costPriceOverride: v })}
                             placeholder="Optional"
                           />
                         </div>
@@ -1011,14 +1020,14 @@ export default function ProductsPage() {
                           <Field
                             label="Location"
                             value={variant.location}
-                            onChange={(v) => updateVariant(index, { location: v })}
+                            onChange={(v) => updateVariant(variant.rowId, { location: v })}
                             placeholder="Optional"
                           />
                           <div>
                             <Label>Status</Label>
                             <select
                               value={variant.status}
-                              onChange={(e) => updateVariant(index, { status: e.target.value })}
+                              onChange={(e) => updateVariant(variant.rowId, { status: e.target.value })}
                               style={inputStyle}
                             >
                               <option value="active">Active</option>

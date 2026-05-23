@@ -39,6 +39,10 @@ export interface OrderInput {
 
 const ORDER_STATUSES = ["pending", "confirmed", "delivered", "cancelled"] as const;
 const PAYMENT_STATUSES = ["unpaid", "partial", "paid"] as const;
+type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
+
+const PAYMENT_METHOD_REQUIRED_MESSAGE =
+  "Payment method is required for paid or partial payments.";
 
 function normalizeLookupInput(value: string): string {
   return value.trim();
@@ -172,18 +176,122 @@ function computePaymentStatus(total: Prisma.Decimal, paid: Prisma.Decimal): stri
   return "partial";
 }
 
+function normalizePositiveId(value: unknown, message: string): number {
+  const id = Number(value);
+  if (!Number.isInteger(id) || id <= 0) throw new Error(message);
+  return id;
+}
+
+function normalizeOptionalPositiveId(value: unknown, message: string): number | null {
+  if (value === undefined || value === null || value === "") return null;
+  return normalizePositiveId(value, message);
+}
+
+function normalizeQuantity(value: unknown): number {
+  const quantity = Number(value);
+  if (!Number.isFinite(quantity) || quantity <= 0) {
+    throw new Error("Quantity must be at least 1");
+  }
+  const wholeQuantity = Math.floor(quantity);
+  if (wholeQuantity < 1) throw new Error("Quantity must be at least 1");
+  return wholeQuantity;
+}
+
+function normalizePaymentStatus(
+  status: string | undefined | null,
+  total: Prisma.Decimal,
+  paid: Prisma.Decimal
+): PaymentStatus {
+  if (status === undefined || status === null || status === "") {
+    return computePaymentStatus(total, paid) as PaymentStatus;
+  }
+  if (!PAYMENT_STATUSES.includes(status as PaymentStatus)) {
+    throw new Error("Invalid payment status");
+  }
+  return status as PaymentStatus;
+}
+
+function normalizePaymentMethod(
+  paymentStatus: PaymentStatus,
+  paymentMethod: unknown
+): string | null {
+  if (paymentStatus === "unpaid") return null;
+
+  const normalizedPaymentMethod =
+    typeof paymentMethod === "string" ? paymentMethod.trim() : "";
+  if (!normalizedPaymentMethod) {
+    throw new Error(PAYMENT_METHOD_REQUIRED_MESSAGE);
+  }
+  return normalizedPaymentMethod;
+}
+
+function normalizePaymentDetails(
+  data: OrderInput,
+  totalAmount: Prisma.Decimal
+): {
+  paymentStatus: PaymentStatus;
+  paymentMethod: string | null;
+  paidAmount: Prisma.Decimal;
+} {
+  const requestedPaidAmount = toDecimal(data.paidAmount ?? 0);
+  const paymentStatus = normalizePaymentStatus(
+    data.paymentStatus,
+    totalAmount,
+    requestedPaidAmount
+  );
+  const paymentMethod = normalizePaymentMethod(paymentStatus, data.paymentMethod);
+
+  if (paymentStatus === "unpaid") {
+    return {
+      paymentStatus,
+      paymentMethod: null,
+      paidAmount: new Prisma.Decimal(0),
+    };
+  }
+
+  if (paymentStatus === "paid") {
+    if (totalAmount.lte(0)) throw new Error("Paid orders require a positive total amount.");
+    return {
+      paymentStatus,
+      paymentMethod,
+      paidAmount: totalAmount,
+    };
+  }
+
+  if (requestedPaidAmount.lte(0) || requestedPaidAmount.gte(totalAmount)) {
+    throw new Error("Partial payment amount must be greater than 0 and less than the order total.");
+  }
+
+  return {
+    paymentStatus,
+    paymentMethod,
+    paidAmount: requestedPaidAmount,
+  };
+}
+
 export async function createOrder(data: OrderInput, userId: number) {
   if (!data.items || data.items.length === 0) {
     throw new Error("At least one item is required");
   }
 
   const businessId = getCurrentBusinessId();
+  const customerId = normalizePositiveId(data.customerId, "Customer is required");
+  const normalizedItems = data.items.map((item) => ({
+    productId: normalizePositiveId(item.productId, "Product is required"),
+    productVariantId: normalizeOptionalPositiveId(
+      item.productVariantId,
+      "Invalid product variant"
+    ),
+    quantity: normalizeQuantity(item.quantity),
+    unitPrice: item.unitPrice,
+  }));
+
   const customer = await prisma.customer.findFirst({
-    where: { id: data.customerId, businessId, deletedAt: null },
+    where: { id: customerId, businessId, deletedAt: null },
   });
   if (!customer) throw new Error("Customer not found");
 
-  const productIds = Array.from(new Set(data.items.map((i) => i.productId)));
+  const productIds = Array.from(new Set(normalizedItems.map((i) => i.productId)));
   const products = await prisma.product.findMany({
     where: { id: { in: productIds }, businessId, deletedAt: null },
     include: { variants: { where: { deletedAt: null } } },
@@ -193,13 +301,10 @@ export async function createOrder(data: OrderInput, userId: number) {
     products.flatMap((p) => p.variants.map((variant) => [variant.id, variant] as const))
   );
 
-  const itemRows = data.items.map((item) => {
+  const itemRows = normalizedItems.map((item) => {
     const product = productMap.get(item.productId);
     if (!product) throw new Error("Product not found");
-    const variantId =
-      item.productVariantId !== undefined && item.productVariantId !== null
-        ? Number(item.productVariantId)
-        : null;
+    const variantId = item.productVariantId;
     const variant = variantId ? variantMap.get(variantId) : null;
     if (variantId && !variant) throw new Error("Product variant not found");
     if (variant && variant.productId !== product.id) throw new Error("Product variant mismatch");
@@ -209,8 +314,13 @@ export async function createOrder(data: OrderInput, userId: number) {
     if (variant && variant.status !== "active") {
       throw new Error(`Product variant is inactive: ${product.name} / ${variant.label}`);
     }
-    const qty = Math.max(1, Math.floor(item.quantity));
-    const unitPrice = toDecimal(item.unitPrice ?? variant?.salePriceOverride ?? product.salePrice);
+    const qty = item.quantity;
+    const unitPriceSource =
+      item.unitPrice === undefined || item.unitPrice === null || item.unitPrice === ""
+        ? variant?.salePriceOverride ?? product.salePrice
+        : item.unitPrice;
+    const unitPrice = toDecimal(unitPriceSource);
+    if (unitPrice.lt(0)) throw new Error("Unit price is required for all items");
     const totalPrice = unitPrice.mul(qty);
     return {
       productId: product.id,
@@ -232,8 +342,10 @@ export async function createOrder(data: OrderInput, userId: number) {
   const taxAmount = subtotal.mul(taxRate).div(100);
   const discountAmount = toDecimal(data.discountAmount ?? 0);
   const totalAmount = subtotal.add(taxAmount).sub(discountAmount);
-  const paidAmount = toDecimal(data.paidAmount ?? 0);
-  const paymentStatus = data.paymentStatus ?? computePaymentStatus(totalAmount, paidAmount);
+  const { paymentStatus, paymentMethod, paidAmount } = normalizePaymentDetails(
+    data,
+    totalAmount
+  );
 
   const orderId = await generateOrderId(businessId);
 
@@ -245,7 +357,7 @@ export async function createOrder(data: OrderInput, userId: number) {
         customerId: customer.id,
         status: "pending",
         paymentStatus,
-        paymentMethod: data.paymentMethod ?? null,
+        paymentMethod,
         subtotal,
         taxAmount,
         discountAmount,

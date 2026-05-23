@@ -7,6 +7,66 @@ import { hasPermission } from "@/lib/rbac";
 import { RoleName } from "@/constants/roles";
 import { parseDateRangeFromSearchParams } from "@/lib/date-filter";
 
+const ORDER_CREATE_NOT_FOUND_MESSAGES = new Set([
+  "Customer not found",
+  "Product not found",
+  "Product variant not found",
+]);
+
+const ORDER_CREATE_BAD_REQUEST_MESSAGES = new Set([
+  "Customer is required",
+  "At least one item is required",
+  "Invalid order payload",
+  "Product is required",
+  "Invalid product",
+  "Invalid product variant",
+  "Quantity must be at least 1",
+  "Unit price is required for all items",
+  "Invalid payment status",
+  "Payment method is required for paid or partial payments.",
+  "Partial payment amount must be greater than 0 and less than the order total.",
+  "Paid orders require a positive total amount.",
+  "Product variant mismatch",
+]);
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isExpectedCreateOrderError(message: string) {
+  return (
+    ORDER_CREATE_NOT_FOUND_MESSAGES.has(message) ||
+    ORDER_CREATE_BAD_REQUEST_MESSAGES.has(message) ||
+    message.startsWith("Select a variant for ") ||
+    message.startsWith("Product variant is inactive:") ||
+    message.startsWith("Insufficient stock for ")
+  );
+}
+
+function getSafeErrorLog(err: unknown) {
+  if (err instanceof Error) {
+    return {
+      name: err.name,
+      message: err.message,
+    };
+  }
+  return {
+    type: typeof err,
+    message: typeof err === "string" ? err : "Non-Error throw",
+  };
+}
+
+function getCreateOrderErrorResponse(err: unknown) {
+  const message = err instanceof Error ? err.message : "";
+  if (!message || !isExpectedCreateOrderError(message)) {
+    return { message: "Failed to create order", status: 500 };
+  }
+  return {
+    message,
+    status: ORDER_CREATE_NOT_FOUND_MESSAGES.has(message) ? 404 : 400,
+  };
+}
+
 export async function GET(req: NextRequest) {
   const user = await getAuthUser();
 
@@ -49,19 +109,23 @@ export async function POST(req: NextRequest) {
   return runWithBusinessContext(user, async () => {
     try {
       const body = await req.json();
+      if (!isRecord(body)) {
+        return NextResponse.json({ error: "Invalid order payload" }, { status: 400 });
+      }
       if (!body.customerId) {
         return NextResponse.json({ error: "Customer is required" }, { status: 400 });
       }
       if (!Array.isArray(body.items) || body.items.length === 0) {
         return NextResponse.json({ error: "At least one item is required" }, { status: 400 });
       }
-      const order = await createOrder(body, user.id);
+      const order = await createOrder(
+        body as unknown as Parameters<typeof createOrder>[0],
+        user.id
+      );
       return NextResponse.json({ order });
     } catch (err) {
-      console.error("Error creating order:", err);
-      const message = err instanceof Error ? err.message : "Server error";
-      const status =
-        message === "Customer not found" || message === "Product not found" ? 404 : 400;
+      console.error("Error creating order", getSafeErrorLog(err));
+      const { message, status } = getCreateOrderErrorResponse(err);
       return NextResponse.json({ error: message }, { status });
     }
   });

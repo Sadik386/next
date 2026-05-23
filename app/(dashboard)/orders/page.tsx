@@ -40,6 +40,7 @@ type ProductOption = {
   name: string;
   unit: string;
   salePrice: string;
+  stock?: { quantity: number; threshold: number } | null;
   variants: ProductVariantOption[];
 };
 
@@ -55,6 +56,7 @@ type ProductVariantOption = {
 const STATUS_OPTIONS = ["pending", "confirmed", "delivered", "cancelled"] as const;
 const PAYMENT_STATUS_OPTIONS = ["unpaid", "partial", "paid"] as const;
 const PAYMENT_METHODS = ["Cash", "bKash", "Nagad", "Rocket", "Upay", "Bank", "Card"] as const;
+type PaymentStatus = (typeof PAYMENT_STATUS_OPTIONS)[number];
 
 type OrderItemDraft = {
   key: string;
@@ -80,6 +82,11 @@ function variantPrice(product: ProductOption, variant: ProductVariantOption) {
   return String(variant.salePriceOverride ?? product.salePrice);
 }
 
+function variantOptionLabel(variant: ProductVariantOption) {
+  const sku = variant.sku ? `${variant.sku} - ` : "";
+  return `${variant.label} (${sku}${variant.stockQuantity} in stock)`;
+}
+
 export default function OrdersPage() {
   const searchParams = useSearchParams();
   const initialSearch = searchParams.get("search") || "";
@@ -100,6 +107,7 @@ export default function OrdersPage() {
   const [customerId, setCustomerId] = useState<number | null>(null);
   const [items, setItems] = useState<OrderItemDraft[]>([newItem()]);
   const [paymentMethod, setPaymentMethod] = useState<string>("");
+  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>("unpaid");
   const [shippingAddress, setShippingAddress] = useState("");
   const [billingAddress, setBillingAddress] = useState("");
   const [notes, setNotes] = useState("");
@@ -170,6 +178,7 @@ export default function OrdersPage() {
     setCustomerId(null);
     setItems([newItem()]);
     setPaymentMethod("");
+    setPaymentStatus("unpaid");
     setShippingAddress("");
     setBillingAddress("");
     setNotes("");
@@ -230,29 +239,75 @@ export default function OrdersPage() {
     return { subtotal, tax, discount, total };
   }, [items, taxRate, discountAmount]);
 
+  function onPaymentStatusChange(nextStatus: PaymentStatus) {
+    setPaymentStatus(nextStatus);
+    setError(null);
+    if (nextStatus === "unpaid") {
+      setPaymentMethod("");
+      setPaidAmount("0");
+    } else if (nextStatus === "paid") {
+      setPaidAmount(totals.total.toFixed(2));
+    } else {
+      setPaidAmount("");
+    }
+  }
+
   async function submitOrder() {
     setError(null);
     if (!customerId) return setError("Select a customer");
     const cleanItems = items.filter((i) => i.productId && Number(i.quantity) > 0);
     if (cleanItems.length === 0) return setError("Add at least one item");
     for (const i of cleanItems) {
-      if (!i.unitPrice || Number(i.unitPrice) < 0) return setError("Unit price is required for all items");
+      const quantity = Number(i.quantity);
+      if (!Number.isInteger(quantity) || quantity <= 0) return setError("Quantity must be at least 1");
+      if (!i.unitPrice || !Number.isFinite(Number(i.unitPrice)) || Number(i.unitPrice) < 0) {
+        return setError("Unit price is required for all items");
+      }
       const product = products.find((p) => p.id === i.productId);
-      if (activeVariants(product).length > 0 && !i.productVariantId) {
+      if (!product) return setError("Select a valid product");
+      const variants = activeVariants(product);
+      const variant = i.productVariantId ? variants.find((v) => v.id === i.productVariantId) : undefined;
+      if (variants.length > 0 && !variant) {
         return setError(`Select a variant for ${product?.name ?? "the selected product"}`);
       }
+      const availableStock = variant ? variant.stockQuantity : product.stock?.quantity ?? null;
+      if (availableStock !== null && quantity > availableStock) {
+        const itemName = variant ? `${product.name} / ${variant.label}` : product.name;
+        return setError(`Only ${availableStock} in stock for ${itemName}`);
+      }
+    }
+
+    const normalizedPaymentMethod = paymentStatus === "unpaid" ? null : paymentMethod.trim();
+    const normalizedPaidAmount =
+      paymentStatus === "paid"
+        ? totals.total
+        : paymentStatus === "partial"
+        ? Number(paidAmount) || 0
+        : 0;
+    if ((paymentStatus === "paid" || paymentStatus === "partial") && !normalizedPaymentMethod) {
+      return setError("Payment method is required for paid or partial payments.");
+    }
+    if (paymentStatus === "paid" && normalizedPaidAmount <= 0) {
+      return setError("Paid orders require a positive paid amount");
+    }
+    if (
+      paymentStatus === "partial" &&
+      (normalizedPaidAmount <= 0 || normalizedPaidAmount >= totals.total)
+    ) {
+      return setError("Partial paid amount must be greater than 0 and less than total");
     }
 
     setSaving(true);
     const body = {
       customerId,
-      paymentMethod: paymentMethod || null,
+      paymentMethod: normalizedPaymentMethod,
+      paymentStatus,
       shippingAddress: shippingAddress || null,
       billingAddress: billingAddress || null,
       notes: notes || null,
       taxRate: Number(taxRate) || 0,
       discountAmount: Number(discountAmount) || 0,
-      paidAmount: Number(paidAmount) || 0,
+      paidAmount: normalizedPaidAmount,
       items: cleanItems.map((i) => ({
         productId: i.productId!,
         productVariantId: i.productVariantId,
@@ -603,6 +658,13 @@ export default function OrdersPage() {
                 <div style={{ display: "grid", gap: "8px" }}>
                   {items.map((row) => {
                     const product = products.find((p) => p.id === row.productId);
+                    const selectedVariant =
+                      product && row.productVariantId
+                        ? activeVariants(product).find((v) => v.id === row.productVariantId)
+                        : undefined;
+                    const availableStock = selectedVariant
+                      ? selectedVariant.stockQuantity
+                      : product?.stock?.quantity ?? null;
                     const lineTotal = (Number(row.quantity) || 0) * (Number(row.unitPrice) || 0);
                     return (
                       <div key={row.key} style={itemRow}>
@@ -636,7 +698,7 @@ export default function OrdersPage() {
                             <option value="">Select variant</option>
                             {activeVariants(product).map((variant) => (
                               <option key={variant.id} value={variant.id}>
-                                {variant.label} ({variant.sku ?? `${variant.stockQuantity} in stock`})
+                                {variantOptionLabel(variant)}
                               </option>
                             ))}
                           </select>
@@ -690,9 +752,8 @@ export default function OrdersPage() {
                             }}
                           >
                             Unit: {product.unit}
-                            {row.productVariantId
-                              ? ` · ${activeVariants(product).find((v) => v.id === row.productVariantId)?.label ?? ""}`
-                              : ""}
+                            {selectedVariant ? ` - ${selectedVariant.label}` : ""}
+                            {availableStock !== null ? ` - Stock: ${availableStock}` : ""}
                           </p>
                         )}
                       </div>
@@ -703,27 +764,68 @@ export default function OrdersPage() {
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
                 <div>
-                  <Label>Payment Method</Label>
+                  <Label>Payment Status</Label>
                   <select
-                    value={paymentMethod}
-                    onChange={(e) => setPaymentMethod(e.target.value)}
+                    value={paymentStatus}
+                    onChange={(e) => onPaymentStatusChange(e.target.value as PaymentStatus)}
                     style={inputStyle}
                   >
-                    <option value="">—</option>
-                    {PAYMENT_METHODS.map((m) => (
-                      <option key={m} value={m}>
-                        {m}
+                    {PAYMENT_STATUS_OPTIONS.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
                       </option>
                     ))}
                   </select>
                 </div>
-                <Field
-                  label="Paid Amount"
-                  type="number"
-                  value={paidAmount}
-                  onChange={setPaidAmount}
-                />
+                {paymentStatus !== "unpaid" && (
+                  <div>
+                    <Label required>Payment Method</Label>
+                    <select
+                      value={paymentMethod}
+                      onChange={(e) => setPaymentMethod(e.target.value)}
+                      style={inputStyle}
+                    >
+                      <option value="">Select payment method</option>
+                      {PAYMENT_METHODS.map((m) => (
+                        <option key={m} value={m}>
+                          {m}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
+
+              {paymentStatus === "paid" && (
+                <div>
+                  <Label>Paid Amount</Label>
+                  <input
+                    type="number"
+                    value={totals.total.toFixed(2)}
+                    readOnly
+                    style={{ ...inputStyle, opacity: 0.75 }}
+                  />
+                </div>
+              )}
+
+              {paymentStatus === "partial" && (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                  <Field
+                    label="Paid Amount"
+                    type="number"
+                    value={paidAmount}
+                    onChange={setPaidAmount}
+                  />
+                  <div>
+                    <Label>Balance Due</Label>
+                    <input
+                      value={Math.max(0, totals.total - (Number(paidAmount) || 0)).toFixed(2)}
+                      readOnly
+                      style={{ ...inputStyle, opacity: 0.75 }}
+                    />
+                  </div>
+                </div>
+              )}
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
                 <Field label="Tax %" type="number" value={taxRate} onChange={setTaxRate} />
