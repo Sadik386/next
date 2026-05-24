@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import LegalFooter from "@/lib/LegalFooter";
 
 export default function LoginAuthLogic() {
   const router = useRouter();
@@ -74,6 +75,7 @@ if (checkingSetup) {
     return (
       <div style={bgStyle}>
         <div style={spinnerStyle}>Loading...</div>
+        <LegalFooter />
       </div>
     );
   }
@@ -121,6 +123,7 @@ if (checkingSetup) {
             Retry
           </button>
         </div>
+        <LegalFooter />
       </div>
     );
   }
@@ -262,30 +265,7 @@ if (checkingSetup) {
           </a>
         </div>
       </div>
-      <div
-        style={{
-          position: "fixed",
-          bottom: "20px",
-          left: "50%",
-          transform: "translateX(-50%)",
-          zIndex: 20,
-        }}
-      >
-        <div
-          style={{
-            backgroundColor: "rgba(255,255,255,0.7)",
-            backdropFilter: "blur(12px)",
-            borderRadius: "20px",
-            padding: "5px 16px",
-            fontSize: "12px",
-            color: "#6b7280",
-            whiteSpace: "nowrap",
-            border: "1px solid rgba(255,255,255,0.5)",
-          }}
-        >
-          Accoraze Business Operating System
-        </div>
-      </div>
+      <LegalFooter />
     </div>
   );
 };

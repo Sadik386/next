@@ -2,6 +2,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import LegalFooter from "@/lib/LegalFooter";
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
@@ -232,30 +233,7 @@ export default function ForgotPasswordPage() {
           </div>
           </form>
         </div>
-        <div
-          style={{
-            position: "fixed",
-            bottom: "20px",
-            left: "50%",
-            transform: "translateX(-50%)",
-            zIndex: 20,
-          }}
-        >
-          <div
-            style={{
-              backgroundColor: "rgba(255,255,255,0.7)",
-              backdropFilter: "blur(12px)",
-              borderRadius: "20px",
-              padding: "5px 16px",
-              fontSize: "12px",
-              color: "#6b7280",
-              whiteSpace: "nowrap",
-              border: "1px solid rgba(255,255,255,0.5)",
-            }}
-          >
-            Accoraze Business Operating System
-          </div>
-        </div>
+        <LegalFooter />
       </div>
     </>
   );
