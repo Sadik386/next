@@ -263,9 +263,11 @@ function CurrentPlanCard({
             {plan.priceMonthly > 0 && (
               <div style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "4px" }}>
                 ৳{formatAmount(plan.priceMonthly)}/month
-                <span style={{ marginLeft: "8px", fontStyle: "italic" }}>
-                  (${plan.priceMonthly < 1000 ? Math.round(plan.priceMonthly / 100) : (plan.priceMonthly / 100).toFixed(2)}/mo reference)
-                </span>
+                {PLAN_PRICES_USD[planCode as PlanCode]?.monthly && (
+                  <span style={{ marginLeft: "8px", fontStyle: "italic" }}>
+                    ${PLAN_PRICES_USD[planCode as PlanCode].monthly}/mo reference
+                  </span>
+                )}
               </div>
             )}
           </div>
