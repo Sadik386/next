@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import {
+  AlertTriangle,
   ArrowUpRight,
   BarChart3,
   CheckCircle2,
@@ -19,6 +20,8 @@ import {
   XCircle,
   Zap,
   FileText,
+  Clock,
+  TrendingUp,
 } from "lucide-react";
 import {
   FEATURE_KEYS,
@@ -30,12 +33,20 @@ import {
   getPlanProductLimit,
   getPlanUserLimit,
   getPlanPdfPrintLimit,
+  isCurrentPlan,
+  isPaidPlan,
   isUnlimited,
   PLAN_DISPLAY_ORDER,
   PLAN_PRICES_BDT,
+  PLAN_USER_LIMITS,
+  PLAN_PRODUCT_LIMITS,
+  PLAN_EMAIL_LIMITS,
+  PLAN_PDF_PRINT_LIMITS,
+  PLAN_API_ENABLED,
   type PlanCode,
+  type LegacyPlanCode,
+  type FeatureKey,
 } from "@/lib/pricing";
-import type { FeatureKey, LegacyPlanCode } from "@/lib/pricing";
 import { useSettings } from "@/contexts/SettingsContext";
 
 type DashboardPlanCode = PlanCode | LegacyPlanCode;
@@ -168,9 +179,12 @@ export default function SubscriptionPage() {
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-12">
         <div className="lg:col-span-1 xl:col-span-8">
+          <TrialBanner plan={data.plan} />
           <CurrentPlanCard plan={data.plan} isCustom={isCustom} />
           <UsageSection data={data} />
+          <UpgradeRecommendations data={data} />
           <FeatureAccessSection features={data.features} />
+          <PlanComparisonTable data={data} />
         </div>
 
         <div className="lg:col-span-1 xl:col-span-4">
@@ -352,7 +366,12 @@ function UsageMetric({
   description?: string;
 }) {
   const isUnlimitedVal = isUnlimited(limit);
-  const isWarning = !isUnlimitedVal && percent >= 80;
+  const isWarning = !isUnlimitedVal && percent >= 70;
+  const isDanger = !isUnlimitedVal && percent >= 90;
+  const remaining = isUnlimitedVal ? -1 : Math.max(0, limit - used);
+
+  const barColor = isDanger ? "#ef4444" : isWarning ? "#f59e0b" : "var(--brand)";
+  const textColor = isDanger ? "#ef4444" : isWarning ? "#f59e0b" : "var(--text-secondary)";
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
@@ -364,7 +383,7 @@ function UsageMetric({
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        color: "var(--text-secondary)",
+        color: isDanger ? "#ef4444" : isWarning ? "#f59e0b" : "var(--text-secondary)",
         flexShrink: 0,
       }}>
         {icon}
@@ -372,9 +391,15 @@ function UsageMetric({
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
           <span style={{ fontSize: "13px", fontWeight: 500, color: "var(--text-primary)" }}>{label}</span>
-          <span style={{ fontSize: "13px", color: isWarning ? "#f59e0b" : "var(--text-secondary)", whiteSpace: "nowrap" }}>
+          <span style={{ fontSize: "13px", color: textColor, whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: "6px" }}>
+            {isDanger && <AlertTriangle size={12} />}
             {formatCount(used)}{isUnlimitedVal ? "" : ` / ${formatCount(limit)}`}
             {isUnlimitedVal && <span style={{ fontSize: "11px", color: "var(--text-muted)" }}> (unlimited)</span>}
+            {!isUnlimitedVal && remaining > 0 && remaining <= Math.ceil(limit * 0.3) && (
+              <span style={{ fontSize: "11px", color: isDanger ? "#ef4444" : "#f59e0b" }}>
+                {remaining} left
+              </span>
+            )}
           </span>
         </div>
         {!isUnlimitedVal && (
@@ -388,7 +413,7 @@ function UsageMetric({
               height: "100%",
               width: `${percent}%`,
               borderRadius: "999px",
-              backgroundColor: isWarning ? "#f59e0b" : "var(--brand)",
+              backgroundColor: barColor,
               transition: "width 0.3s ease",
             }} />
           </div>
@@ -399,6 +424,247 @@ function UsageMetric({
       </div>
     </div>
   );
+}
+
+function TrialBanner({ plan }: { plan: SubscriptionData["plan"] }) {
+  if (!plan.isTrial || !plan.currentPeriodEnd) return null;
+
+  const now = new Date();
+  const end = new Date(plan.currentPeriodEnd);
+  const diffMs = end.getTime() - now.getTime();
+  if (diffMs <= 0) return null;
+
+  const daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+  const isUrgent = daysLeft <= 3;
+
+  return (
+    <div style={{
+      display: "flex",
+      alignItems: "flex-start",
+      gap: "14px",
+      padding: "14px 16px",
+      borderRadius: "10px",
+      backgroundColor: isUrgent ? "#fef3c7" : "color-mix(in srgb, var(--brand) 8%, transparent)",
+      border: `1px solid ${isUrgent ? "#fbbf24" : "color-mix(in srgb, var(--brand) 20%, transparent)"}`,
+      marginBottom: "16px",
+    }}>
+      <div style={{
+        width: "36px",
+        height: "36px",
+        borderRadius: "8px",
+        backgroundColor: isUrgent ? "#fde68a" : "color-mix(in srgb, var(--brand) 15%, transparent)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        color: isUrgent ? "#d97706" : "var(--brand)",
+        flexShrink: 0,
+      }}>
+        <Clock size={18} />
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+          <span style={{ fontSize: "14px", fontWeight: 600, color: "var(--text-primary)" }}>
+            {daysLeft} day{daysLeft !== 1 ? "s" : ""} left in your trial
+          </span>
+          {isUrgent && (
+            <span style={{
+              padding: "2px 8px",
+              borderRadius: "999px",
+              fontSize: "10px",
+              fontWeight: 700,
+              backgroundColor: "#dc2626",
+              color: "#fff",
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+            }}>
+              Urgent
+            </span>
+          )}
+        </div>
+        <div style={{ fontSize: "12px", color: "var(--text-secondary)", marginTop: "3px" }}>
+          Your trial ends on {formatDate(plan.currentPeriodEnd)}. Upgrade now to continue without interruption.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function UpgradeRecommendations({ data }: { data: SubscriptionData }) {
+  const recommendations: Array<{ icon: React.ElementType; message: string; severity: "info" | "warning" | "danger" }> = [];
+
+  if (isPaidPlan(data.plan.code) || data.plan.code === "custom") return null;
+
+  if (data.usage.pdfPrint.limit !== -1) {
+    const pdfPercent = getUsagePercent(data.usage.pdfPrint.used, data.usage.pdfPrint.limit);
+    if (pdfPercent >= 70) {
+      recommendations.push({
+        icon: FileText,
+        message: `PDF/Print usage at ${Math.round(pdfPercent)}%. ${data.usage.pdfPrint.limit - data.usage.pdfPrint.used} remaining this month.`,
+        severity: pdfPercent >= 90 ? "danger" : "warning",
+      });
+    }
+  }
+
+  if (data.usage.products.limit !== -1) {
+    const productPercent = getUsagePercent(data.usage.products.used, data.usage.products.limit);
+    if (productPercent >= 70) {
+      recommendations.push({
+        icon: Package,
+        message: `Product capacity at ${Math.round(productPercent)}%. Consider upgrading for more products.`,
+        severity: productPercent >= 90 ? "danger" : "warning",
+      });
+    }
+  }
+
+  if (data.usage.users.limit !== -1) {
+    const userPercent = getUsagePercent(data.usage.users.used, data.usage.users.limit);
+    if (userPercent >= 70) {
+      recommendations.push({
+        icon: Users,
+        message: `Team limit at ${Math.round(userPercent)}%. Need more seats? Upgrade your plan.`,
+        severity: userPercent >= 90 ? "danger" : "warning",
+      });
+    }
+  }
+
+  if (!data.usage.apiAccessEnabled && isCurrentPlan(data.plan.code)) {
+    recommendations.push({
+      icon: Zap,
+      message: "Need API access or webhooks? Upgrade to Growth for advanced integrations.",
+      severity: "info",
+    });
+  }
+
+  if (data.plan.code === "free") {
+    recommendations.push({
+      icon: TrendingUp,
+      message: "Ready to grow? Upgrade to unlock higher limits and premium features.",
+      severity: "info",
+    });
+  }
+
+  if (recommendations.length === 0) return null;
+
+  return (
+    <section style={{ ...cardStyle, marginTop: "16px" }}>
+      <h2 style={{ fontSize: "15px", fontWeight: 600, color: "var(--text-primary)", marginBottom: "14px", display: "flex", alignItems: "center", gap: "8px" }}>
+        <TrendingUp size={15} />
+        Upgrade Recommendations
+      </h2>
+      <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+        {recommendations.map((rec, idx) => {
+          const Icon = rec.icon;
+          const colors = {
+            info: { bg: "color-mix(in srgb, var(--brand) 8%, transparent)", border: "color-mix(in srgb, var(--brand) 20%, transparent)", icon: "var(--brand)", text: "#d97706" },
+            warning: { bg: "#fef3c7", border: "#fbbf24", icon: "#d97706", text: "#92400e" },
+            danger: { bg: "#fee2e2", border: "#fca5a5", icon: "#dc2626", text: "#991b1b" },
+          }[rec.severity];
+
+          return (
+            <div key={idx} style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: "10px",
+              padding: "10px 12px",
+              borderRadius: "8px",
+              backgroundColor: colors.bg,
+              border: `1px solid ${colors.border}`,
+            }}>
+              <Icon size={15} color={colors.icon} style={{ marginTop: "2px", flexShrink: 0 }} />
+              <span style={{ fontSize: "12px", color: colors.text, lineHeight: 1.4 }}>{rec.message}</span>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function PlanComparisonTable({ data }: { data: SubscriptionData }) {
+  const plans = ["free", "starter", "growth"] as PlanCode[];
+  const currentCode = data.plan.code as string;
+
+  const rows = [
+    { key: "products", label: "Products", getValue: (code: PlanCode | LegacyPlanCode) => PLAN_PRODUCT_LIMITS[code] ?? 30 },
+    { key: "users", label: "Team Members", getValue: (code: PlanCode | LegacyPlanCode) => PLAN_USER_LIMITS[code] ?? 1 },
+    { key: "pdf", label: "PDF/Print", getValue: (code: PlanCode | LegacyPlanCode) => PLAN_PDF_PRINT_LIMITS[code] ?? 50 },
+    { key: "emails", label: "Emails", getValue: (code: PlanCode | LegacyPlanCode) => PLAN_EMAIL_LIMITS[code] ?? 100 },
+    { key: "api", label: "API Access", getValue: (code: PlanCode | LegacyPlanCode) => PLAN_API_ENABLED[code] ? "Yes" : "No" },
+    { key: "webhooks", label: "Webhooks", getValue: (_code: PlanCode | LegacyPlanCode) => FEATURE_KEYS.WEBHOOKS },
+  ];
+
+  return (
+    <section style={{ ...cardStyle, marginTop: "16px" }}>
+      <h2 style={{ fontSize: "15px", fontWeight: 600, color: "var(--text-primary)", marginBottom: "14px" }}>
+        Plan Comparison
+      </h2>
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
+          <thead>
+            <tr>
+              <th style={{ textAlign: "left", padding: "8px 10px", color: "var(--text-muted)", fontWeight: 600, borderBottom: "1px solid var(--card-border)" }}></th>
+              {plans.map((code) => (
+                <th key={code} style={{
+                  textAlign: "center",
+                  padding: "8px 10px",
+                  color: currentCode === code ? "var(--brand)" : "var(--text-muted)",
+                  fontWeight: 600,
+                  borderBottom: "1px solid var(--card-border)",
+                }}>
+                  {formatPlanName(code)}
+                  {currentCode === code && <span style={{ display: "block", fontSize: "10px", color: "var(--brand)", marginTop: "2px", fontWeight: 400 }}>Current</span>}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.key}>
+                <td style={{ padding: "8px 10px", color: "var(--text-secondary)", borderBottom: "1px solid var(--input-bg)" }}>{row.label}</td>
+                {plans.map((code) => {
+                  const val = row.getValue(code);
+                  const isCurrentRow = currentCode === code;
+                  const currentVal = row.getValue(currentCode as PlanCode | LegacyPlanCode);
+                  let isBetter = false;
+                  if (typeof val === "number" && typeof currentVal === "number") {
+                    isBetter = val > currentVal;
+                  }
+                  if (typeof val === "string" && typeof currentVal === "string") {
+                    isBetter = val === "Yes" && currentVal === "No";
+                  }
+                  return (
+                    <td key={code} style={{
+                      textAlign: "center",
+                      padding: "8px 10px",
+                      borderBottom: "1px solid var(--input-bg)",
+                      color: isCurrentRow ? "var(--brand)" : "var(--text-primary)",
+                      fontWeight: isCurrentRow ? 600 : 400,
+                      backgroundColor: isBetter && !isCurrentRow ? "color-mix(in srgb, #22c55e 6%, transparent)" : "transparent",
+                    }}>
+                      {typeof val === "number" ? (isUnlimited(val) ? "Unlimited" : formatCount(val)) : val}
+                      {isBetter && !isCurrentRow && (
+                        <span style={{ display: "inline-flex", marginLeft: "4px" }}>
+                          <TrendingUp size={10} color="#22c55e" />
+                        </span>
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function getPlanRank(code: string): number {
+  if (code === "free") return 0;
+  if (code === "starter" || code === "basic" || code === "pro") return 1;
+  if (code === "growth" || code === "business" || code === "professional") return 2;
+  if (code === "custom" || code === "enterprise") return 3;
+  return -1;
 }
 
 function AccessStatus({
