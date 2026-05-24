@@ -5,6 +5,8 @@ import { PERMISSIONS } from "@/constants/permissions";
 import { getSettings } from "@/services/setting.service";
 import { generateExpenseSlipPDF } from "@/lib/pdf/expenseSlip";
 import { runWithBusinessContext } from "@/lib/business-context";
+import { guardPdfPrintUsage, incrementUsageSafely } from "@/lib/subscription-guard";
+import { USAGE_KEYS } from "@/lib/pricing";
 
 export async function GET(
   req: NextRequest,
@@ -14,6 +16,11 @@ export async function GET(
   if (auth instanceof NextResponse) return auth;
 
   return runWithBusinessContext({ ...auth.user, businessId: auth.businessId }, async () => {
+    const guard = await guardPdfPrintUsage(auth.businessId);
+    if (!guard.allowed) {
+      return NextResponse.json({ error: guard.reason || "PDF/Print limit reached for your current plan." }, { status: 403 });
+    }
+
     try {
       const { expenseId } = await params;
       const id = Number(expenseId);
@@ -64,6 +71,8 @@ export async function GET(
       };
 
       const pdfBlob = await generateExpenseSlipPDF(data);
+
+      incrementUsageSafely(auth.businessId, USAGE_KEYS.PDF_PRINT_COUNT);
 
       return new NextResponse(pdfBlob, {
         headers: {

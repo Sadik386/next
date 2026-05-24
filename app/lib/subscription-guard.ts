@@ -8,6 +8,7 @@ import {
   getPlanEmailLimit,
   getPlanUserLimit,
   getPlanProductLimit,
+  getPlanPdfPrintLimit,
   normalizePlanCode,
   isUnlimited,
 } from "./pricing";
@@ -218,6 +219,22 @@ export async function incrementUsage(
 }
 
 /**
+ * Increment usage without failing an already-successful business action.
+ */
+export async function incrementUsageSafely(
+  businessId: number,
+  usageKey: string,
+  amount: number = 1
+): Promise<number | null> {
+  try {
+    return await incrementUsage(businessId, usageKey, amount);
+  } catch (error) {
+    console.error("Usage increment failed:", { businessId, usageKey, amount, error });
+    return null;
+  }
+}
+
+/**
  * Guard for product creation - checks product limit and trial status
  */
 export async function guardProductCreation(businessId: number): Promise<SubscriptionGuardResult> {
@@ -407,6 +424,46 @@ export async function guardWebhookCreation(businessId: number): Promise<Subscrip
       allowed: false,
       reason: `Webhooks are not available on your current plan.`,
       code: "WEBHOOK_ACCESS_DENIED"
+    };
+  }
+  
+  return { allowed: true };
+}
+
+/**
+ * Guard for PDF/Print usage - checks PDF quota and trial status
+ */
+export async function guardPdfPrintUsage(businessId: number): Promise<SubscriptionGuardResult> {
+  const subscription = await getBusinessSubscription(businessId);
+  
+  if (subscription && subscription.status === SUBSCRIPTION_STATUS.TRIALING && await isTrialExpired(businessId)) {
+    return {
+      allowed: false,
+      reason: `Your trial has expired. Upgrade or switch plan to continue.`,
+      code: "TRIAL_EXPIRED"
+    };
+  }
+  
+  let pdfLimit: number;
+  if (!subscription) {
+    pdfLimit = getPlanPdfPrintLimit(PLAN_NAMES.FREE);
+  } else if (subscription.status === SUBSCRIPTION_STATUS.ACTIVE || subscription.status === SUBSCRIPTION_STATUS.TRIALING) {
+    pdfLimit = getPlanPdfPrintLimit(normalizePlanCode(subscription.plan.name));
+  } else {
+    pdfLimit = getPlanPdfPrintLimit(PLAN_NAMES.FREE);
+  }
+  
+  if (pdfLimit === -1) {
+    return { allowed: true };
+  }
+  
+  const pdfUsage = await getCurrentUsage(businessId, USAGE_KEYS.PDF_PRINT_COUNT);
+  
+  if (pdfUsage >= pdfLimit) {
+    return {
+      allowed: false,
+      reason: `PDF/Print limit reached for your current plan.`,
+      code: "PDF_PRINT_LIMIT_EXCEEDED"
     };
   }
   

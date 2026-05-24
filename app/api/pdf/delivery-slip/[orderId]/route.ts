@@ -8,6 +8,8 @@ import { mapOrderDeliveryItems } from "@/lib/pdf/documentItems";
 import { buildDocumentProfile, toBusinessInfo } from "@/lib/pdf/documentProfile";
 import { deliveryTotals } from "@/lib/pdf/documentTotals";
 import { formatDocumentDate } from "@/lib/pdf/formatters";
+import { guardPdfPrintUsage, incrementUsageSafely } from "@/lib/subscription-guard";
+import { USAGE_KEYS } from "@/lib/pricing";
 
 export async function GET(
   req: NextRequest,
@@ -17,6 +19,11 @@ export async function GET(
   if (auth instanceof NextResponse) return auth;
 
   return runWithBusinessContext({ ...auth.user, businessId: auth.businessId }, async () => {
+    const guard = await guardPdfPrintUsage(auth.businessId);
+    if (!guard.allowed) {
+      return NextResponse.json({ error: guard.reason || "PDF/Print limit reached for your current plan." }, { status: 403 });
+    }
+
     try {
       const { orderId } = await params;
       const numId = Number(orderId);
@@ -65,6 +72,8 @@ export async function GET(
       };
 
       const blob = await generateDeliverySlipPDF(data);
+
+      incrementUsageSafely(auth.businessId, USAGE_KEYS.PDF_PRINT_COUNT);
 
       return new NextResponse(blob, {
         headers: {

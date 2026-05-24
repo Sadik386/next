@@ -9,6 +9,8 @@ import { mapOrderInvoiceItems } from "@/lib/pdf/documentItems";
 import { buildDocumentProfile, toBusinessInfo } from "@/lib/pdf/documentProfile";
 import { invoiceTotals } from "@/lib/pdf/documentTotals";
 import { formatDocumentDate } from "@/lib/pdf/formatters";
+import { guardPdfPrintUsage, incrementUsageSafely } from "@/lib/subscription-guard";
+import { USAGE_KEYS } from "@/lib/pricing";
 
 export async function GET(
   req: NextRequest,
@@ -19,6 +21,12 @@ export async function GET(
 
   return runWithBusinessContext({ ...auth.user, businessId: auth.businessId }, async () => {
     const start = Date.now();
+
+    const guard = await guardPdfPrintUsage(auth.businessId);
+    if (!guard.allowed) {
+      return NextResponse.json({ error: guard.reason || "PDF/Print limit reached for your current plan." }, { status: 403 });
+    }
+
     try {
       const { orderId } = await params;
       const numId = Number(orderId);
@@ -75,6 +83,8 @@ export async function GET(
       console.timeEnd(`[PDF] Generate PDF ${orderId}`);
 
       console.log(`[PDF] Total Route Time: ${Date.now() - start}ms`);
+
+      incrementUsageSafely(auth.businessId, USAGE_KEYS.PDF_PRINT_COUNT);
 
       return new NextResponse(blob, {
         headers: {
