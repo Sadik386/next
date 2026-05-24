@@ -400,12 +400,14 @@ export default function SalesPage() {
                     <PaymentBadge value={s.paymentStatus} />
                   </Td>
                   <Td align="right">
-                    <div style={{ display: "inline-flex", gap: "4px" }}>
+                    <div style={{ display: "inline-flex", gap: "4px", alignItems: "center" }}>
                       <FloatingPopover
                         trigger={
-                          <IconBtn title="Receipt" disabled={isLoading(`rec-dl-${s.id}`) || isLoading(`rec-print-${s.id}`)}>
-                            <Receipt size={13} />
-                          </IconBtn>
+                          <span style={{ display: "inline-flex" }}>
+                            <IconBtn title="Receipt" disabled={isLoading(`rec-dl-${s.id}`) || isLoading(`rec-print-${s.id}`)}>
+                              <Receipt size={13} />
+                            </IconBtn>
+                          </span>
                         }
                         items={[
                           {

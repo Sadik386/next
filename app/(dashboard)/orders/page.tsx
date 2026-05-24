@@ -531,9 +531,11 @@ export default function OrdersPage() {
                       </IconBtn>
                       <FloatingPopover
                         trigger={
-                          <IconBtn title="Invoice" disabled={isLoading(`inv-dl-${o.id}`) || isLoading(`inv-print-${o.id}`)}>
-                            <FileText size={13} />
-                          </IconBtn>
+                          <span style={{ display: "inline-flex" }}>
+                            <IconBtn title="Invoice" disabled={isLoading(`inv-dl-${o.id}`) || isLoading(`inv-print-${o.id}`)}>
+                              <FileText size={13} />
+                            </IconBtn>
+                          </span>
                         }
                         items={[
                           {
@@ -564,9 +566,11 @@ export default function OrdersPage() {
                       />
                       <FloatingPopover
                         trigger={
-                          <IconBtn title="Delivery Slip" disabled={isLoading(`del-dl-${o.id}`) || isLoading(`del-print-${o.id}`)}>
-                            <Truck size={13} />
-                          </IconBtn>
+                          <span style={{ display: "inline-flex" }}>
+                            <IconBtn title="Delivery Slip" disabled={isLoading(`del-dl-${o.id}`) || isLoading(`del-print-${o.id}`)}>
+                              <Truck size={13} />
+                            </IconBtn>
+                          </span>
                         }
                         items={[
                           {

@@ -305,6 +305,16 @@ export default function PlatformPlans() {
                 <div style={{ fontSize: "10px", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "8px" }}>
                   Features
                 </div>
+                {isPopular && (
+                  <div style={{ fontSize: "11px", color: "var(--brand)", fontWeight: 600, marginBottom: "8px", padding: "4px 8px", backgroundColor: "var(--brand-light)", borderRadius: "6px", textAlign: "center" }}>
+                    Everything in Starter +
+                  </div>
+                )}
+                {isCustom && (
+                  <div style={{ fontSize: "11px", color: "var(--brand)", fontWeight: 600, marginBottom: "8px", padding: "4px 8px", backgroundColor: "var(--brand-light)", borderRadius: "6px", textAlign: "center" }}>
+                    Everything in Business +
+                  </div>
+                )}
                 <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                   {featureGroups.map(group => (
                     <div key={group.group}>

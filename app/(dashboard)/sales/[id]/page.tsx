@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useCallback, useEffect, useState, use } from "react";
-import { ArrowLeft, Receipt, Printer, FileDown, ExternalLink } from "lucide-react";
+import { ArrowLeft, Receipt, Printer, FileDown, ExternalLink, Mail, Loader2, Check, X } from "lucide-react";
 import { usePDF } from "@/hooks/usePDF";
 import { FloatingPopover } from "@/components/ui/FloatingPopover";
 
@@ -69,6 +69,8 @@ export default function SaleDetailPage({ params }: { params: Promise<{ id: strin
   const [sale, setSale] = useState<SaleDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [sendEmailState, setSendEmailState] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [sendEmailMsg, setSendEmailMsg] = useState("");
   const { downloadPDF, printPDF, isLoading } = usePDF();
 
   const load = useCallback(async () => {
@@ -94,6 +96,30 @@ export default function SaleDetailPage({ params }: { params: Promise<{ id: strin
   useEffect(() => {
     load();
   }, [load]);
+
+  async function sendReceiptEmail() {
+    if (!sale?.customer?.email) {
+      setSendEmailState("error");
+      setSendEmailMsg("Customer has no email address.");
+      return;
+    }
+    setSendEmailState("sending");
+    setSendEmailMsg("");
+    try {
+      const res = await fetch(`/api/email/receipt/${sale.saleId}`, { method: "POST" });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSendEmailState("sent");
+        setSendEmailMsg("Receipt email sent successfully.");
+      } else {
+        setSendEmailState("error");
+        setSendEmailMsg(data.message || "Failed to send receipt email.");
+      }
+    } catch {
+      setSendEmailState("error");
+      setSendEmailMsg("Network error.");
+    }
+  }
 
   if (loading) {
     return <div style={{ color: "var(--text-muted)", fontSize: "13px", padding: "20px" }}>Loading...</div>;
@@ -164,7 +190,37 @@ export default function SaleDetailPage({ params }: { params: Promise<{ id: strin
               },
             ]}
           />
+          {sale.customer?.email && (
+            <button
+              onClick={sendReceiptEmail}
+              disabled={sendEmailState === "sending"}
+              style={{ ...btnSecondary, minWidth: "140px" }}
+              title="Send receipt to customer email"
+            >
+              {sendEmailState === "sending" ? (
+                <><Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> Sending...</>
+              ) : sendEmailState === "sent" ? (
+                <><Check size={14} /> Sent</>
+              ) : sendEmailState === "error" ? (
+                <><X size={14} /> Failed</>
+              ) : (
+                <><Mail size={14} /> Send Receipt</>
+              )}
+            </button>
+          )}
         </div>
+        {sendEmailMsg && (
+          <div style={{
+            marginTop: "6px",
+            fontSize: "11px",
+            color: sendEmailState === "error" ? "#991b1b" : sendEmailState === "sent" ? "#166534" : "#92400e",
+            backgroundColor: sendEmailState === "error" ? "#fee2e2" : sendEmailState === "sent" ? "#dcfce7" : "#fef3c7",
+            padding: "5px 10px",
+            borderRadius: "6px",
+          }}>
+            {sendEmailMsg}
+          </div>
+        )}
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
@@ -429,6 +485,20 @@ const btnPrimary: React.CSSProperties = {
   border: "none",
   backgroundColor: "var(--brand)",
   color: "white",
+  fontSize: "13px",
+  fontWeight: 500,
+  cursor: "pointer",
+};
+
+const btnSecondary: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "8px",
+  padding: "8px 16px",
+  borderRadius: "8px",
+  border: "1px solid var(--input-border)",
+  backgroundColor: "var(--card-bg)",
+  color: "var(--text-primary)",
   fontSize: "13px",
   fontWeight: 500,
   cursor: "pointer",

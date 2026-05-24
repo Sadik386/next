@@ -10,6 +10,7 @@ import { receiptTotals } from "@/lib/pdf/documentTotals";
 import { formatDocumentDate } from "@/lib/pdf/formatters";
 import { guardPdfPrintUsage, incrementUsageSafely } from "@/lib/subscription-guard";
 import { USAGE_KEYS } from "@/lib/pricing";
+import { checkPdfUsageCount } from "@/lib/subscription-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -101,7 +102,11 @@ export async function GET(
 
       const blob = await generateReceiptPDF(data);
 
-      incrementUsageSafely(auth.businessId, USAGE_KEYS.PDF_PRINT_COUNT);
+      const docId = sale.id.toString();
+      const { counted } = checkPdfUsageCount(auth.businessId, "receipt", docId);
+      if (counted) {
+        incrementUsageSafely(auth.businessId, USAGE_KEYS.PDF_PRINT_COUNT);
+      }
 
       return new NextResponse(blob, {
         headers: {

@@ -15,6 +15,70 @@ import {
 import { getBusinessSubscription } from "./usage-service";
 
 /**
+ * PDF usage deduplication cache.
+ * Tracks which documents have already counted against quota per business per day.
+ * Key format: businessId:docType:docId → "YYYY-MM-DD"
+ * Entries auto-expire via TTL check.
+ */
+const pdfUsageCache = new Map<string, { date: string; timestamp: number }>();
+const PDF_CACHE_TTL_MS = 86_400_000; // 24 hours
+
+function getDateKey(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+
+function buildPdfCacheKey(businessId: number, docType: string, docId: string): string {
+  return `${businessId}:${docType}:${docId}`;
+}
+
+function cleanExpiredCache(): void {
+  const now = Date.now();
+  for (const [key, entry] of pdfUsageCache.entries()) {
+    if (now - entry.timestamp > PDF_CACHE_TTL_MS) {
+      pdfUsageCache.delete(key);
+    }
+  }
+}
+
+function isPdfUsageAlreadyCounted(businessId: number, docType: string, docId: string): boolean {
+  const key = buildPdfCacheKey(businessId, docType, docId);
+  const entry = pdfUsageCache.get(key);
+  if (!entry) return false;
+  if (entry.date !== getDateKey()) {
+    pdfUsageCache.delete(key);
+    return false;
+  }
+  return true;
+}
+
+function markPdfUsageCounted(businessId: number, docType: string, docId: string): void {
+  const key = buildPdfCacheKey(businessId, docType, docId);
+  pdfUsageCache.set(key, { date: getDateKey(), timestamp: Date.now() });
+  if (pdfUsageCache.size > 50_000) cleanExpiredCache();
+}
+
+export type PdfDocType = "invoice" | "receipt" | "expense" | "delivery";
+
+/**
+ * Check if this PDF access should count against quota.
+ * Returns { counted: true } if this is a fresh document access (count it).
+ * Returns { counted: false } if already counted today (skip counting).
+ */
+export function checkPdfUsageCount(
+  businessId: number,
+  docType: PdfDocType,
+  docId: string
+): { counted: boolean } {
+  cleanExpiredCache();
+  if (isPdfUsageAlreadyCounted(businessId, docType, docId)) {
+    return { counted: false };
+  }
+  markPdfUsageCounted(businessId, docType, docId);
+  return { counted: true };
+}
+
+/**
  * Get current period boundaries
  */
 function getCurrentPeriod(): { start: Date; end: Date } {

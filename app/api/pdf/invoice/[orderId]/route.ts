@@ -11,6 +11,7 @@ import { invoiceTotals } from "@/lib/pdf/documentTotals";
 import { formatDocumentDate } from "@/lib/pdf/formatters";
 import { guardPdfPrintUsage, incrementUsageSafely } from "@/lib/subscription-guard";
 import { USAGE_KEYS } from "@/lib/pricing";
+import { checkPdfUsageCount } from "@/lib/subscription-guard";
 
 export async function GET(
   req: NextRequest,
@@ -84,7 +85,11 @@ export async function GET(
 
       console.log(`[PDF] Total Route Time: ${Date.now() - start}ms`);
 
-      incrementUsageSafely(auth.businessId, USAGE_KEYS.PDF_PRINT_COUNT);
+      const docId = order.id.toString();
+      const { counted } = checkPdfUsageCount(auth.businessId, "invoice", docId);
+      if (counted) {
+        incrementUsageSafely(auth.businessId, USAGE_KEYS.PDF_PRINT_COUNT);
+      }
 
       return new NextResponse(blob, {
         headers: {
