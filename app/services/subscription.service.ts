@@ -12,6 +12,7 @@ import {
   getPlanPriceYearly,
   getPlanProductLimit,
   getPlanUserLimit,
+  getPlanPdfPrintLimit,
   isCurrentPlan,
   isFeatureEnabled,
   isUnlimited,
@@ -71,6 +72,7 @@ export interface SubscriptionDashboardData {
     users: { used: number; limit: number };
     products: { used: number; limit: number };
     emails: { used: number; limit: number; isUnlimited: boolean };
+    pdfPrint: { used: number; limit: number; isUnlimited: boolean };
     apiAccessEnabled: boolean;
     smtpAccessEnabled: boolean;
   };
@@ -97,12 +99,12 @@ function titleizePlan(code: string): string {
 }
 
 function getPlanMonthlyPrice(code: DashboardPlanCode, plan: PlanRecord | null): number {
-  if (isCurrentPlan(code)) return getPlanPriceMonthly(code);
+  if (isCurrentPlan(code)) return getPlanPriceMonthly(code as PlanCode);
   return toNumber(plan?.priceMonthly, 0);
 }
 
 function getPlanYearlyPrice(code: DashboardPlanCode, plan: PlanRecord | null): number {
-  if (isCurrentPlan(code)) return getPlanPriceYearly(code);
+  if (isCurrentPlan(code)) return getPlanPriceYearly(code as PlanCode);
   return toNumber(plan?.priceYearly, 0);
 }
 
@@ -137,22 +139,29 @@ export async function getSubscriptionDashboardData(
     prisma.product.count({ where: { businessId } }),
   ]);
 
-  const planCode = normalizePlanCode(plan?.name ?? PLAN_NAMES.FREE);
-  const rawFeatures = getPlanFeatures(plan?.features);
-  const features = getDashboardFeatures(rawFeatures);
-  const usageLimits = safeJsonParse<Record<string, number>>(plan?.usageLimits, {}) ?? {};
+const planCode = normalizePlanCode(plan?.name ?? PLAN_NAMES.FREE);
+    const rawFeatures = getPlanFeatures(plan?.features);
+    const features = getDashboardFeatures(rawFeatures);
+    const usageLimits = safeJsonParse<Record<string, number>>(plan?.usageLimits, {}) ?? {};
 
-  const userLimit = plan?.maxUsers ?? getPlanUserLimit(planCode);
-  const productLimit = plan?.maxProducts ?? getPlanProductLimit(planCode);
-  const emailLimit = getPlanEmailLimit(planCode);
-  const emailUsage =
-    usageRecords.find((record) => record.key === USAGE_KEYS.EMAILS_SENT)?.value ?? 0;
+    const userLimit = plan?.maxUsers ?? getPlanUserLimit(planCode);
+    const productLimit = plan?.maxProducts ?? getPlanProductLimit(planCode);
+    const emailLimit = getPlanEmailLimit(planCode);
+    const pdfPrintLimit = getPlanPdfPrintLimit(planCode);
+    const emailUsage =
+      usageRecords.find((record) => record.key === USAGE_KEYS.EMAILS_SENT)?.value ?? 0;
+    const pdfPrintUsage =
+      usageRecords.find((record) => record.key === USAGE_KEYS.PDF_PRINT_COUNT)?.value ?? 0;
 
-  return {
+    const planDescription = isCurrentPlan(planCode)
+      ? getPlanDescription(planCode as PlanCode)
+      : plan?.description || "";
+
+return {
     plan: {
       code: planCode,
       label: plan?.label ?? titleizePlan(planCode),
-      description: getPlanDescription(planCode) || plan?.description || "",
+      description: planDescription,
       badge: getPlanBadge(planCode),
       status: subscription?.status ?? SUBSCRIPTION_STATUS.ACTIVE,
       billingCycle: subscription?.billingCycle ?? "monthly",
@@ -171,6 +180,11 @@ export async function getSubscriptionDashboardData(
         used: emailUsage,
         limit: emailLimit,
         isUnlimited: isUnlimited(emailLimit),
+      },
+      pdfPrint: {
+        used: pdfPrintUsage,
+        limit: pdfPrintLimit,
+        isUnlimited: isUnlimited(pdfPrintLimit),
       },
       apiAccessEnabled: features[FEATURE_KEYS.API_ACCESS],
       smtpAccessEnabled: features[FEATURE_KEYS.CUSTOM_SMTP],

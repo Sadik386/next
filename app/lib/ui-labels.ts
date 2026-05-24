@@ -18,12 +18,14 @@ export const TYPE_LABELS: Record<string, string> = {
 };
 
 export const PLAN_LABELS: Record<string, string> = {
-  trial: "Free Trial",
+  trial: "Trial",
   free: "Free",
+  starter: "Starter",
+  growth: "Growth",
+  custom: "Custom",
   basic: "Basic",
   pro: "Pro",
   business: "Business",
-  custom: "Custom",
 };
 
 export const NOTE_VISIBILITY_LABELS: Record<string, string> = {

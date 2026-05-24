@@ -376,7 +376,7 @@ export async function createTrialSubscription(businessId: number) {
   }
 
   const now = new Date();
-  const periodEnd = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000); // 14 days
+  const periodEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
   return prisma.subscription.create({
     data: {

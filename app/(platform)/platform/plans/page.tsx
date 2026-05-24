@@ -15,17 +15,24 @@ import {
   Globe,
   BarChart3,
   Workflow,
-  Building2
+  Building2,
+  FileText,
+  Webhook,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
   getPlanEmailLimit,
+  getPlanPdfPrintLimit,
   getPlanDuration,
   getPlanBadge,
   PLAN_DISPLAY_ORDER,
-  PLAN_EXTERNAL_API,
-  safeJsonParse,
+  PLAN_API_ENABLED,
+  PLAN_PRICES_BDT,
+  PLAN_PRICES_USD,
+  getAvailableNextPlans,
+  type PlanCode,
 } from "@/lib/pricing";
+import { safeJsonParse } from "@/lib/pricing";
 
 type Plan = {
   id: number;
@@ -37,9 +44,11 @@ type Plan = {
   maxUsers: number;
   maxProducts: number;
   emailLimit: number;
+  pdfPrintLimit: number;
   duration: string;
   badge: string;
   apiEnabled: boolean;
+  webhooksEnabled: boolean;
   features: string;
   isActive: boolean;
   isTrial: boolean;
@@ -114,8 +123,8 @@ export default function PlatformPlans() {
   }, []);
 
   const sortedPlans = [...plans].sort((a, b) => {
-    const aIdx = PLAN_DISPLAY_ORDER.indexOf(a.name as any);
-    const bIdx = PLAN_DISPLAY_ORDER.indexOf(b.name as any);
+    const aIdx = PLAN_DISPLAY_ORDER.indexOf(a.name as PlanCode);
+    const bIdx = PLAN_DISPLAY_ORDER.indexOf(b.name as PlanCode);
     return (aIdx === -1 ? 999 : aIdx) - (bIdx === -1 ? 999 : bIdx);
   });
 
@@ -138,14 +147,19 @@ export default function PlatformPlans() {
         {sortedPlans.map((plan) => {
           const features = (safeJsonParse(plan.features) ?? {}) as Record<string, boolean>;
           const emailLimit = plan.emailLimit;
+          const pdfPrintLimit = plan.pdfPrintLimit;
           const duration = plan.duration;
-          const apiEnabled = plan.apiEnabled;
           const badge = plan.badge;
-          const isPopular = plan.name === "pro";
-          const isTrial = plan.name === "trial";
+          const apiEnabled = plan.apiEnabled;
+          const webhooksEnabled = plan.webhooksEnabled;
+          const isPopular = plan.name === "growth";
           const isFree = plan.name === "free";
-          const isBusiness = plan.name === "business";
+          const isCustom = plan.name === "custom";
+          const isStarter = plan.name === "starter";
           const featureGroups = buildFeatureGroups(features);
+
+          const bdtPrice = PLAN_PRICES_BDT[plan.name as PlanCode]?.monthly;
+          const usdPrice = PLAN_PRICES_USD[plan.name as PlanCode]?.monthly;
 
           return (
             <div key={plan.id} style={{
@@ -186,8 +200,8 @@ export default function PlatformPlans() {
                   top: "12px",
                   left: "12px",
                   padding: "4px 10px",
-                  backgroundColor: isTrial ? "#fef3c7" : isFree ? "#dcfce7" : "var(--brand-light)",
-                  color: isTrial ? "#92400e" : isFree ? "#166534" : "var(--brand)",
+                  backgroundColor: isStarter ? "#fef3c7" : isFree ? "#dcfce7" : "var(--brand-light)",
+                  color: isStarter ? "#92400e" : isFree ? "#166534" : "var(--brand)",
                   borderRadius: "20px",
                   fontSize: "10px",
                   fontWeight: 700,
@@ -224,25 +238,31 @@ export default function PlatformPlans() {
                 <div style={{ marginBottom: "14px" }}>
                   <div style={{ display: "flex", alignItems: "baseline", gap: "4px" }}>
                     <span style={{ fontSize: "24px", fontWeight: 700, color: "var(--text-primary)" }}>
-                      ${Number(plan.priceMonthly).toFixed(0)}
+                      {isCustom ? "Custom" : bdtPrice !== undefined ? `৳${bdtPrice.toLocaleString()}` : `$${Number(plan.priceMonthly).toFixed(0)}`}
                     </span>
                     <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>/mo</span>
                   </div>
-                  <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>
-                    {plan.priceYearly > 0 ? `$${Number(plan.priceYearly).toFixed(0)}/yr` : "Free"}
-                  </div>
+                  {isFree ? (
+                    <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>Free forever</div>
+                  ) : isCustom ? (
+                    <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>Contact for pricing</div>
+                  ) : (
+                    <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+                      ${usdPrice}/mo (USD)
+                    </div>
+                  )}
                 </div>
 
                 <div style={{ display: "flex", alignItems: "center", gap: "5px", padding: "6px 10px", backgroundColor: "var(--page-bg)", borderRadius: "6px", marginBottom: "12px" }}>
-                  {isTrial ? (
-                    <Clock size={12} color="#d97706" />
-                  ) : isFree ? (
+                  {isFree ? (
                     <Zap size={12} color="#16a34a" />
+                  ) : isStarter || isPopular ? (
+                    <Clock size={12} color="var(--brand)" />
                   ) : (
-                    <Zap size={12} color="var(--brand)" />
+                    <Zap size={12} color="var(--text-muted)" />
                   )}
-                  <span style={{ fontSize: "11px", fontWeight: 600, color: isTrial ? "#92400e" : isFree ? "#166534" : "var(--text-primary)" }}>
-                    {duration}
+                  <span style={{ fontSize: "11px", fontWeight: 600, color: isFree ? "#166534" : isStarter || isPopular ? "var(--brand)" : "var(--text-secondary)" }}>
+                    {isFree ? "Lifetime Free" : isStarter || isPopular ? "7-day free trial" : "Contact Sales"}
                   </span>
                 </div>
 
@@ -257,12 +277,22 @@ export default function PlatformPlans() {
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
                     <Mail size={11} color="var(--text-muted)" />
-                    <span style={{ fontSize: "11px", color: "var(--text-secondary)" }}>{emailLimit.toLocaleString()}/mo</span>
+                    <span style={{ fontSize: "11px", color: "var(--text-secondary)" }}>{emailLimit.toLocaleString()}/mo emails</span>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+                    <FileText size={11} color="var(--text-muted)" />
+                    <span style={{ fontSize: "11px", color: "var(--text-secondary)" }}>{pdfPrintLimit === -1 ? "Unlimited" : pdfPrintLimit}/mo PDF</span>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
                     <Globe size={11} color={apiEnabled ? "#16a34a" : "var(--text-muted)"} />
                     <span style={{ fontSize: "11px", color: apiEnabled ? "#16a34a" : "var(--text-muted)" }}>
                       {apiEnabled ? "API enabled" : "API disabled"}
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+                    <Webhook size={11} color={webhooksEnabled ? "#16a34a" : "var(--text-muted)"} />
+                    <span style={{ fontSize: "11px", color: webhooksEnabled ? "#16a34a" : "var(--text-muted)" }}>
+                      {webhooksEnabled ? "Webhooks enabled" : "Webhooks disabled"}
                     </span>
                   </div>
                 </div>

@@ -12,6 +12,7 @@ export const USAGE_KEYS = {
   API_CALLS: 'apiCalls',
   API_KEYS_CREATED: 'apiKeysCreated',
   EMAILS_SENT: 'emailsSent',
+  PDF_PRINT_COUNT: 'pdfPrintCount',
   STORAGE_MB: 'storageMb',
 } as const;
 
@@ -33,22 +34,20 @@ export const FEATURE_KEYS = {
 
 export type FeatureKey = typeof FEATURE_KEYS[keyof typeof FEATURE_KEYS];
 
-// Plan IDs
+// Plan IDs - V1 canonical names
 export const PLAN_IDS = {
-  TRIAL: 'trial',
   FREE: 'free',
-  BASIC: 'basic',
-  PRO: 'pro',
-  BUSINESS: 'business',
+  STARTER: 'starter',
+  GROWTH: 'growth',
+  CUSTOM: 'custom',
 } as const;
 
 // Plan names (for database lookups)
 export const PLAN_NAMES = {
-  TRIAL: 'trial',
   FREE: 'free',
-  BASIC: 'basic',
-  PRO: 'pro',
-  BUSINESS: 'business',
+  STARTER: 'starter',
+  GROWTH: 'growth',
+  CUSTOM: 'custom',
 } as const;
 
 // Check if usage is unlimited (value === -1 means unlimited)
@@ -80,6 +79,7 @@ export const DEFAULT_USAGE_LIMITS: Record<string, number> = {
   [USAGE_KEYS.API_CALLS]: 100,
   [USAGE_KEYS.API_KEYS_CREATED]: -1,
   [USAGE_KEYS.EMAILS_SENT]: 100,
+  [USAGE_KEYS.PDF_PRINT_COUNT]: 50,
   [USAGE_KEYS.STORAGE_MB]: 100,
 };
 
@@ -116,106 +116,143 @@ export const BILLING_CYCLE = {
 // V1 PRICING SINGLE SOURCE OF TRUTH
 // ============================================================
 
-export const CURRENT_PLAN_CODES = ['trial', 'free', 'basic', 'pro', 'business', 'custom'] as const;
-export const LEGACY_PLAN_CODES = ['starter', 'professional', 'enterprise'] as const;
-export const PAID_PLAN_CODES = ['basic', 'pro', 'business', 'custom'] as const;
+// Trial is subscription STATUS only, not a display plan.
+// Paid plans include 7-day free trial option.
+export const CURRENT_PLAN_CODES = ['free', 'starter', 'growth', 'custom'] as const;
+export const LEGACY_PLAN_CODES = ['trial', 'basic', 'pro', 'business', 'starter', 'professional', 'enterprise'] as const;
+export const PAID_PLAN_CODES = ['starter', 'growth', 'custom'] as const;
+
+// User-facing display order (excludes trial as standalone plan)
+export const PLAN_DISPLAY_ORDER: PlanCode[] = ['free', 'starter', 'growth', 'custom'];
 
 export type PlanCode = typeof CURRENT_PLAN_CODES[number];
 export type LegacyPlanCode = typeof LEGACY_PLAN_CODES[number];
 
-export const PLAN_DISPLAY_ORDER: PlanCode[] = ['trial', 'free', 'basic', 'pro', 'business', 'custom'];
+// Fixed 7-day trial duration for all paid plans
+export const PAID_PLAN_TRIAL_DAYS = 7;
 
-export const PLAN_EMAIL_LIMITS: Record<PlanCode | LegacyPlanCode, number> = {
-  trial: 100,
-  free: 100,
-  basic: 500,
-  pro: 2000,
-  business: 7000,
-  custom: -1,
-  starter: 100,
-  professional: 500,
-  enterprise: 10000,
+// Pricing: USD is base/reference, BDT has fixed local price
+// Do NOT use live exchange rate
+export const PLAN_PRICES_USD: Record<PlanCode, { monthly: number; yearly: number }> = {
+  free: { monthly: 0, yearly: 0 },
+  starter: { monthly: 9, yearly: 90 },
+  growth: { monthly: 24, yearly: 240 },
+  custom: { monthly: 0, yearly: 0 },
 };
 
-export const PLAN_TRIAL_DAYS: Record<string, number> = {
-  trial: 7,
-  basic: 0,
-  pro: 0,
-  business: 0,
-  custom: 0,
+export const PLAN_PRICES_BDT: Record<PlanCode, { monthly: number; yearly: number }> = {
+  free: { monthly: 0, yearly: 0 },
+  starter: { monthly: 990, yearly: 9900 },
+  growth: { monthly: 2490, yearly: 24900 },
+  custom: { monthly: 0, yearly: 0 },
 };
 
-export const PLAN_DURATION: Record<string, string> = {
-  trial: '7-Day Trial',
-  free: 'Lifetime Free',
-  basic: 'Monthly',
-  pro: 'Monthly',
-  business: 'Monthly',
-  custom: 'Custom',
-};
+// Get prices based on currency setting
+export function getPlanPrices(
+  code: PlanCode,
+  currency: 'USD' | 'BDT' = 'BDT'
+): { monthly: number; yearly: number } {
+  if (currency === 'USD') return PLAN_PRICES_USD[code] ?? { monthly: 0, yearly: 0 };
+  return PLAN_PRICES_BDT[code] ?? { monthly: 0, yearly: 0 };
+}
 
-export const PLAN_EXTERNAL_API: Record<PlanCode | LegacyPlanCode, boolean> = {
-  trial: false,
-  free: false,
-  basic: false,
-  pro: true,
-  business: true,
-  custom: true,
-  starter: false,
-  professional: true,
-  enterprise: true,
-};
-
-export const PLAN_BADGES: Record<string, string> = {
-  trial: '7-Day Trial',
-  free: 'Lifetime Free',
-  basic: '',
-  pro: 'Popular',
-  business: 'Business',
-  custom: 'Custom',
-};
-
+// User limits per plan
 export const PLAN_USER_LIMITS: Record<PlanCode | LegacyPlanCode, number> = {
-  trial: 3,
   free: 1,
+  starter: 3,
+  growth: 10,
+  custom: -1,
+  trial: 3,
   basic: 3,
   pro: 5,
   business: 10,
-  custom: -1,
-  starter: 2,
   professional: 10,
   enterprise: -1,
 };
 
+// Product limits per plan
 export const PLAN_PRODUCT_LIMITS: Record<PlanCode | LegacyPlanCode, number> = {
+  free: 30,
+  starter: 200,
+  growth: 500,
+  custom: -1,
   trial: 30,
-  free: 50,
   basic: 250,
   pro: 550,
   business: 1200,
-  custom: -1,
-  starter: 50,
   professional: 2000,
   enterprise: -1,
 };
 
-export const PLAN_PRICES: Record<PlanCode, { monthly: number; yearly: number }> = {
-  trial: { monthly: 0, yearly: 0 },
-  free: { monthly: 0, yearly: 0 },
-  basic: { monthly: 10, yearly: 100 },
-  pro: { monthly: 50, yearly: 500 },
-  business: { monthly: 120, yearly: 1200 },
-  custom: { monthly: 0, yearly: 0 },
+// Email limits per plan
+export const PLAN_EMAIL_LIMITS: Record<PlanCode | LegacyPlanCode, number> = {
+  free: 100,
+  starter: 250,
+  growth: 1000,
+  custom: -1,
+  trial: 100,
+  basic: 500,
+  pro: 2000,
+  business: 7000,
+  professional: 500,
+  enterprise: 10000,
 };
 
-export const PLAN_DESCRIPTIONS: Record<PlanCode, string> = {
-  trial: "7-day short-term trial for trying core features",
-  free: "Lifetime free starter plan for small businesses",
-  basic: "For small businesses with growing needs and more team access",
-  pro: "For growing businesses with advanced features, API, and integrations",
-  business: "For larger teams with all features, multi-branch, and white-label support",
-  custom: "Custom pricing tailored to your business needs",
+// PDF/Print quota per plan
+export const PLAN_PDF_PRINT_LIMITS: Record<PlanCode | LegacyPlanCode, number> = {
+  free: 50,
+  starter: 250,
+  growth: 1000,
+  custom: -1,
+  trial: 50,
+  basic: 200,
+  pro: 500,
+  business: -1,
+  professional: 200,
+  enterprise: -1,
 };
+
+// Duration labels
+export const PLAN_DURATION: Record<string, string> = {
+  free: 'Lifetime Free',
+  starter: 'Monthly',
+  growth: 'Monthly',
+  custom: 'Custom',
+};
+
+// API/Webhooks enabled per plan
+export const PLAN_API_ENABLED: Record<PlanCode | LegacyPlanCode, boolean> = {
+  free: false,
+  starter: false,
+  growth: true,
+  custom: true,
+  trial: false,
+  basic: false,
+  pro: true,
+  business: true,
+  professional: true,
+  enterprise: true,
+};
+
+// Plan badge labels
+export const PLAN_BADGES: Record<string, string> = {
+  free: 'Lifetime Free',
+  starter: '',
+  growth: 'Popular',
+  custom: 'Custom',
+};
+
+// Plan descriptions
+export const PLAN_DESCRIPTIONS: Record<PlanCode, string> = {
+  free: 'Lifetime free starter plan for small businesses',
+  starter: 'For small businesses with growing needs and more team access',
+  growth: 'For growing businesses with advanced features, API, and integrations',
+  custom: 'Custom pricing tailored to your business needs',
+};
+
+// ============================================================
+// HELPER FUNCTIONS
+// ============================================================
 
 export function isCurrentPlan(code: string): boolean {
   return CURRENT_PLAN_CODES.includes(code as PlanCode);
@@ -229,24 +266,8 @@ export function isPaidPlan(code: string): boolean {
   return PAID_PLAN_CODES.includes(code as any);
 }
 
-export function getPlanEmailLimit(code: string): number {
-  return PLAN_EMAIL_LIMITS[code as PlanCode | LegacyPlanCode] ?? 100;
-}
-
-export function getPlanTrialDays(code: string): number {
-  return PLAN_TRIAL_DAYS[code] ?? 0;
-}
-
-export function getPlanDuration(code: string): string {
-  return PLAN_DURATION[code] ?? 'Monthly';
-}
-
-export function hasExternalApi(code: string): boolean {
-  return PLAN_EXTERNAL_API[code as PlanCode | LegacyPlanCode] ?? false;
-}
-
-export function getPlanBadge(code: string): string {
-  return PLAN_BADGES[code] ?? '';
+export function isTrialPlan(code: string): boolean {
+  return code === 'trial';
 }
 
 export function getPlanUserLimit(code: string): number {
@@ -257,16 +278,36 @@ export function getPlanProductLimit(code: string): number {
   return PLAN_PRODUCT_LIMITS[code as PlanCode | LegacyPlanCode] ?? 100;
 }
 
-export function getPlanPriceMonthly(code: string): number {
-  return PLAN_PRICES[code as PlanCode]?.monthly ?? 0;
+export function getPlanEmailLimit(code: string): number {
+  return PLAN_EMAIL_LIMITS[code as PlanCode | LegacyPlanCode] ?? 100;
 }
 
-export function getPlanPriceYearly(code: string): number {
-  return PLAN_PRICES[code as PlanCode]?.yearly ?? 0;
+export function getPlanPdfPrintLimit(code: string): number {
+  return PLAN_PDF_PRINT_LIMITS[code as PlanCode | LegacyPlanCode] ?? 50;
 }
 
-export function getPlanDescription(code: string): string {
-  return PLAN_DESCRIPTIONS[code as PlanCode] ?? '';
+export function getPlanPriceMonthly(code: PlanCode, currency: 'USD' | 'BDT' = 'BDT'): number {
+  return getPlanPrices(code, currency).monthly;
+}
+
+export function getPlanPriceYearly(code: PlanCode, currency: 'USD' | 'BDT' = 'BDT'): number {
+  return getPlanPrices(code, currency).yearly;
+}
+
+export function getPlanDuration(code: string): string {
+  return PLAN_DURATION[code] ?? 'Monthly';
+}
+
+export function hasExternalApi(code: string): boolean {
+  return PLAN_API_ENABLED[code as PlanCode | LegacyPlanCode] ?? false;
+}
+
+export function getPlanBadge(code: string): string {
+  return PLAN_BADGES[code] ?? '';
+}
+
+export function getPlanDescription(code: PlanCode): string {
+  return PLAN_DESCRIPTIONS[code] ?? '';
 }
 
 export function normalizePlanCode(code: string): PlanCode | LegacyPlanCode {
@@ -276,7 +317,14 @@ export function normalizePlanCode(code: string): PlanCode | LegacyPlanCode {
   return 'free' as PlanCode;
 }
 
-// Safe JSON parse - use this everywhere instead of raw JSON.parse
+export function getAvailableNextPlans(currentCode: string): PlanCode[] {
+  const order = PLAN_DISPLAY_ORDER;
+  const currentIndex = order.indexOf(currentCode as PlanCode);
+  if (currentIndex === -1) return [];
+  return order.slice(currentIndex + 1) as PlanCode[];
+}
+
+// Safe JSON parse
 export function safeJsonParse<T = object>(value: any, fallback: T | null = null): T | null {
   if (!value || typeof value !== 'string') {
     if (value && typeof value === 'object') return value as T;

@@ -6,6 +6,7 @@ import {
   USAGE_KEYS,
   CURRENT_PLAN_CODES,
   getPlanEmailLimit,
+  getPlanPdfPrintLimit,
   getPlanUserLimit,
   getPlanProductLimit,
   getPlanDuration,
@@ -13,10 +14,11 @@ import {
   getPlanDescription,
   getPlanPriceMonthly,
   getPlanPriceYearly,
-  hasExternalApi,
+  PLAN_API_ENABLED,
   isFeatureEnabled,
   normalizePlanCode,
   safeJsonParse,
+  PLAN_PRICES_BDT,
   type FeatureKey,
   type LegacyPlanCode,
   type PlanCode,
@@ -80,12 +82,12 @@ function isCurrentPlanCode(code: string): code is PlanCode {
 }
 
 function getPlanMonthlyPrice(code: BusinessDetailPlanCode, plan: SubscriptionPlan | null): number {
-  if (isCurrentPlanCode(code)) return getPlanPriceMonthly(code);
+  if (isCurrentPlanCode(code)) return getPlanPriceMonthly(code as PlanCode, 'BDT');
   return toNumber(plan?.priceMonthly, 0);
 }
 
 function getPlanYearlyPrice(code: BusinessDetailPlanCode, plan: SubscriptionPlan | null): number {
-  if (isCurrentPlanCode(code)) return getPlanPriceYearly(code);
+  if (isCurrentPlanCode(code)) return getPlanPriceYearly(code as PlanCode, 'BDT');
   return toNumber(plan?.priceYearly, 0);
 }
 
@@ -361,11 +363,15 @@ export class PlatformAdminService {
   ) {
     const subscription = business.subscription;
     const plan = subscription?.plan ?? null;
-    const planCode = normalizePlanCode(plan?.name ?? "free");
+const planCode = normalizePlanCode(plan?.name ?? "free");
     const features = getPlanFeatures(plan?.features);
-    const apiAccessEnabled = hasExternalApi(planCode);
+    const apiAccessEnabled = PLAN_API_ENABLED[planCode as PlanCode | LegacyPlanCode] ?? false;
     const smtpAccessEnabled = isFeatureEnabled(features, FEATURE_KEYS.CUSTOM_SMTP as FeatureKey);
     const owner = business.members.find((member) => member.isDefault) ?? business.members[0];
+
+    const planDescription = isCurrentPlanCode(planCode)
+      ? getPlanDescription(planCode as PlanCode)
+      : plan?.description || "";
 
     const userLimitOverride = getOverrideValue(business.usageOverrides, USAGE_KEYS.USERS_CREATED);
     const productLimitOverride = getOverrideValue(business.usageOverrides, USAGE_KEYS.PRODUCTS_CREATED);
@@ -396,7 +402,7 @@ export class PlatformAdminService {
       plan: {
         code: planCode,
         label: plan?.label ?? titleizePlan(planCode),
-        description: getPlanDescription(planCode) || plan?.description || "",
+        description: planDescription,
         badge: getPlanBadge(planCode),
         priceMonthly: getPlanMonthlyPrice(planCode, plan),
         priceYearly: getPlanYearlyPrice(planCode, plan),
@@ -497,16 +503,42 @@ export class PlatformAdminService {
     const plans = await prisma.subscriptionPlan.findMany({
       orderBy: { priceMonthly: "asc" },
     });
-    const filtered = plans.filter(p => CURRENT_PLAN_CODES.includes(p.name as any));
-    return filtered.map(p => ({
-      ...p,
-      maxUsers: getPlanUserLimit(p.name),
-      maxProducts: getPlanProductLimit(p.name),
-      emailLimit: getPlanEmailLimit(p.name),
-      duration: getPlanDuration(p.name),
-      badge: getPlanBadge(p.name),
-      apiEnabled: hasExternalApi(p.name),
-    }));
+
+    // Map legacy plan names to current V1 plan names
+    const planNameMap: Record<string, string> = {
+      trial: 'starter',
+      basic: 'starter',
+      pro: 'growth',
+      business: 'growth',
+    };
+
+    // New V1 plan names (free, starter, growth, custom)
+    const v1PlanNames = ['free', 'starter', 'growth', 'custom'];
+
+    return plans
+      .filter(p => {
+        const name = p.name.toLowerCase();
+        return v1PlanNames.includes(name) || name in planNameMap;
+      })
+      .map(p => {
+        const code = p.name.toLowerCase();
+        const currentCode = (planNameMap[code] ?? code) as PlanCode;
+        const bdtPrices = PLAN_PRICES_BDT[currentCode] ?? { monthly: 0, yearly: 0 };
+
+        return {
+          ...p,
+          maxUsers: getPlanUserLimit(currentCode),
+          maxProducts: getPlanProductLimit(currentCode),
+          emailLimit: getPlanEmailLimit(currentCode),
+          pdfPrintLimit: getPlanPdfPrintLimit(currentCode),
+          duration: getPlanDuration(currentCode),
+          badge: getPlanBadge(currentCode),
+          apiEnabled: PLAN_API_ENABLED[currentCode] ?? false,
+          webhooksEnabled: PLAN_API_ENABLED[currentCode] ?? false,
+          priceMonthly: bdtPrices.monthly,
+          priceYearly: bdtPrices.yearly,
+        };
+      });
   }
 
   /**

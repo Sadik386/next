@@ -18,6 +18,7 @@ import {
   X,
   XCircle,
   Zap,
+  FileText,
 } from "lucide-react";
 import {
   FEATURE_KEYS,
@@ -28,9 +29,13 @@ import {
   getPlanPriceYearly,
   getPlanProductLimit,
   getPlanUserLimit,
+  getPlanPdfPrintLimit,
   isUnlimited,
+  PLAN_DISPLAY_ORDER,
+  PLAN_PRICES_BDT,
+  type PlanCode,
 } from "@/lib/pricing";
-import type { FeatureKey, LegacyPlanCode, PlanCode } from "@/lib/pricing";
+import type { FeatureKey, LegacyPlanCode } from "@/lib/pricing";
 import { useSettings } from "@/contexts/SettingsContext";
 
 type DashboardPlanCode = PlanCode | LegacyPlanCode;
@@ -42,7 +47,7 @@ interface UsageLimit {
 
 interface SubscriptionData {
   plan: {
-    code: DashboardPlanCode;
+    code: LegacyPlanCode | PlanCode;
     label: string;
     description: string;
     badge: string;
@@ -60,6 +65,7 @@ interface SubscriptionData {
     users: UsageLimit;
     products: UsageLimit;
     emails: UsageLimit & { isUnlimited: boolean };
+    pdfPrint: UsageLimit & { isUnlimited: boolean };
     apiAccessEnabled: boolean;
     smtpAccessEnabled: boolean;
   };
@@ -99,7 +105,7 @@ const FEATURE_DEFINITIONS: Array<{
   { key: FEATURE_KEYS.CUSTOM_FIELDS, label: "Custom Fields", icon: List, description: "Custom data fields" },
 ];
 
-const UPGRADE_PLAN_CODES: PlanCode[] = ["basic", "pro", "business", "custom"];
+const UPGRADE_PLAN_CODES: PlanCode[] = ['starter', 'growth', 'custom'];
 
 const CONTACT_REASONS = [
   "Plan consultation",
@@ -235,7 +241,7 @@ function CurrentPlanCard({
           <div>
             <div style={{ display: "flex", alignItems: "baseline", gap: "6px", flexWrap: "wrap" }}>
               <span style={{ fontSize: "28px", fontWeight: 800, color: "var(--text-primary)" }}>
-                {price === 0 ? "Free" : `$${formatAmount(price)}`}
+                {price === 0 ? "Free" : `৳${formatAmount(price)}`}
               </span>
               {price > 0 && (
                 <span style={{ fontSize: "13px", color: "var(--text-muted)" }}>{period}</span>
@@ -243,7 +249,7 @@ function CurrentPlanCard({
             </div>
             {plan.priceMonthly > 0 && plan.priceYearly > 0 && (
               <div style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "4px" }}>
-                ${formatAmount(plan.priceMonthly)}/month or ${formatAmount(plan.priceYearly)}/year
+                ৳{formatAmount(plan.priceMonthly)}/month or ৳{formatAmount(plan.priceYearly)}/year
               </div>
             )}
           </div>
@@ -270,6 +276,9 @@ function UsageSection({ data }: { data: SubscriptionData }) {
   const emailPercent = data.usage.emails.isUnlimited
     ? 0
     : getUsagePercent(data.usage.emails.used, data.usage.emails.limit);
+  const pdfPrintPercent = data.usage.pdfPrint.isUnlimited
+    ? 0
+    : getUsagePercent(data.usage.pdfPrint.used, data.usage.pdfPrint.limit);
 
   return (
     <section style={{ ...cardStyle, marginTop: "16px" }}>
@@ -300,6 +309,14 @@ function UsageSection({ data }: { data: SubscriptionData }) {
           limit={data.usage.emails.limit}
           percent={emailPercent}
           description="Monthly email quota"
+        />
+        <UsageMetric
+          icon={<FileText size={16} />}
+          label="PDF/Print This Month"
+          used={data.usage.pdfPrint.used}
+          limit={data.usage.pdfPrint.limit}
+          percent={pdfPrintPercent}
+          description="Monthly PDF/Print quota"
         />
       </div>
 
@@ -504,9 +521,9 @@ function UpgradeActions({
   const [contactMessage, setContactMessage] = useState("");
   const [contactSubmitted, setContactSubmitted] = useState(false);
 
-  const planCode = plan.code;
-  const hasUpgrade = planCode !== "business" && planCode !== "custom";
-  const nextPlans = getAvailableNextPlans(planCode);
+  const planCode = plan.code as string;
+  const hasUpgrade = planCode !== "custom";
+  const nextPlans = getAvailableNextPlans(planCode as LegacyPlanCode | PlanCode);
 
   function openUpgradeModal() {
     setSelectedPlan(nextPlans[0]?.code ?? null);
@@ -784,6 +801,7 @@ function PlanOverview({ data, isCustom }: { data: SubscriptionData; isCustom: bo
     `${formatLimit(data.usage.users.limit)} team members`,
     `${formatLimit(data.usage.products.limit)} products`,
     `${formatLimit(data.usage.emails.limit)} emails/month`,
+    `${formatLimit(data.usage.pdfPrint.limit)} PDF/print/month`,
     data.usage.apiAccessEnabled ? "API access enabled" : "API access disabled",
   ];
 
@@ -880,33 +898,42 @@ function ReadOnlyField({ label, value }: { label: string; value: string }) {
   );
 }
 
-function getAvailableNextPlans(currentCode: DashboardPlanCode) {
-  const currentRank = getPlanUpgradeRank(currentCode);
-
-  return UPGRADE_PLAN_CODES
-    .filter((code) => getPlanUpgradeRank(code) > currentRank)
-    .map((code) => {
-      const monthly = getPlanPriceMonthly(code);
-      const yearly = getPlanPriceYearly(code);
-      const isCustomPlan = code === "custom";
-
-      return {
-        code,
-        label: formatPlanName(code),
-        badge: getPlanBadge(code),
-        description: getPlanDescription(code),
-        price: isCustomPlan ? "Custom pricing" : `$${formatAmount(monthly)}/mo`,
-        yearlyPrice: !isCustomPlan && yearly > 0 ? `$${formatAmount(yearly)}/year` : "",
-        limits: `${formatLimit(getPlanUserLimit(code))} users, ${formatLimit(getPlanProductLimit(code))} products, ${formatLimit(getPlanEmailLimit(code))} emails/mo`,
-      };
-    });
+function getAvailableNextPlans(currentCode: LegacyPlanCode | PlanCode) {
+  const planCode = currentCode as string;
+  const allPlans = PLAN_DISPLAY_ORDER;
+  const currentIndex = allPlans.indexOf(planCode as PlanCode);
+  if (currentIndex === -1) {
+    return UPGRADE_PLAN_CODES.map(code => ({
+      code,
+      label: formatPlanName(code),
+      badge: getPlanBadge(code),
+      description: (getPlanDescription as (code: any) => string)(code),
+      price: PLAN_PRICES_BDT[code]?.monthly ? `৳${PLAN_PRICES_BDT[code].monthly}/mo` : "Custom pricing",
+      yearlyPrice: PLAN_PRICES_BDT[code]?.yearly ? `৳${PLAN_PRICES_BDT[code].yearly}/year` : "",
+      limits: `${formatLimit(getPlanUserLimit(code))} users, ${formatLimit(getPlanProductLimit(code))} products`,
+    }));
+  }
+  return allPlans
+    .slice(currentIndex + 1)
+    .map((code) => ({
+      code,
+      label: formatPlanName(code),
+      badge: getPlanBadge(code),
+      description: (getPlanDescription as (code: any) => string)(code),
+      price: PLAN_PRICES_BDT[code as PlanCode]?.monthly ? `৳${PLAN_PRICES_BDT[code as PlanCode].monthly}/mo` : "Custom pricing",
+      yearlyPrice: PLAN_PRICES_BDT[code as PlanCode]?.yearly ? `৳${PLAN_PRICES_BDT[code as PlanCode].yearly}/year` : "",
+      limits: `${formatLimit(getPlanUserLimit(code))} users, ${formatLimit(getPlanProductLimit(code))} products`,
+    }));
 }
 
-function getPlanUpgradeRank(code: DashboardPlanCode): number {
+function getPlanUpgradeRank(code: string): number {
+  if (code === "free") return 0;
+  if (code === "starter") return 1;
+  if (code === "growth") return 2;
+  if (code === "custom") return 3;
   if (code === "basic") return 0;
   if (code === "pro" || code === "professional") return 1;
   if (code === "business" || code === "enterprise") return 2;
-  if (code === "custom") return 3;
   return -1;
 }
 
@@ -916,7 +943,10 @@ function getUsagePercent(used: number, limit: number): number {
   return Math.min((used / limit) * 100, 100);
 }
 
-function formatAmount(value: number): string {
+function formatAmount(value: number, currency: 'USD' | 'BDT' = 'BDT'): string {
+  if (currency === 'BDT') {
+    return value.toLocaleString('en-US');
+  }
   return Number.isInteger(value) ? value.toFixed(0) : value.toFixed(2);
 }
 

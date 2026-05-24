@@ -4,6 +4,9 @@ import { writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
 
+// VPS/Self-hosted note: Files are stored locally in public/uploads/.
+// Ensure persistent disk storage and regular backups for upload directory.
+
 const ALLOWED = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
 const MAX_BYTES = 5 * 1024 * 1024;
 
