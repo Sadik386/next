@@ -1,185 +1,221 @@
 import jsPDF from "jspdf"
 import { ExpenseSlipData } from "./types"
 
+type RGB = [number, number, number]
+
+const INK: RGB = [0, 0, 0]
+const TEXT: RGB = [20, 20, 20]
+const MUTED: RGB = [100, 100, 100]
+const BORDER: RGB = [220, 220, 220]
+const LIGHT_BORDER: RGB = [240, 240, 240]
+
+const PAGE_MARGIN = 20
+
 export async function generateExpenseSlipPDF(data: ExpenseSlipData): Promise<Blob> {
-  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: [203.2, 101.6] })
-  const W = doc.internal.pageSize.getWidth()  // ~203
-  const H = doc.internal.pageSize.getHeight() // ~101.6
-  const brand: [number, number, number] = [196, 151, 58]
-  const dark: [number, number, number] = [30, 30, 30]
-  const gray: [number, number, number] = [120, 120, 120]
-  const light: [number, number, number] = [245, 245, 245]
+  const doc = new jsPDF({ format: "a4", orientation: "portrait", unit: "mm" })
+  const pageWidth = doc.internal.pageSize.getWidth()
+  const pageHeight = doc.internal.pageSize.getHeight()
+  const rightX = pageWidth - PAGE_MARGIN
 
-  // LEFT STRIP - "EXPENSE VOUCHER" vertical
-  doc.setFillColor(...brand)
-  doc.rect(0, 0, 18, H, "F")
-  doc.setTextColor(255, 255, 255)
-  doc.setFontSize(8)
+  let y = 0
+
+  y = PAGE_MARGIN
+
   doc.setFont("helvetica", "bold")
-  doc.text("EXPENSE VOUCHER", 9, H - 8, { angle: 90, align: "left" })
+  doc.setFontSize(14)
+  doc.setTextColor(...INK)
+  doc.text(safe(data.business.name, ""), PAGE_MARGIN, y + 5)
 
-  // MAIN CONTENT AREA starts at x=22
-  const x = 22
-  const rightEdge = W - 10
-  const mid = x + (rightEdge - x) / 2
+  doc.setFont("helvetica", "normal")
+  doc.setFontSize(8.5)
+  doc.setTextColor(...MUTED)
+  const busLines = businessContactLines(data)
+  busLines.forEach((line, i) => {
+    doc.text(line, PAGE_MARGIN, y + 10 + i * 4)
+  })
 
-  // TITLE - Business Name
-  doc.setTextColor(...dark)
-  doc.setFontSize(12)
+  const titleY = y + 35
   doc.setFont("helvetica", "bold")
-  doc.text(data.business.name.toUpperCase(), x, 10)
+  doc.setFontSize(22)
+  doc.setTextColor(...INK)
+  doc.text("EXPENSE VOUCHER", PAGE_MARGIN, titleY)
 
-  // Subtitle - phone | email
-  doc.setFontSize(7)
   doc.setFont("helvetica", "normal")
-  doc.setTextColor(...gray)
-  const subtitle = [data.business.phone, data.business.email].filter(Boolean).join("  |  ")
-  if (subtitle) doc.text(subtitle, x, 16)
-
-  // Voucher # and Date on same line
-  doc.setFontSize(8)
-  doc.setTextColor(...gray)
-  doc.text(`Voucher #: ${data.expenseId}`, rightEdge - 80, 10)
-  doc.text(`Date: ${data.date}`, rightEdge, 10, { align: "right" })
-
-  // Divider
-  doc.setDrawColor(...brand)
-  doc.setLineWidth(0.5)
-  doc.line(x, 19, rightEdge, 19)
-
-  // ROW 1: Vendor + Amount
-  let y = 25
-  doc.setTextColor(...gray)
-  doc.setFontSize(6)
-  doc.setFont("helvetica", "normal")
-  doc.text("VENDOR", x, y - 2)
-  doc.text("AMOUNT", rightEdge - 40, y - 2)
-
-  doc.setTextColor(...dark)
   doc.setFontSize(9)
-  doc.setFont("helvetica", "bold")
-  doc.text(data.vendor || "", x, y + 3)
-  doc.text(`${data.currency} ${Number(data.amount).toFixed(2)}`, rightEdge, y + 3, { align: "right" })
-  doc.setLineWidth(0.25)
-  doc.setDrawColor(200, 200, 200)
-  doc.line(x, y + 6, mid - 5, y + 6)
-  doc.line(mid + 30, y + 6, rightEdge, y + 6)
+  doc.setTextColor(...MUTED)
+  doc.text("Voucher No:", PAGE_MARGIN, titleY + 9)
+  doc.setTextColor(...TEXT)
+  doc.text(safe(data.expenseId, "N/A"), PAGE_MARGIN + 20, titleY + 9)
 
-  // ROW 2: Vendor Receipt ID + Category
-  y += 13
-  doc.setTextColor(...gray)
-  doc.setFontSize(6)
+  doc.setTextColor(...MUTED)
+  doc.text("Date:", PAGE_MARGIN + 60, titleY + 9)
+  doc.setTextColor(...TEXT)
+  doc.text(safe(data.date, "N/A"), PAGE_MARGIN + 72, titleY + 9)
+
+  y = titleY + 14
+  doc.setDrawColor(...BORDER)
+  doc.setLineWidth(0.2)
+  doc.line(PAGE_MARGIN, y, rightX, y)
+  y += 10
+
+  doc.setFont("helvetica", "bold")
+  doc.setFontSize(9)
+  doc.setTextColor(...MUTED)
+  doc.text("VENDOR", PAGE_MARGIN, y)
+  doc.text("CATEGORY", PAGE_MARGIN + 70, y)
+  doc.text("PAYMENT METHOD", PAGE_MARGIN + 120, y)
+
   doc.setFont("helvetica", "normal")
-  doc.text("VENDOR RECEIPT ID", x, y - 2)
-  doc.text("CATEGORY", mid, y - 2)
+  doc.setFontSize(0.01)
 
-  doc.setTextColor(...dark)
-  doc.setFontSize(8)
+  y += 4
+  doc.setDrawColor(...LIGHT_BORDER)
+  doc.setLineWidth(0.1)
+  doc.line(PAGE_MARGIN, y, rightX, y)
+  y += 6
+
   doc.setFont("helvetica", "bold")
-  doc.text(data.receiptId || "", x, y + 3)
-  doc.text(data.category || "", mid, y + 3)
-  doc.setDrawColor(200, 200, 200)
-  doc.line(x, y + 6, mid - 5, y + 6)
-  doc.line(mid, y + 6, rightEdge, y + 6)
+  doc.setFontSize(10)
+  doc.setTextColor(...TEXT)
+  doc.text(safe(data.vendor, "—"), PAGE_MARGIN, y)
+  doc.text(safe(data.category, "—"), PAGE_MARGIN + 70, y)
+  doc.text(safe(data.paymentMethod, "—"), PAGE_MARGIN + 120, y)
 
-  // ROW 3: Payment Method + Reference #
-  y += 13
-  doc.setTextColor(...gray)
-  doc.setFontSize(6)
+  y += 8
+  doc.setDrawColor(...LIGHT_BORDER)
+  doc.setLineWidth(0.1)
+  doc.line(PAGE_MARGIN, y, rightX, y)
+  y += 8
+
+  doc.setFont("helvetica", "bold")
+  doc.setFontSize(9)
+  doc.setTextColor(...MUTED)
+  doc.text("DESCRIPTION", PAGE_MARGIN, y)
+  doc.text("NOTES", PAGE_MARGIN + 60, y)
+
+  y += 4
+  doc.setDrawColor(...LIGHT_BORDER)
+  doc.setLineWidth(0.1)
+  doc.line(PAGE_MARGIN, y, rightX, y)
+  y += 6
+
   doc.setFont("helvetica", "normal")
-  doc.text("PAYMENT METHOD", x, y - 2)
-  doc.text("REFERENCE #", mid, y - 2)
-
-  doc.setTextColor(...dark)
-  doc.setFontSize(8)
-  doc.setFont("helvetica", "bold")
-  doc.text(data.paymentMethod || "", x, y + 3)
-  doc.text(data.referenceNo || "", mid, y + 3)
-  doc.setDrawColor(200, 200, 200)
-  doc.line(x, y + 6, mid - 5, y + 6)
-  doc.line(mid, y + 6, rightEdge, y + 6)
-
-  // ROW 4: Description (full width)
-  y += 13
-  doc.setTextColor(...gray)
-  doc.setFontSize(6)
-  doc.setFont("helvetica", "normal")
-  doc.text("DESCRIPTION", x, y - 2)
-  doc.setTextColor(...dark)
-  doc.setFontSize(8)
-  doc.setFont("helvetica", "bold")
-  doc.text(data.description || "", x, y + 3)
-  doc.setDrawColor(200, 200, 200)
-  doc.line(x, y + 6, rightEdge, y + 6)
-
-  // ROW 5: Notes + Tax Amount (if has value)
-  y += 13
-  doc.setTextColor(...gray)
-  doc.setFontSize(6)
-  doc.setFont("helvetica", "normal")
-  doc.text("NOTES / MEMO", x, y - 2)
-
-  doc.setTextColor(...dark)
-  doc.setFontSize(8)
-  doc.setFont("helvetica", "bold")
+  doc.setFontSize(9)
+  doc.setTextColor(...TEXT)
+  doc.text(safe(data.description, "—"), PAGE_MARGIN, y, { maxWidth: 50 })
   if (data.notes) {
-    doc.text(data.notes, x, y + 3)
+    doc.text(data.notes, PAGE_MARGIN + 60, y, { maxWidth: rightX - PAGE_MARGIN - 60 })
   }
-  doc.setDrawColor(200, 200, 200)
-  doc.line(x, y + 6, mid - 5, y + 6)
 
-  // Tax on the right side of row 5
-  if (data.taxAmount && Number(data.taxAmount) > 0) {
-    doc.setTextColor(...gray)
-    doc.setFontSize(6)
-    doc.setFont("helvetica", "normal")
-    doc.text("TAX AMOUNT", mid, y - 2)
-    doc.setTextColor(...dark)
-    doc.setFontSize(8)
+  y += 10
+  doc.setDrawColor(...LIGHT_BORDER)
+  doc.setLineWidth(0.1)
+  doc.line(PAGE_MARGIN, y, rightX, y)
+  y += 8
+
+  if (data.receiptId || data.referenceNo || (data.taxAmount && Number(data.taxAmount) > 0)) {
     doc.setFont("helvetica", "bold")
-    const taxText = data.taxPercent
-      ? `${data.currency} ${Number(data.taxAmount).toFixed(2)} (${data.taxPercent}%)`
-      : `${data.currency} ${Number(data.taxAmount).toFixed(2)}`
-    doc.text(taxText, mid, y + 3)
+    doc.setFontSize(9)
+    doc.setTextColor(...MUTED)
+    doc.text("RECEIPT ID", PAGE_MARGIN, y)
+    doc.text("REFERENCE #", PAGE_MARGIN + 55, y)
+    if (data.taxAmount && Number(data.taxAmount) > 0) {
+      const taxLabel = data.taxPercent
+        ? `TAX (${data.taxPercent}%)`
+        : "TAX"
+      doc.text(taxLabel, PAGE_MARGIN + 100, y)
+    }
+
+    y += 4
+    doc.setDrawColor(...LIGHT_BORDER)
+    doc.setLineWidth(0.1)
+    doc.line(PAGE_MARGIN, y, rightX, y)
+    y += 6
+
+    doc.setFont("helvetica", "bold")
+    doc.setFontSize(10)
+    doc.setTextColor(...TEXT)
+    doc.text(safe(data.receiptId, "—"), PAGE_MARGIN, y)
+    doc.text(safe(data.referenceNo, "—"), PAGE_MARGIN + 55, y)
+    if (data.taxAmount && Number(data.taxAmount) > 0) {
+      doc.text(`${data.currency} ${Number(data.taxAmount).toFixed(2)}`, PAGE_MARGIN + 100, y)
+    }
+
+    y += 10
+    doc.setDrawColor(...LIGHT_BORDER)
+    doc.setLineWidth(0.1)
+    doc.line(PAGE_MARGIN, y, rightX, y)
+    y += 10
   }
-  doc.line(mid, y + 6, rightEdge, y + 6)
 
-  // BOTTOM DIVIDER
-  y += 11
-  doc.setDrawColor(...brand)
+  doc.setDrawColor(...BORDER)
   doc.setLineWidth(0.5)
-  doc.line(x, y, rightEdge, y)
+  doc.line(PAGE_MARGIN, y, rightX, y)
+  y += 8
 
-  // SIGNATURE ROW
-  y += 5
-  const sigW = (rightEdge - x) / 3
-  const sig1 = x
-  const sig2 = x + sigW
-  const sig3 = x + sigW * 2
+  doc.setFont("helvetica", "bold")
+  doc.setFontSize(11)
+  doc.setTextColor(...INK)
+  doc.text("AMOUNT", PAGE_MARGIN, y)
 
-  doc.setTextColor(...gray)
-  doc.setFontSize(6)
+  const amountText = `${data.currency} ${Number(data.amount).toFixed(2)}`
+  doc.setFontSize(18)
+  doc.text(amountText, rightX, y, { align: "right" })
+
+  y += 12
+  doc.setDrawColor(...BORDER)
+  doc.setLineWidth(0.2)
+  doc.line(PAGE_MARGIN, y, rightX, y)
+
+  y += 8
+  const sigW = (rightX - PAGE_MARGIN) / 3
+  const sig1 = PAGE_MARGIN
+  const sig2 = PAGE_MARGIN + sigW
+  const sig3 = PAGE_MARGIN + sigW * 2
+
   doc.setFont("helvetica", "normal")
+  doc.setFontSize(8)
+  doc.setTextColor(...MUTED)
   doc.text("PREPARED BY", sig1, y)
   doc.text("APPROVED BY", sig2, y)
-  doc.text("RECEIVED BY / SIGNATURE", sig3, y)
+  doc.text("RECEIVED BY", sig3, y)
 
-  doc.setTextColor(...dark)
-  doc.setFontSize(7)
+  y += 5
   doc.setFont("helvetica", "bold")
-  if (data.preparedBy) doc.text(data.preparedBy, sig1, y + 4)
-  if (data.approvedBy) doc.text(data.approvedBy, sig2, y + 4)
+  doc.setFontSize(8)
+  doc.setTextColor(...TEXT)
+  doc.text(safe(data.preparedBy, ""), sig1, y)
+  if (data.approvedBy) {
+    doc.text(safe(data.approvedBy, ""), sig2, y)
+  }
 
-  doc.setDrawColor(180, 180, 180)
+  doc.setDrawColor(...BORDER)
   doc.setLineWidth(0.25)
-  doc.line(sig1, y + 7, sig1 + 40, y + 7)
-  doc.line(sig2, y + 7, sig2 + 40, y + 7)
-  doc.line(sig3, y + 7, sig3 + 40, y + 7)
+  doc.line(sig1, y + 3, sig1 + 35, y + 3)
+  doc.line(sig2, y + 3, sig2 + 35, y + 3)
+  doc.line(sig3, y + 3, sig3 + 35, y + 3)
 
-  // FOOTER
-  doc.setTextColor(180, 180, 180)
-  doc.setFontSize(5.5)
-  doc.text(`${data.business.name} - Expense Voucher`, W / 2, H - 3, { align: "center" })
+  doc.setFont("helvetica", "normal")
+  doc.setFontSize(8)
+  doc.setTextColor(...MUTED)
+  doc.text(`${safe(data.business.name, "Business")} | Expense Voucher: ${safe(data.expenseId, "")}`, PAGE_MARGIN, pageHeight - 12)
 
   return doc.output("blob")
+}
+
+function businessContactLines(data: ExpenseSlipData) {
+  return compact([
+    data.business.address,
+    data.business.phone,
+    data.business.email,
+  ])
+}
+
+function safe(value: string | undefined | null, fallback: string) {
+  const text = String(value ?? "").trim()
+  return text.length > 0 ? text : fallback
+}
+
+function compact(values: Array<string | undefined | null>) {
+  return values.map((value) => String(value ?? "").trim()).filter(Boolean)
 }

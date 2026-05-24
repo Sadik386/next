@@ -7,6 +7,9 @@ import { generateExpenseSlipPDF } from "@/lib/pdf/expenseSlip";
 import { runWithBusinessContext } from "@/lib/business-context";
 import { guardPdfPrintUsage, incrementUsageSafely } from "@/lib/subscription-guard";
 import { USAGE_KEYS } from "@/lib/pricing";
+import { checkPdfUsageCount } from "@/lib/subscription-guard";
+import { buildDocumentProfile, toBusinessInfo } from "@/lib/pdf/documentProfile";
+import { formatDocumentDate } from "@/lib/pdf/formatters";
 
 export async function GET(
   req: NextRequest,
@@ -40,26 +43,17 @@ export async function GET(
       }
 
       const settings = await getSettings();
-      const currencySymbol = currencyPrefix(settings?.currency);
+      const profile = buildDocumentProfile(settings);
 
       const data = {
         expenseId: expense.expenseId,
-        date: new Date(expense.date).toLocaleDateString("en-GB", {
-          day: "2-digit",
-          month: "short",
-          year: "numeric",
-        }),
-        business: {
-          name: settings?.businessName || "My Business",
-          address: settings?.address ? `${settings.address}${settings.city ? ", " + settings.city : ""}` : undefined,
-          phone: settings?.phone ?? undefined,
-          email: settings?.email ?? undefined,
-        },
+        date: formatDocumentDate(expense.date),
+        business: toBusinessInfo(profile),
         vendor: expense.vendor,
         category: expense.category,
         amount: Number(expense.amount),
         currency: expense.currency,
-        currencySymbol,
+        currencySymbol: profile.currencySymbol,
         paymentMethod: expense.paymentMethod,
         receiptId: expense.receiptId ?? undefined,
         referenceNo: expense.referenceNo ?? undefined,
@@ -67,12 +61,17 @@ export async function GET(
         taxPercent: Number(expense.taxPercent) || undefined,
         description: expense.description ?? undefined,
         notes: expense.notes ?? undefined,
-        preparedBy: expense.createdByUser?.name ?? "N/A",
+        preparedBy: expense.createdByUser?.name ?? "",
+        approvedBy: undefined,
       };
 
       const pdfBlob = await generateExpenseSlipPDF(data);
 
-      incrementUsageSafely(auth.businessId, USAGE_KEYS.PDF_PRINT_COUNT);
+      const docId = id.toString();
+      const { counted } = checkPdfUsageCount(auth.businessId, "expense", docId);
+      if (counted) {
+        incrementUsageSafely(auth.businessId, USAGE_KEYS.PDF_PRINT_COUNT);
+      }
 
       return new NextResponse(pdfBlob, {
         headers: {
@@ -89,11 +88,4 @@ export async function GET(
       return NextResponse.json({ error: message }, { status: 500 });
     }
   });
-}
-
-function currencyPrefix(currency: string | null | undefined) {
-  if (currency === "USD") return "$";
-  if (currency === "EUR") return "EUR ";
-  if (currency === "BDT" || !currency) return "Tk ";
-  return `${currency} `;
 }
