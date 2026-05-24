@@ -16,6 +16,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Access denied: Business context required." }, { status: 403 });
   }
 
+  if (!user.role || !hasPermission(user.role as RoleName, PERMISSIONS.VIEW_PRODUCTS)) {
+    return NextResponse.json({ error: "Forbidden: Insufficient permissions." }, { status: 403 });
+  }
+
   return runWithBusinessContext(user, async () => {
     const sp = req.nextUrl.searchParams;
     const range = parseDateRangeFromSearchParams(sp);

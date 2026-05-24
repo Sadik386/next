@@ -1,15 +1,23 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { authenticateApiRequest, apiResponse, apiError } from "@/services/api.service";
 import { registerWebhook } from "@/services/webhook.service";
 import { guardWebhookCreation } from "@/lib/subscription-guard";
 import { prisma } from "@/lib/prisma";
+import { requirePermission } from "@/lib/rbac";
+import { PERMISSIONS } from "@/constants/permissions";
 
 export async function POST(req: NextRequest) {
+  let businessId: number | undefined;
   const auth = await authenticateApiRequest(req, "admin");
-  if ("error" in auth) return apiError(auth.error, auth.status);
+  if ("businessId" in auth) {
+    businessId = auth.businessId;
+  } else {
+    const rbacAuth = await requirePermission(req, PERMISSIONS.MANAGE_WEBHOOKS);
+    if (rbacAuth instanceof NextResponse) return apiError("Forbidden", 403);
+    businessId = rbacAuth.businessId;
+  }
 
-  // Guard webhook creation based on subscription/feature access
-  const guardResult = await guardWebhookCreation(auth.businessId);
+  const guardResult = await guardWebhookCreation(businessId);
   if (!guardResult.allowed) {
     return apiError(guardResult.reason || "Webhook creation denied", 403);
   }
@@ -20,7 +28,7 @@ export async function POST(req: NextRequest) {
   }
 
   const webhook = await registerWebhook({
-    businessId: auth.businessId,
+    businessId: businessId,
     name,
     url,
     events,
@@ -30,11 +38,18 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
+  let businessId: number | undefined;
   const auth = await authenticateApiRequest(req, "admin");
-  if ("error" in auth) return apiError(auth.error, auth.status);
+  if ("businessId" in auth) {
+    businessId = auth.businessId;
+  } else {
+    const rbacAuth = await requirePermission(req, PERMISSIONS.MANAGE_WEBHOOKS);
+    if (rbacAuth instanceof NextResponse) return apiError("Forbidden", 403);
+    businessId = rbacAuth.businessId;
+  }
 
   const webhooks = await prisma.webhook.findMany({
-    where: { businessId: auth.businessId },
+    where: { businessId: businessId },
   });
 
   return apiResponse(webhooks.map(wh => {

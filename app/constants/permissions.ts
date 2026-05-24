@@ -52,6 +52,8 @@ export const PERMISSIONS = {
   BACKUP_EXPORT: "backup_export",
   BACKUP_VALIDATE: "backup_validate",
   BACKUP_RESTORE: "backup_restore",
+  MANAGE_API_KEYS: "manage_api_keys",
+  MANAGE_WEBHOOKS: "manage_webhooks",
 } as const;
 
 export const BACKUP_EXPORT = PERMISSIONS.BACKUP_EXPORT;
@@ -92,6 +94,8 @@ export const ROLE_PERMISSIONS: Record<RoleName, Permission[]> = {
     PERMISSIONS.VIEW_REPORTS,
     PERMISSIONS.CREATE_DELETE_REQUEST,
     PERMISSIONS.BULK_CREATE_DELETE_REQUEST,
+    PERMISSIONS.MANAGE_WEBHOOKS,
+    PERMISSIONS.MANAGE_API_KEYS,
   ],
   [ROLES.STORE_KEEPER]: [
     PERMISSIONS.VIEW_DASHBOARD,

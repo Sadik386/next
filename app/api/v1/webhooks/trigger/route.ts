@@ -1,12 +1,13 @@
 import { NextRequest } from "next/server";
 import { triggerWebhook } from "@/services/webhook.service";
-import { requireAuth } from "@/lib/rbac";
+import { requirePermission } from "@/lib/rbac";
+import { PERMISSIONS } from "@/constants/permissions";
 import { apiResponse, apiError } from "@/services/api.service";
 import { checkRateLimit } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
   // Allow manually triggering for testing - requires admin login
-  const auth = await requireAuth(req);
+  const auth = await requirePermission(req, PERMISSIONS.MANAGE_WEBHOOKS);
   if (auth instanceof Response) return auth;
 
   if (!checkRateLimit(`webhook-trigger:${auth.businessId}`, { windowMs: 60 * 1000, maxRequests: 10 })) {
