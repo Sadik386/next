@@ -11,16 +11,20 @@ export default function LoginAuthLogic() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [checkingSetup, setCheckingSetup] = useState(true);
+  const [setupCheckFailed, setSetupCheckFailed] = useState(false);
 
   const redirectParam = searchParams.get('redirect');
 
   useEffect(() => {
     let isMounted = true;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
 
-    fetch("/api/setup/status")
+    fetch("/api/setup/status", { signal: controller.signal })
       .then((r) => r.json())
       .then((data) => {
         if (!isMounted) return;
+        clearTimeout(timeout);
         if (data.success !== false && !data.isComplete) {
           router.replace("/setup");
         } else {
@@ -28,11 +32,16 @@ export default function LoginAuthLogic() {
         }
       })
       .catch(() => {
-        if (isMounted) setCheckingSetup(false);
+        if (!isMounted) return;
+        clearTimeout(timeout);
+        setSetupCheckFailed(true);
+        setCheckingSetup(false);
       });
 
     return () => {
       isMounted = false;
+      clearTimeout(timeout);
+      controller.abort();
     };
   }, [router]);
 
@@ -61,10 +70,57 @@ export default function LoginAuthLogic() {
     }
   };
 
-  if (checkingSetup) {
+if (checkingSetup) {
     return (
       <div style={bgStyle}>
         <div style={spinnerStyle}>Loading...</div>
+      </div>
+    );
+  }
+
+  if (setupCheckFailed) {
+    return (
+      <div style={bgStyle}>
+        <div style={spinnerStyle}>
+          <div style={{ marginBottom: "16px", color: "#dc2626", fontSize: "13px", textAlign: "center" }}>
+            Could not verify setup status. Please try again.
+          </div>
+          <button
+            onClick={() => {
+              setSetupCheckFailed(false);
+              setCheckingSetup(true);
+              const controller = new AbortController();
+              const timeout = setTimeout(() => controller.abort(), 8000);
+              fetch("/api/setup/status", { signal: controller.signal })
+                .then((r) => r.json())
+                .then((data) => {
+                  if (data.success !== false && !data.isComplete) {
+                    router.replace("/setup");
+                  } else {
+                    setCheckingSetup(false);
+                  }
+                })
+                .catch(() => {
+                  setSetupCheckFailed(true);
+                  setCheckingSetup(false);
+                })
+                .finally(() => clearTimeout(timeout));
+            }}
+            style={{
+              width: "100%",
+              padding: "10px",
+              backgroundColor: "#C4973A",
+              color: "white",
+              borderRadius: "8px",
+              border: "none",
+              fontSize: "13px",
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            Retry
+          </button>
+        </div>
       </div>
     );
   }

@@ -16,7 +16,7 @@ import {
   isRoleName,
   type RoleName,
 } from "@/constants/roles";
-import { USAGE_KEYS } from "@/lib/pricing";
+import { USAGE_KEYS, PLAN_NAMES } from "@/lib/pricing";
 import { guardUserCreation } from "@/lib/subscription-guard";
 import { incrementUsageSafely } from "@/lib/usage-service";
 
@@ -573,7 +573,7 @@ export async function approveRegistrationRequest(
       },
     });
 
-    await tx.activityLog.create({
+await tx.activityLog.create({
       data: {
         businessId: assignment.actor.businessId,
         userId: assignment.actor.id,
@@ -584,6 +584,35 @@ export async function approveRegistrationRequest(
         description: `Approved registration request for ${registration.email} and created user account`,
       },
     });
+
+    const freePlan = await tx.subscriptionPlan.findUnique({
+      where: { name: PLAN_NAMES.FREE },
+    });
+    if (freePlan) {
+      const now = new Date();
+      const currentPeriodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+      await tx.subscription.upsert({
+        where: { businessId: assignment.actor.businessId },
+        update: {
+          planId: freePlan.id,
+          status: "active",
+          billingCycle: "monthly",
+          currentPeriodStart: now,
+          currentPeriodEnd,
+          cancelAtPeriodEnd: false,
+          canceledAt: null,
+          pausedAt: null,
+        },
+        create: {
+          businessId: assignment.actor.businessId,
+          planId: freePlan.id,
+          status: "active",
+          billingCycle: "monthly",
+          currentPeriodStart: now,
+          currentPeriodEnd,
+        },
+      });
+    }
 
     return createdUser;
   });

@@ -65,6 +65,9 @@ export async function GET(req: NextRequest) {
       currentUnpaidOrders,
       previousUnpaidOrders,
       stockRows,
+      productCount,
+      customerCount,
+      settingRow,
     ] = await Promise.all([
       prisma.sale.aggregate({
         where: { businessId, deletedAt: null, date: currentDate },
@@ -103,6 +106,25 @@ export async function GET(req: NextRequest) {
       prisma.stock.findMany({
         where: { businessId, product: { deletedAt: null } },
         select: { quantity: true, threshold: true },
+      }),
+      prisma.product.count({
+        where: { businessId, deletedAt: null },
+      }),
+      prisma.customer.count({
+        where: { businessId, deletedAt: null },
+      }),
+      prisma.setting.findUnique({
+        where: { businessId },
+        select: {
+          businessName: true,
+          phone: true,
+          address: true,
+          logoUrl: true,
+          isSetupComplete: true,
+          email: true,
+          city: true,
+          country: true,
+        },
       }),
     ]);
 
@@ -161,6 +183,35 @@ export async function GET(req: NextRequest) {
         recentLogins24h,
       };
     }
+
+    const isBusinessEmpty = productCount === 0 && customerCount === 0 && currentOrders === 0;
+    const profileMissing = settingRow
+      ? !(settingRow.businessName && settingRow.businessName !== "My Business") ||
+        !settingRow.phone ||
+        !settingRow.address
+      : false;
+    const profileCompleteness = settingRow
+      ? [
+          settingRow.businessName && settingRow.businessName !== "My Business",
+          Boolean(settingRow.email),
+          Boolean(settingRow.phone),
+          Boolean(settingRow.address),
+          Boolean(settingRow.logoUrl),
+        ].filter(Boolean).length
+      : 0;
+
+    result.onboarding = {
+      isNew: isBusinessEmpty,
+      productCount,
+      customerCount,
+      profileMissing,
+      profileCompleteness,
+      profileCompletenessTotal: 5,
+      businessName: settingRow?.businessName ?? null,
+      phone: settingRow?.phone ?? null,
+      address: settingRow?.address ?? null,
+      logoUrl: settingRow?.logoUrl ?? null,
+    };
 
     return NextResponse.json(result);
   });

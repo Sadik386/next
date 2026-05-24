@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { getUpdateStatus } from "@/lib/updates";
 import { signToken } from "@/lib/jwt";
 import { hashPassword } from "@/lib/password";
+import { PLAN_NAMES } from "@/lib/pricing";
 
 export class SetupServiceError extends Error {
   status: number;
@@ -223,6 +224,38 @@ export async function completeSetup(input: CompleteSetupInput) {
           currency: "BDT",
           brandColor: "#C4973A",
           weekStartDay: 0,
+        },
+      });
+
+      const freePlan = await tx.subscriptionPlan.findUnique({
+        where: { name: PLAN_NAMES.FREE },
+      });
+      if (!freePlan) {
+        throw new SetupServiceError("Free plan not found. Run seed first.", 500);
+      }
+
+      const now = new Date();
+      const currentPeriodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+      await tx.subscription.upsert({
+        where: { businessId: business.id },
+        update: {
+          planId: freePlan.id,
+          status: "active",
+          billingCycle: "monthly",
+          currentPeriodStart: now,
+          currentPeriodEnd,
+          cancelAtPeriodEnd: false,
+          canceledAt: null,
+          pausedAt: null,
+        },
+        create: {
+          businessId: business.id,
+          planId: freePlan.id,
+          status: "active",
+          billingCycle: "monthly",
+          currentPeriodStart: now,
+          currentPeriodEnd,
         },
       });
 
