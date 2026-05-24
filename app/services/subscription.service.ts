@@ -18,6 +18,7 @@ import {
   isUnlimited,
   normalizePlanCode,
   safeJsonParse,
+  getPlanDisplayLabel,
   type FeatureKey,
   type LegacyPlanCode,
   type PlanCode,
@@ -94,17 +95,19 @@ function toIso(value: Date | null | undefined): string | null {
   return value ? value.toISOString() : null;
 }
 
-function titleizePlan(code: string): string {
-  return `${code.charAt(0).toUpperCase()}${code.slice(1)}`;
+function getNormalizedLabel(code: string): string {
+  return getPlanDisplayLabel(code);
 }
 
 function getPlanMonthlyPrice(code: DashboardPlanCode, plan: PlanRecord | null): number {
-  if (isCurrentPlan(code)) return getPlanPriceMonthly(code as PlanCode);
+  const normalizedCode = normalizePlanCode(code);
+  if (isCurrentPlan(normalizedCode)) return getPlanPriceMonthly(normalizedCode as PlanCode);
   return toNumber(plan?.priceMonthly, 0);
 }
 
 function getPlanYearlyPrice(code: DashboardPlanCode, plan: PlanRecord | null): number {
-  if (isCurrentPlan(code)) return getPlanPriceYearly(code as PlanCode);
+  const normalizedCode = normalizePlanCode(code);
+  if (isCurrentPlan(normalizedCode)) return getPlanPriceYearly(normalizedCode as PlanCode);
   return toNumber(plan?.priceYearly, 0);
 }
 
@@ -160,7 +163,7 @@ const planCode = normalizePlanCode(plan?.name ?? PLAN_NAMES.FREE);
 return {
     plan: {
       code: planCode,
-      label: plan?.label ?? titleizePlan(planCode),
+      label: getNormalizedLabel(planCode),
       description: planDescription,
       badge: getPlanBadge(planCode),
       status: subscription?.status ?? SUBSCRIPTION_STATUS.ACTIVE,

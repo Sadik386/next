@@ -98,13 +98,13 @@ export default function PlatformBusinesses() {
                   <td style={tdStyle}><code style={{ fontSize: "12px", color: "var(--text-secondary)" }}>{b.slug}</code></td>
                   <td style={tdStyle}>{b.ownerEmail}</td>
                   <td style={tdStyle}>
-                    <span style={{ 
-                      padding: "4px 8px", 
-                      borderRadius: "6px", 
-                      fontSize: "12px", 
+                    <span style={{
+                      padding: "4px 8px",
+                      borderRadius: "6px",
+                      fontSize: "12px",
                       fontWeight: 600,
-                      backgroundColor: b.plan === "Pro" ? "#7c3aed20" : b.plan === "Business" ? "#2563eb20" : "var(--page-bg)",
-                      color: b.plan === "Pro" ? "#7c3aed" : b.plan === "Business" ? "#2563eb" : "var(--text-secondary)"
+                      backgroundColor: b.plan === "Business" ? "#2563eb20" : "var(--page-bg)",
+                      color: b.plan === "Business" ? "#2563eb" : "var(--text-secondary)"
                     }}>
                       {b.plan}
                     </span>

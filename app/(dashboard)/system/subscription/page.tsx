@@ -27,17 +27,16 @@ import {
   FEATURE_KEYS,
   getPlanBadge,
   getPlanDescription,
-  getPlanEmailLimit,
-  getPlanPriceMonthly,
-  getPlanPriceYearly,
   getPlanProductLimit,
   getPlanUserLimit,
-  getPlanPdfPrintLimit,
   isCurrentPlan,
   isPaidPlan,
   isUnlimited,
+  normalizePlanCode,
   PLAN_DISPLAY_ORDER,
+  PLAN_LABELS,
   PLAN_PRICES_BDT,
+  PLAN_PRICES_USD,
   PLAN_USER_LIMITS,
   PLAN_PRODUCT_LIMITS,
   PLAN_EMAIL_LIMITS,
@@ -48,8 +47,6 @@ import {
   type FeatureKey,
 } from "@/lib/pricing";
 import { useSettings } from "@/contexts/SettingsContext";
-
-type DashboardPlanCode = PlanCode | LegacyPlanCode;
 
 interface UsageLimit {
   used: number;
@@ -115,8 +112,6 @@ const FEATURE_DEFINITIONS: Array<{
   { key: FEATURE_KEYS.ADVANCED_REPORTS, label: "Advanced Reports", icon: BarChart3, description: "Expanded analytics" },
   { key: FEATURE_KEYS.CUSTOM_FIELDS, label: "Custom Fields", icon: List, description: "Custom data fields" },
 ];
-
-const UPGRADE_PLAN_CODES: PlanCode[] = ['starter', 'growth', 'custom'];
 
 const CONTACT_REASONS = [
   "Plan consultation",
@@ -205,16 +200,20 @@ function CurrentPlanCard({
 }) {
   const statusColor = plan.isActive ? STATUS_COLORS[plan.status] ?? "#6b7280" : "#ef4444";
   const statusLabel = plan.isActive ? STATUS_LABELS[plan.status] ?? plan.status : "Inactive";
-  const isYearly = plan.billingCycle === "yearly";
-  const price = isYearly ? plan.priceYearly : plan.priceMonthly;
-  const period = isYearly ? "/year" : "/month";
+  const isYearly = false;
+  const planCode = normalizePlanCode(plan.code as string);
+  const displayLabel = PLAN_LABELS[planCode] ?? PLAN_LABELS[plan.code as string] ?? plan.label;
+  const canonicalPrices = PLAN_PRICES_BDT[planCode as PlanCode];
+  const canonicalPrice = canonicalPrices ? canonicalPrices.monthly : plan.priceMonthly;
+  const price = canonicalPrice;
+  const period = "/month";
 
   return (
     <section style={cardStyle}>
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: "12px" }}>
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "4px" }}>
-            <h2 style={{ fontSize: "18px", fontWeight: 700, color: "var(--text-primary)" }}>{plan.label}</h2>
+            <h2 style={{ fontSize: "18px", fontWeight: 700, color: "var(--text-primary)" }}>{displayLabel}</h2>
             {plan.badge && (
               <span style={badgeStyle}>
                 {plan.badge}
@@ -261,9 +260,12 @@ function CurrentPlanCard({
                 <span style={{ fontSize: "13px", color: "var(--text-muted)" }}>{period}</span>
               )}
             </div>
-            {plan.priceMonthly > 0 && plan.priceYearly > 0 && (
+            {plan.priceMonthly > 0 && (
               <div style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "4px" }}>
-                ৳{formatAmount(plan.priceMonthly)}/month or ৳{formatAmount(plan.priceYearly)}/year
+                ৳{formatAmount(plan.priceMonthly)}/month
+                <span style={{ marginLeft: "8px", fontStyle: "italic" }}>
+                  (${plan.priceMonthly < 1000 ? Math.round(plan.priceMonthly / 100) : (plan.priceMonthly / 100).toFixed(2)}/mo reference)
+                </span>
               </div>
             )}
           </div>
@@ -530,7 +532,7 @@ function UpgradeRecommendations({ data }: { data: SubscriptionData }) {
   if (!data.usage.apiAccessEnabled && isCurrentPlan(data.plan.code)) {
     recommendations.push({
       icon: Zap,
-      message: "Need API access or webhooks? Upgrade to Growth for advanced integrations.",
+      message: "Need API access or webhooks? Upgrade to Business for advanced integrations.",
       severity: "info",
     });
   }
@@ -581,7 +583,7 @@ function UpgradeRecommendations({ data }: { data: SubscriptionData }) {
 }
 
 function PlanComparisonTable({ data }: { data: SubscriptionData }) {
-  const plans = ["free", "starter", "growth"] as PlanCode[];
+  const plans = ["free", "starter", "business"] as PlanCode[];
   const currentCode = data.plan.code as string;
 
   const rows = [
@@ -659,12 +661,11 @@ function PlanComparisonTable({ data }: { data: SubscriptionData }) {
   );
 }
 
-function getPlanRank(code: string): number {
-  if (code === "free") return 0;
-  if (code === "starter" || code === "basic" || code === "pro") return 1;
-  if (code === "growth" || code === "business" || code === "professional") return 2;
-  if (code === "custom" || code === "enterprise") return 3;
-  return -1;
+function formatAmount(value: number, currency: 'USD' | 'BDT' = 'BDT'): string {
+  if (currency === 'BDT') {
+    return value.toLocaleString('en-US');
+  }
+  return Number.isInteger(value) ? value.toFixed(0) : value.toFixed(2);
 }
 
 function AccessStatus({
@@ -788,8 +789,10 @@ function UpgradeActions({
   const [contactSubmitted, setContactSubmitted] = useState(false);
 
   const planCode = plan.code as string;
-  const hasUpgrade = planCode !== "custom";
-  const nextPlans = getAvailableNextPlans(planCode as LegacyPlanCode | PlanCode);
+  const normalizedCode = normalizePlanCode(planCode);
+  const displayPlanLabel = PLAN_LABELS[normalizedCode] ?? PLAN_LABELS[planCode] ?? plan.label;
+  const hasUpgrade = normalizedCode !== "custom";
+  const nextPlans = getAvailableNextPlans(normalizedCode as LegacyPlanCode | PlanCode);
 
   function openUpgradeModal() {
     setSelectedPlan(nextPlans[0]?.code ?? null);
@@ -922,7 +925,7 @@ function UpgradeActions({
             <div style={{ display: "grid", gap: "16px" }}>
               <SummaryRows
                 rows={[
-                  ["Current Plan", plan.label],
+                  ["Current Plan", displayPlanLabel],
                   ["Billing Cycle", titleize(plan.billingCycle)],
                   ["Payment Status", "Manual billing follow-up"],
                 ]}
@@ -957,8 +960,8 @@ function UpgradeActions({
                         </div>
                         <div style={{ textAlign: "right", flexShrink: 0 }}>
                           <div style={{ fontSize: "13px", fontWeight: 700, color: "var(--text-primary)" }}>{option.price}</div>
-                          {option.yearlyPrice && (
-                            <div style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "2px" }}>{option.yearlyPrice}</div>
+                          {option.usdReference && (
+                            <div style={{ fontSize: "10px", color: "var(--text-muted)", marginTop: "2px", fontStyle: "italic" }}>{option.usdReference}</div>
                           )}
                         </div>
                       </button>
@@ -1007,7 +1010,7 @@ function UpgradeActions({
           ) : (
             <form onSubmit={submitContactRequest} style={{ display: "grid", gap: "14px" }}>
               <ReadOnlyField label="Business Name" value={businessName} />
-              <ReadOnlyField label="Current Plan" value={plan.label} />
+              <ReadOnlyField label="Current Plan" value={displayPlanLabel} />
 
               <label style={fieldLabelStyle}>
                 Contact Reason
@@ -1165,55 +1168,33 @@ function ReadOnlyField({ label, value }: { label: string; value: string }) {
 }
 
 function getAvailableNextPlans(currentCode: LegacyPlanCode | PlanCode) {
-  const planCode = currentCode as string;
+  const normalizedCode = normalizePlanCode(currentCode as string);
   const allPlans = PLAN_DISPLAY_ORDER;
-  const currentIndex = allPlans.indexOf(planCode as PlanCode);
+  const currentIndex = allPlans.indexOf(normalizedCode as PlanCode);
   if (currentIndex === -1) {
-    return UPGRADE_PLAN_CODES.map(code => ({
-      code,
-      label: formatPlanName(code),
-      badge: getPlanBadge(code),
-      description: (getPlanDescription as (code: any) => string)(code),
-      price: PLAN_PRICES_BDT[code]?.monthly ? `৳${PLAN_PRICES_BDT[code].monthly}/mo` : "Custom pricing",
-      yearlyPrice: PLAN_PRICES_BDT[code]?.yearly ? `৳${PLAN_PRICES_BDT[code].yearly}/year` : "",
-      limits: `${formatLimit(getPlanUserLimit(code))} users, ${formatLimit(getPlanProductLimit(code))} products`,
-    }));
+    return [];
   }
   return allPlans
     .slice(currentIndex + 1)
-    .map((code) => ({
-      code,
-      label: formatPlanName(code),
-      badge: getPlanBadge(code),
-      description: (getPlanDescription as (code: any) => string)(code),
-      price: PLAN_PRICES_BDT[code as PlanCode]?.monthly ? `৳${PLAN_PRICES_BDT[code as PlanCode].monthly}/mo` : "Custom pricing",
-      yearlyPrice: PLAN_PRICES_BDT[code as PlanCode]?.yearly ? `৳${PLAN_PRICES_BDT[code as PlanCode].yearly}/year` : "",
-      limits: `${formatLimit(getPlanUserLimit(code))} users, ${formatLimit(getPlanProductLimit(code))} products`,
-    }));
-}
-
-function getPlanUpgradeRank(code: string): number {
-  if (code === "free") return 0;
-  if (code === "starter") return 1;
-  if (code === "growth") return 2;
-  if (code === "custom") return 3;
-  if (code === "basic") return 0;
-  if (code === "pro" || code === "professional") return 1;
-  if (code === "business" || code === "enterprise") return 2;
-  return -1;
+    .map((code) => {
+      const bdtPrices = PLAN_PRICES_BDT[code as PlanCode];
+      const usdPrices = PLAN_PRICES_USD[code as PlanCode];
+      return {
+        code,
+        label: formatPlanName(code),
+        badge: getPlanBadge(code),
+        description: (getPlanDescription as (code: any) => string)(code),
+        price: bdtPrices?.monthly ? `৳${bdtPrices.monthly}/mo` : "Custom pricing",
+        usdReference: usdPrices?.monthly ? `$${usdPrices.monthly}/mo reference` : "",
+        limits: `${formatLimit(getPlanUserLimit(code))} users, ${formatLimit(getPlanProductLimit(code))} products`,
+      };
+    });
 }
 
 function getUsagePercent(used: number, limit: number): number {
   if (isUnlimited(limit) || limit < 0) return 0;
   if (limit === 0) return used > 0 ? 100 : 0;
   return Math.min((used / limit) * 100, 100);
-}
-
-function formatAmount(value: number, currency: 'USD' | 'BDT' = 'BDT'): string {
-  if (currency === 'BDT') {
-    return value.toLocaleString('en-US');
-  }
-  return Number.isInteger(value) ? value.toFixed(0) : value.toFixed(2);
 }
 
 function formatCount(value: number): string {

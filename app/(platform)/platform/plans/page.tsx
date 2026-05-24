@@ -26,6 +26,7 @@ import {
   getPlanDuration,
   getPlanBadge,
   PLAN_DISPLAY_ORDER,
+  PLAN_LABELS,
   PLAN_API_ENABLED,
   PLAN_PRICES_BDT,
   PLAN_PRICES_USD,
@@ -122,11 +123,12 @@ export default function PlatformPlans() {
       .finally(() => setLoading(false));
   }, []);
 
+  const ALLOWED_PLANS = ['free', 'starter', 'business', 'custom'];
   const sortedPlans = [...plans].sort((a, b) => {
     const aIdx = PLAN_DISPLAY_ORDER.indexOf(a.name as PlanCode);
     const bIdx = PLAN_DISPLAY_ORDER.indexOf(b.name as PlanCode);
     return (aIdx === -1 ? 999 : aIdx) - (bIdx === -1 ? 999 : bIdx);
-  });
+  }).filter(p => ALLOWED_PLANS.includes(p.name.toLowerCase()));
 
   if (loading) {
     return (
@@ -152,7 +154,7 @@ export default function PlatformPlans() {
           const badge = plan.badge;
           const apiEnabled = plan.apiEnabled;
           const webhooksEnabled = plan.webhooksEnabled;
-          const isPopular = plan.name === "growth";
+          const isPopular = plan.name === "business";
           const isFree = plan.name === "free";
           const isCustom = plan.name === "custom";
           const isStarter = plan.name === "starter";
@@ -160,6 +162,7 @@ export default function PlatformPlans() {
 
           const bdtPrice = PLAN_PRICES_BDT[plan.name as PlanCode]?.monthly;
           const usdPrice = PLAN_PRICES_USD[plan.name as PlanCode]?.monthly;
+          const displayName = PLAN_LABELS[plan.name] ?? plan.label;
 
           return (
             <div key={plan.id} style={{
@@ -231,7 +234,7 @@ export default function PlatformPlans() {
                   <div style={{ fontSize: "10px", fontWeight: 700, color: isPopular ? "var(--brand)" : "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "3px" }}>
                     {plan.name}
                   </div>
-                  <h2 style={{ fontSize: "18px", fontWeight: 700, color: "var(--text-primary)", marginBottom: "4px" }}>{plan.label}</h2>
+                  <h2 style={{ fontSize: "18px", fontWeight: 700, color: "var(--text-primary)", marginBottom: "4px" }}>{displayName}</h2>
                   <p style={{ fontSize: "11px", color: "var(--text-muted)", lineHeight: 1.4 }}>{plan.description}</p>
                 </div>
 

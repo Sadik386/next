@@ -134,7 +134,7 @@ const planFeatures = {
     twoFactorAuth: false,
     auditLog: false,
   },
-  growth: {
+  business: {
     customSmtp: true,
     apiAccess: true,
     webhooks: true,
@@ -189,7 +189,7 @@ const planUsageLimits = {
     pdfPrintCount: 250,
     storageMb: 500,
   },
-  growth: {
+  business: {
     ordersCreated: 500,
     salesCreated: 1000,
     productsCreated: 500,
@@ -247,15 +247,15 @@ const subscriptionPlans = [
     isTrial: false,
   },
   {
-    name: "growth",
-    label: "Growth",
+    name: "business",
+    label: "Business",
     description: "For growing businesses with advanced features, API, and integrations",
     priceMonthly: 2490,
     priceYearly: 24900,
     maxUsers: 10,
     maxProducts: 500,
-    features: JSON.stringify(planFeatures.growth),
-    usageLimits: JSON.stringify(planUsageLimits.growth),
+    features: JSON.stringify(planFeatures.business),
+    usageLimits: JSON.stringify(planUsageLimits.business),
     isActive: true,
     isTrial: false,
   },
@@ -481,10 +481,10 @@ async function seedSubscriptionPlans() {
     });
   }
 
-  // Deactivate legacy plan names (trial, basic, pro, business)
+  // Deactivate legacy plan names (trial, basic, pro, growth, business old enterprise, professional, enterprise)
   await prisma.subscriptionPlan.updateMany({
     where: {
-      name: { in: ["trial", "basic", "pro", "business", "starter", "professional", "enterprise"] },
+      name: { in: ["trial", "basic", "pro", "growth", "professional", "enterprise"] },
     },
     data: { isActive: false, isTrial: false },
   });

@@ -19,6 +19,7 @@ import {
   normalizePlanCode,
   safeJsonParse,
   PLAN_PRICES_BDT,
+  getPlanDisplayLabel,
   type FeatureKey,
   type LegacyPlanCode,
   type PlanCode,
@@ -73,8 +74,8 @@ function toIso(value: Date | null | undefined): string | null {
   return value ? value.toISOString() : null;
 }
 
-function titleizePlan(code: string): string {
-  return `${code.charAt(0).toUpperCase()}${code.slice(1)}`;
+function getNormalizedLabel(code: string): string {
+  return getPlanDisplayLabel(code);
 }
 
 function isCurrentPlanCode(code: string): code is PlanCode {
@@ -401,7 +402,7 @@ const planCode = normalizePlanCode(plan?.name ?? "free");
       },
       plan: {
         code: planCode,
-        label: plan?.label ?? titleizePlan(planCode),
+        label: getNormalizedLabel(planCode),
         description: planDescription,
         badge: getPlanBadge(planCode),
         priceMonthly: getPlanMonthlyPrice(planCode, plan),
@@ -473,17 +474,20 @@ const planCode = normalizePlanCode(plan?.name ?? "free");
       orderBy: { createdAt: "desc" },
     });
 
-    return businesses.map(b => ({
-      id: b.id,
-      name: b.name,
-      slug: b.slug,
-      isActive: b.isActive,
-      createdAt: b.createdAt,
-      plan: b.subscription?.plan.label || "Free",
-      subscriptionStatus: b.subscription?.status || "none",
-      userCount: b._count.members,
-      ownerEmail: b.members[0]?.user.email || "—",
-    }));
+    return businesses.map(b => {
+      const rawLabel = b.subscription?.plan.label || "Free";
+      return {
+        id: b.id,
+        name: b.name,
+        slug: b.slug,
+        isActive: b.isActive,
+        createdAt: b.createdAt,
+        plan: getPlanDisplayLabel(rawLabel),
+        subscriptionStatus: b.subscription?.status || "none",
+        userCount: b._count.members,
+        ownerEmail: b.members[0]?.user.email || "—",
+      };
+    });
   }
 
   /**
@@ -508,12 +512,12 @@ const planCode = normalizePlanCode(plan?.name ?? "free");
     const planNameMap: Record<string, string> = {
       trial: 'starter',
       basic: 'starter',
-      pro: 'growth',
-      business: 'growth',
+      pro: 'business',
+      growth: 'business',
     };
 
     // New V1 plan names (free, starter, growth, custom)
-    const v1PlanNames = ['free', 'starter', 'growth', 'custom'];
+    const v1PlanNames = ['free', 'starter', 'business', 'custom'];
 
     return plans
       .filter(p => {

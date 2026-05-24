@@ -38,7 +38,7 @@ export type FeatureKey = typeof FEATURE_KEYS[keyof typeof FEATURE_KEYS];
 export const PLAN_IDS = {
   FREE: 'free',
   STARTER: 'starter',
-  GROWTH: 'growth',
+  BUSINESS: 'business',
   CUSTOM: 'custom',
 } as const;
 
@@ -46,7 +46,7 @@ export const PLAN_IDS = {
 export const PLAN_NAMES = {
   FREE: 'free',
   STARTER: 'starter',
-  GROWTH: 'growth',
+  BUSINESS: 'business',
   CUSTOM: 'custom',
 } as const;
 
@@ -118,12 +118,19 @@ export const BILLING_CYCLE = {
 
 // Trial is subscription STATUS only, not a display plan.
 // Paid plans include 7-day free trial option.
-export const CURRENT_PLAN_CODES = ['free', 'starter', 'growth', 'custom'] as const;
-export const LEGACY_PLAN_CODES = ['trial', 'basic', 'pro', 'business', 'starter', 'professional', 'enterprise'] as const;
-export const PAID_PLAN_CODES = ['starter', 'growth', 'custom'] as const;
+export const CURRENT_PLAN_CODES = ['free', 'starter', 'business', 'custom'] as const;
+export const LEGACY_PLAN_CODES = ['trial', 'basic', 'pro', 'growth', 'business', 'starter', 'professional', 'enterprise'] as const;
+export const PAID_PLAN_CODES = ['starter', 'business', 'custom'] as const;
 
 // User-facing display order (excludes trial as standalone plan)
-export const PLAN_DISPLAY_ORDER: PlanCode[] = ['free', 'starter', 'growth', 'custom'];
+export const PLAN_DISPLAY_ORDER: PlanCode[] = ['free', 'starter', 'business', 'custom'];
+
+export const PLAN_LABELS: Record<string, string> = {
+  free: 'Free',
+  starter: 'Starter',
+  business: 'Business',
+  custom: 'Custom',
+};
 
 export type PlanCode = typeof CURRENT_PLAN_CODES[number];
 export type LegacyPlanCode = typeof LEGACY_PLAN_CODES[number];
@@ -136,14 +143,14 @@ export const PAID_PLAN_TRIAL_DAYS = 7;
 export const PLAN_PRICES_USD: Record<PlanCode, { monthly: number; yearly: number }> = {
   free: { monthly: 0, yearly: 0 },
   starter: { monthly: 9, yearly: 90 },
-  growth: { monthly: 24, yearly: 240 },
+  business: { monthly: 24, yearly: 240 },
   custom: { monthly: 0, yearly: 0 },
 };
 
 export const PLAN_PRICES_BDT: Record<PlanCode, { monthly: number; yearly: number }> = {
   free: { monthly: 0, yearly: 0 },
   starter: { monthly: 990, yearly: 9900 },
-  growth: { monthly: 2490, yearly: 24900 },
+  business: { monthly: 2490, yearly: 24900 },
   custom: { monthly: 0, yearly: 0 },
 };
 
@@ -160,12 +167,12 @@ export function getPlanPrices(
 export const PLAN_USER_LIMITS: Record<PlanCode | LegacyPlanCode, number> = {
   free: 1,
   starter: 3,
-  growth: 10,
+  business: 10,
   custom: -1,
   trial: 3,
   basic: 3,
-  pro: 5,
-  business: 10,
+  pro: 10,
+  growth: 10,
   professional: 10,
   enterprise: -1,
 };
@@ -174,12 +181,12 @@ export const PLAN_USER_LIMITS: Record<PlanCode | LegacyPlanCode, number> = {
 export const PLAN_PRODUCT_LIMITS: Record<PlanCode | LegacyPlanCode, number> = {
   free: 30,
   starter: 200,
-  growth: 500,
+  business: 500,
   custom: -1,
   trial: 30,
-  basic: 250,
-  pro: 550,
-  business: 1200,
+  basic: 200,
+  pro: 500,
+  growth: 500,
   professional: 2000,
   enterprise: -1,
 };
@@ -188,13 +195,13 @@ export const PLAN_PRODUCT_LIMITS: Record<PlanCode | LegacyPlanCode, number> = {
 export const PLAN_EMAIL_LIMITS: Record<PlanCode | LegacyPlanCode, number> = {
   free: 100,
   starter: 250,
-  growth: 1000,
+  business: 1000,
   custom: -1,
   trial: 100,
-  basic: 500,
-  pro: 2000,
-  business: 7000,
-  professional: 500,
+  basic: 250,
+  pro: 1000,
+  growth: 1000,
+  professional: 1000,
   enterprise: 10000,
 };
 
@@ -202,13 +209,13 @@ export const PLAN_EMAIL_LIMITS: Record<PlanCode | LegacyPlanCode, number> = {
 export const PLAN_PDF_PRINT_LIMITS: Record<PlanCode | LegacyPlanCode, number> = {
   free: 50,
   starter: 250,
-  growth: 1000,
+  business: 1000,
   custom: -1,
   trial: 50,
-  basic: 200,
-  pro: 500,
-  business: -1,
-  professional: 200,
+  basic: 250,
+  pro: 1000,
+  growth: 1000,
+  professional: 1000,
   enterprise: -1,
 };
 
@@ -216,7 +223,7 @@ export const PLAN_PDF_PRINT_LIMITS: Record<PlanCode | LegacyPlanCode, number> = 
 export const PLAN_DURATION: Record<string, string> = {
   free: 'Lifetime Free',
   starter: 'Monthly',
-  growth: 'Monthly',
+  business: 'Monthly',
   custom: 'Custom',
 };
 
@@ -224,12 +231,12 @@ export const PLAN_DURATION: Record<string, string> = {
 export const PLAN_API_ENABLED: Record<PlanCode | LegacyPlanCode, boolean> = {
   free: false,
   starter: false,
-  growth: true,
+  business: true,
   custom: true,
   trial: false,
   basic: false,
   pro: true,
-  business: true,
+  growth: true,
   professional: true,
   enterprise: true,
 };
@@ -238,7 +245,7 @@ export const PLAN_API_ENABLED: Record<PlanCode | LegacyPlanCode, boolean> = {
 export const PLAN_BADGES: Record<string, string> = {
   free: 'Lifetime Free',
   starter: '',
-  growth: 'Popular',
+  business: 'Popular',
   custom: 'Custom',
 };
 
@@ -246,7 +253,7 @@ export const PLAN_BADGES: Record<string, string> = {
 export const PLAN_DESCRIPTIONS: Record<PlanCode, string> = {
   free: 'Lifetime free starter plan for small businesses',
   starter: 'For small businesses with growing needs and more team access',
-  growth: 'For growing businesses with advanced features, API, and integrations',
+  business: 'For growing businesses with advanced features, API, and integrations',
   custom: 'Custom pricing tailored to your business needs',
 };
 
@@ -308,6 +315,24 @@ export function getPlanBadge(code: string): string {
 
 export function getPlanDescription(code: PlanCode): string {
   return PLAN_DESCRIPTIONS[code] ?? '';
+}
+
+export const PLAN_DISPLAY_LABELS: Record<string, string> = {
+  free: 'Free',
+  starter: 'Starter',
+  business: 'Business',
+  custom: 'Custom',
+  trial: 'Starter',
+  basic: 'Starter',
+  pro: 'Business',
+  growth: 'Business',
+  professional: 'Business',
+  enterprise: 'Custom',
+};
+
+export function getPlanDisplayLabel(code: string): string {
+  const key = code?.toLowerCase().trim();
+  return PLAN_DISPLAY_LABELS[key] ?? PLAN_LABELS[key] ?? code.charAt(0).toUpperCase() + code.slice(1);
 }
 
 export function normalizePlanCode(code: string): PlanCode | LegacyPlanCode {

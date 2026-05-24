@@ -451,8 +451,8 @@ export default function SupportPage() {
                         }}
                       >
                         <option value="">Select a plan (optional)</option>
-                        <option value="basic">Basic</option>
-                        <option value="pro">Pro</option>
+                        <option value="free">Free</option>
+                        <option value="starter">Starter</option>
                         <option value="business">Business</option>
                         <option value="custom">Custom</option>
                       </select>
