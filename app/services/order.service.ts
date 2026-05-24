@@ -431,6 +431,30 @@ export async function updateOrderStatus(id: number, status: string, userId: numb
   const order = await prisma.order.findFirst({ where: { id, deletedAt: null, businessId: getCurrentBusinessId() } });
   if (!order) return null;
 
+  const previousStatus = order.status;
+  const isCancelling = status === "cancelled" && previousStatus !== "cancelled";
+
+  if (isCancelling) {
+    await prisma.$transaction(async (tx) => {
+      const orderItems = await tx.orderItem.findMany({
+        where: { orderId: id },
+        select: { productId: true, productVariantId: true, quantity: true },
+      });
+
+      for (const item of orderItems) {
+        await applyStockDelta(
+          tx,
+          order.businessId,
+          item.productId,
+          item.quantity,
+          `Cancel order ${order.orderId}`,
+          userId,
+          item.productVariantId
+        );
+      }
+    });
+  }
+
   const updated = await prisma.order.update({
     where: { id, businessId: getCurrentBusinessId() },
     data: { status },
@@ -443,10 +467,10 @@ export async function updateOrderStatus(id: number, status: string, userId: numb
     entityId: String(id),
     entityName: order.orderId,
     description: status === "cancelled" ? `Cancelled order: ${order.orderId}` : `Updated status of order ${order.orderId} to ${status}`,
-    metadata: { orderId: order.orderId, from: order.status, to: status },
+    metadata: { orderId: order.orderId, from: previousStatus, to: status },
   });
 
-  if (status === "cancelled" && order.status !== "cancelled") {
+  if (status === "cancelled" && previousStatus !== "cancelled") {
     await createNotification({
       type: "order_cancelled",
       title: "Order Cancelled",

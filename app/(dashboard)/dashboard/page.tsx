@@ -37,7 +37,7 @@ type DashboardKpi = {
 };
 
 const quickActions = [
-  { label: "Add Product", href: "/products/new" },
+  { label: "Add Product", href: "/products" },
   { label: "Create Order", href: "/orders" },
   { label: "Add Customer", href: "/customers" },
   { label: "View Subscription", href: "/system/subscription" },
@@ -152,7 +152,7 @@ export default function DashboardPage() {
     {
       label: "Add first product",
       done: (onboarding?.productCount ?? 0) > 0,
-      href: "/products/new",
+      href: "/products",
       icon: "2",
     },
     {
@@ -308,7 +308,7 @@ export default function DashboardPage() {
                 No activity recorded yet.
               </p>
               <div style={{ display: "flex", gap: "8px", justifyContent: "center", flexWrap: "wrap" }}>
-                <Link href="/products/new" style={ctaBtnStyle}>Add Product</Link>
+                <Link href="/products" style={ctaBtnStyle}>Add Product</Link>
                 <Link href="/customers" style={ctaBtnSecondaryStyle}>Add Customer</Link>
                 <Link href="/orders" style={ctaBtnSecondaryStyle}>Create Order</Link>
               </div>

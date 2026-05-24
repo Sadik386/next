@@ -6,10 +6,9 @@ import {
   resolveBusinessContextForUser,
   setActiveBusinessContext,
 } from "@/lib/business-context";
+import { activeBusinessMemberStatusWhere } from "@/constants/business-member-status";
 import type { Role, User } from "@prisma/client";
 import { randomBytes } from "crypto";
-import { getAppBaseUrl } from "@/lib/url";
-import { isDevelopment } from "@/lib/config/app-mode";
 
 type LoginUser = User & { role: Role };
 type LoginResult =
@@ -85,15 +84,35 @@ export async function loginUser(email: string, password: string): Promise<LoginR
       include: { role: true },
     });
     if (!userByUsername) return { error: "Invalid email/username or password" };
+    const byUsernameHasMembership = await prisma.businessMember.findFirst({
+      where: {
+        userId: userByUsername.id,
+        status: activeBusinessMemberStatusWhere(),
+        business: { isActive: true },
+      },
+    });
+    if (!byUsernameHasMembership) {
+      return { error: "Your account is not assigned to an active business." };
+    }
     if (!userByUsername.isActive) return { error: "Account deactivated" };
     const isValid = await verifyPassword(password, userByUsername.password);
     if (!isValid) return { error: "Invalid email/username or password" };
     return await createLoginResult(userByUsername);
   }
-  if (!user.isActive) return { error: "Account deactivated" };
-  const isValid = await verifyPassword(password, user.password);
-  if (!isValid) return { error: "Invalid email or password" };
-  return await createLoginResult(user);
+const hasMembership = await prisma.businessMember.findFirst({
+      where: {
+        userId: user.id,
+        status: activeBusinessMemberStatusWhere(),
+        business: { isActive: true },
+      },
+    });
+    if (!hasMembership) {
+      return { error: "Your account is not assigned to an active business." };
+    }
+    if (!user.isActive) return { error: "Account deactivated" };
+    const isValid = await verifyPassword(password, user.password);
+    if (!isValid) return { error: "Invalid email or password" };
+    return await createLoginResult(user);
 }
 
 export async function forgotPassword(email: string) {
@@ -112,11 +131,6 @@ export async function forgotPassword(email: string) {
       expiresAt,
     },
   });
-
-  if (isDevelopment) {
-    const resetUrl = `${getAppBaseUrl()}/reset-password?token=${token}`;
-    console.log(`[AUTH] Password reset requested for ${email}. Reset URL: ${resetUrl}`);
-  }
 
   return { success: true, message: "Reset link sent" };
 }
