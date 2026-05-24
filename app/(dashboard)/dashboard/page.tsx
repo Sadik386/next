@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import DateFilter, { type DateFilterValue } from "@/components/filters/DateFilter";
 import { buildDateQueryParams, getDateRangeFromPreset } from "@/lib/date-filter";
 import { useCurrency } from "@/contexts/CurrencyContext";
@@ -21,13 +22,25 @@ type DashboardKpi = {
   totalCustomers?: Metric;
   lowStock?: Metric;
   unpaidOrders?: Metric;
+  onboarding?: {
+    isNew: boolean;
+    productCount: number;
+    customerCount: number;
+    profileMissing: boolean;
+    profileCompleteness: number;
+    profileCompletenessTotal: number;
+    businessName: string | null;
+    phone: string | null;
+    address: string | null;
+    logoUrl: string | null;
+  };
 };
 
 const quickActions = [
+  { label: "Add Product", href: "/products/new" },
   { label: "Create Order", href: "/orders" },
-  { label: "Add Expense", href: "/expenses" },
-  { label: "Manage Products", href: "/products" },
-  { label: "View Reports", href: "/reports" },
+  { label: "Add Customer", href: "/customers" },
+  { label: "View Subscription", href: "/system/subscription" },
 ];
 
 function defaultRange(): DateFilterValue {
@@ -125,6 +138,51 @@ export default function DashboardPage() {
     ];
   }, [data]);
 
+  const isEmpty = data?.onboarding?.isNew ?? false;
+  const profileMissing = data?.onboarding?.profileMissing ?? false;
+  const onboarding = data?.onboarding;
+
+  const checklistItems = [
+    {
+      label: "Complete business profile",
+      done: !profileMissing,
+      href: "/system/settings",
+      icon: "1",
+    },
+    {
+      label: "Add first product",
+      done: (onboarding?.productCount ?? 0) > 0,
+      href: "/products/new",
+      icon: "2",
+    },
+    {
+      label: "Add first customer",
+      done: (onboarding?.customerCount ?? 0) > 0,
+      href: "/customers",
+      icon: "3",
+    },
+    {
+      label: "Create first order",
+      done: (data?.totalOrders?.value ?? 0) > 0,
+      href: "/orders",
+      icon: "4",
+    },
+    {
+      label: "Review subscription",
+      done: false,
+      href: "/system/subscription",
+      icon: "5",
+    },
+  ];
+
+  const doneCount = checklistItems.filter((i) => i.done).length;
+  const allDone = doneCount === checklistItems.length;
+
+  const recentActivityEmpty =
+    !loading &&
+    (data?.totalOrders?.value ?? 0) === 0 &&
+    (data?.totalSales?.value ?? 0) === 0;
+
   return (
     <div>
       <div className="acc-page-header" style={headerStyle}>
@@ -147,6 +205,88 @@ export default function DashboardPage() {
 
       {error && <div style={errorBox}>{error}</div>}
 
+      {isEmpty && !loading && (
+        <div style={onboardingCardStyle}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "14px" }}>
+            <div>
+              <h3 style={{ fontSize: "14px", fontWeight: 700, color: "var(--text-primary)", marginBottom: "2px" }}>
+                Get Started with Accoraze
+              </h3>
+              <p style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+                {allDone
+                  ? "Great work! You've completed your initial setup."
+                  : `Complete ${checklistItems.length - doneCount} more item${checklistItems.length - doneCount === 1 ? "" : "s"} to get started`}
+              </p>
+            </div>
+            {!allDone && (
+              <span style={{
+                fontSize: "11px",
+                fontWeight: 600,
+                color: "var(--brand)",
+                backgroundColor: "rgba(196,151,58,0.1)",
+                padding: "3px 8px",
+                borderRadius: "6px",
+              }}>
+                {doneCount}/{checklistItems.length}
+              </span>
+            )}
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+            {checklistItems.map((item) => (
+              <Link
+                key={item.label}
+                href={item.href}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px",
+                  padding: "8px 10px",
+                  borderRadius: "7px",
+                  border: "1px solid var(--card-border)",
+                  backgroundColor: item.done ? "rgba(16,185,129,0.06)" : "var(--card-bg)",
+                  textDecoration: "none",
+                  transition: "border-color 0.15s, background-color 0.15s",
+                }}
+              >
+                <div style={{
+                  width: "22px",
+                  height: "22px",
+                  borderRadius: "6px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "11px",
+                  fontWeight: 700,
+                  flexShrink: 0,
+                  backgroundColor: item.done ? "#10b981" : "var(--card-bg)",
+                  color: item.done ? "white" : "var(--text-muted)",
+                  border: item.done ? "none" : "1px solid var(--card-border)",
+                }}>
+                  {item.done ? (
+                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                      <path d="M1.5 5L4 7.5L8.5 2.5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  ) : item.icon}
+                </div>
+                <span style={{
+                  fontSize: "13px",
+                  fontWeight: 500,
+                  color: item.done ? "#10b981" : "var(--text-primary)",
+                  flex: 1,
+                }}>
+                  {item.label}
+                </span>
+                {!item.done && (
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ color: "var(--text-muted)", flexShrink: 0 }}>
+                    <path d="M2.5 6H9.5M6.5 3L9.5 6L6.5 9" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                )}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="acc-dashboard-cards" style={primaryGridStyle}>
         {kpiData.slice(0, 4).map((kpi) => (
           <KpiCard key={kpi.label} {...kpi} loading={loading} />
@@ -162,7 +302,20 @@ export default function DashboardPage() {
       <div style={bottomGridStyle}>
         <div style={panelStyle}>
           <h2 style={panelTitleStyle}>Recent Activity</h2>
-          <p style={{ fontSize: "13px", color: "var(--text-muted)" }}>No activity yet.</p>
+          {recentActivityEmpty ? (
+            <div style={{ textAlign: "center", padding: "12px 0" }}>
+              <p style={{ fontSize: "13px", color: "var(--text-muted)", marginBottom: "10px" }}>
+                No activity recorded yet.
+              </p>
+              <div style={{ display: "flex", gap: "8px", justifyContent: "center", flexWrap: "wrap" }}>
+                <Link href="/products/new" style={ctaBtnStyle}>Add Product</Link>
+                <Link href="/customers" style={ctaBtnSecondaryStyle}>Add Customer</Link>
+                <Link href="/orders" style={ctaBtnSecondaryStyle}>Create Order</Link>
+              </div>
+            </div>
+          ) : (
+            <p style={{ fontSize: "13px", color: "var(--text-muted)" }}>Recent activity will appear here.</p>
+          )}
         </div>
         <div style={panelStyle}>
           <h2 style={panelTitleStyle}>Quick Actions</h2>
@@ -335,4 +488,38 @@ const errorBox: React.CSSProperties = {
   borderRadius: "8px",
   fontSize: "13px",
   marginBottom: "12px",
+};
+
+const onboardingCardStyle: React.CSSProperties = {
+  backgroundColor: "var(--card-bg)",
+  border: "1px solid var(--card-border)",
+  borderRadius: "10px",
+  padding: "18px 20px",
+  marginBottom: "16px",
+  borderLeft: "3px solid var(--brand)",
+};
+
+const ctaBtnStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  padding: "6px 14px",
+  backgroundColor: "var(--brand)",
+  color: "white",
+  borderRadius: "7px",
+  fontSize: "12px",
+  fontWeight: 600,
+  textDecoration: "none",
+};
+
+const ctaBtnSecondaryStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  padding: "6px 14px",
+  backgroundColor: "var(--card-bg)",
+  color: "var(--text-primary)",
+  borderRadius: "7px",
+  border: "1px solid var(--card-border)",
+  fontSize: "12px",
+  fontWeight: 500,
+  textDecoration: "none",
 };
