@@ -9,6 +9,7 @@ import {
   getPlanUserLimit,
   getPlanProductLimit,
   normalizePlanCode,
+  isUnlimited,
 } from "./pricing";
 import { getBusinessSubscription } from "./usage-service";
 
@@ -406,6 +407,59 @@ export async function guardWebhookCreation(businessId: number): Promise<Subscrip
       allowed: false,
       reason: `Webhooks are not available on your current plan.`,
       code: "WEBHOOK_ACCESS_DENIED"
+    };
+  }
+  
+  return { allowed: true };
+}
+
+/**
+ * Guard for API usage - checks API access feature, trial status, and API call limits
+ */
+export async function guardApiUsage(businessId: number): Promise<SubscriptionGuardResult> {
+  const subscription = await getBusinessSubscription(businessId);
+  
+  // Check if trial is expired
+  if (subscription && subscription.status === SUBSCRIPTION_STATUS.TRIALING && await isTrialExpired(businessId)) {
+    return {
+      allowed: false,
+      reason: `Your trial has expired. Upgrade or switch plan to continue.`,
+      code: "TRIAL_EXPIRED"
+    };
+  }
+  
+  // Check if API access feature is enabled
+  const hasApiAccess = await hasFeatureAccess(businessId, FEATURE_KEYS.API_ACCESS);
+  
+  if (!hasApiAccess) {
+    return {
+      allowed: false,
+      reason: `External API access is not available on your current plan.`,
+      code: "API_ACCESS_DENIED"
+    };
+  }
+  
+  // Check if subscription is active (not canceled/paused/expired)
+  const isActive = await isSubscriptionActive(businessId);
+  if (!isActive) {
+    return {
+      allowed: false,
+      reason: `API access is not available for your current subscription status.`,
+      code: "SUBSCRIPTION_INACTIVE"
+    };
+  }
+  
+  // Check API call limits if applicable
+  const limitCheck = await checkLimitExceeded({
+    businessId,
+    usageKey: USAGE_KEYS.API_CALLS
+  });
+  
+  if (limitCheck.exceeded && !isUnlimited(limitCheck.limit)) {
+    return {
+      allowed: false,
+      reason: `API call limit exceeded for your current plan.`,
+      code: "API_CALL_LIMIT_EXCEEDED"
     };
   }
   
