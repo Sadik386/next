@@ -157,7 +157,7 @@ export default function SettingsPage() {
         const res = await fetch("/api/subscription", { cache: "no-store" });
         if (res.ok) {
           const data = await res.json();
-          setSmtpAccessEnabled(data.data?.smtpAccessEnabled ?? true);
+          setSmtpAccessEnabled(data.data?.smtpAccessEnabled ?? false);
         }
       } catch { /* silently ignore */ }
     }
@@ -669,26 +669,31 @@ function EmailSmtpSection({
 }) {
   return (
     <Card title="Email & SMTP Configuration">
-      {!smtpAccessEnabled && (
-        <div style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "10px",
-          padding: "10px 14px",
-          borderRadius: "8px",
-          backgroundColor: "#fef3c7",
-          border: "1px solid #fcd34d",
-          marginBottom: "14px",
-          fontSize: "12px",
-          color: "#92400e",
-        }}>
-          <Lock size={14} style={{ flexShrink: 0 }} />
-          <span>SMTP configuration is available on Starter plan and above. <a href="/system/subscription" style={{ fontWeight: 600, color: "#92400e", textDecoration: "underline" }}>Upgrade now</a> to access custom SMTP settings.</span>
+      {!smtpAccessEnabled ? (
+        <div style={{ marginBottom: "16px" }}>
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "10px",
+            padding: "10px 14px",
+            borderRadius: "8px",
+            backgroundColor: "#fef3c7",
+            border: "1px solid #fcd34d",
+            fontSize: "12px",
+            color: "#92400e",
+          }}>
+            <Lock size={14} style={{ flexShrink: 0 }} />
+            <span>SMTP configuration is available on Starter plan and above. <a href="/system/subscription" style={{ fontWeight: 600, color: "#92400e", textDecoration: "underline" }}>Upgrade now</a> to access custom SMTP settings.</span>
+          </div>
+          <p style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "8px", lineHeight: "1.5" }}>
+            Upgrade to Starter or higher to enable branded business email delivery and custom SMTP configuration.
+          </p>
         </div>
+      ) : (
+        <SmtpStatusCard status={smtpStatus} saving={saving} />
       )}
-      {smtpAccessEnabled && <SmtpStatusCard status={smtpStatus} saving={saving} />}
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
-        <div>
+        <div style={{ opacity: smtpAccessEnabled ? 1 : 0.5, pointerEvents: smtpAccessEnabled ? "auto" : "none" }}>
           <Subheading>SMTP Connection</Subheading>
           <p style={{ fontSize: "11px", color: "var(--text-muted)", marginBottom: "10px", marginTop: "-6px" }}>
             Configure your mail server to send emails from your business address.
@@ -699,8 +704,8 @@ function EmailSmtpSection({
               <select
                 value={smtp.mailProvider}
                 onChange={(e) => setSmtpField("mailProvider", e.target.value)}
-                style={{ ...inputStyle, opacity: smtpAccessEnabled ? 1 : 0.5, pointerEvents: smtpAccessEnabled ? "auto" : "none" }}
-                disabled={!smtpAccessEnabled}
+                style={inputStyle}
+                disabled
               >
                 {MAIL_PROVIDERS.map((provider) => (
                   <option key={provider} value={provider}>
@@ -720,8 +725,8 @@ function EmailSmtpSection({
                 autoComplete="new-password"
                 value={smtp.smtpPassword}
                 onChange={(e) => setSmtpField("smtpPassword", e.target.value)}
-                style={{ ...inputStyle, opacity: smtpAccessEnabled ? 1 : 0.5 }}
-                disabled={!smtpAccessEnabled}
+                style={inputStyle}
+                disabled
               />
             </div>
             <div>
@@ -729,8 +734,8 @@ function EmailSmtpSection({
               <select
                 value={smtp.encryption}
                 onChange={(e) => setSmtpField("encryption", e.target.value)}
-                style={{ ...inputStyle, opacity: smtpAccessEnabled ? 1 : 0.5, pointerEvents: smtpAccessEnabled ? "auto" : "none" }}
-                disabled={!smtpAccessEnabled}
+                style={inputStyle}
+                disabled
               >
                 {ENCRYPTION_OPTIONS.map((option) => (
                   <option key={option} value={option}>
@@ -747,7 +752,7 @@ function EmailSmtpSection({
 
         <div>
           <Subheading>Mail Feature Toggles</Subheading>
-          <div style={togglePanelStyle}>
+          <div style={{ ...togglePanelStyle, opacity: smtpAccessEnabled ? 1 : 0.5, pointerEvents: smtpAccessEnabled ? "auto" : "none" }}>
             {MAIL_FEATURE_TOGGLES.map((toggle) => (
               <label key={toggle.key} style={toggleRowStyle}>
                 <input
@@ -755,6 +760,7 @@ function EmailSmtpSection({
                   checked={smtp[toggle.key]}
                   onChange={(e) => setSmtpField(toggle.key, e.target.checked)}
                   style={{ accentColor: "var(--brand)" }}
+                  disabled={!smtpAccessEnabled}
                 />
                 <span>{toggle.label}</span>
               </label>
@@ -766,22 +772,29 @@ function EmailSmtpSection({
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(220px,0.75fr)_minmax(0,1.25fr)]">
         <div>
           <Subheading>Email Header Logo</Subheading>
-          <LogoUploader
-            label="Email Header Logo"
-            value={form.emailHeaderLogoUrl}
-            type="email-header"
-            onChange={(url) => set("emailHeaderLogoUrl", url)}
-          />
+          <div style={{ opacity: smtpAccessEnabled ? 1 : 0.5, pointerEvents: smtpAccessEnabled ? "auto" : "none" }}>
+            <LogoUploader
+              label="Email Header Logo"
+              value={form.emailHeaderLogoUrl}
+              type="email-header"
+              onChange={(url) => set("emailHeaderLogoUrl", url)}
+              disabled={!smtpAccessEnabled}
+            />
+          </div>
         </div>
 
         <div>
           <Subheading>Email Branding & Footer</Subheading>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <div
+            className="grid grid-cols-1 gap-3 md:grid-cols-2"
+            style={{ opacity: smtpAccessEnabled ? 1 : 0.5, pointerEvents: smtpAccessEnabled ? "auto" : "none" }}
+          >
             <Field
               label="Support Email"
               type="email"
               value={smtp.supportEmail}
               onChange={(v) => setSmtpField("supportEmail", v)}
+              disabled={!smtpAccessEnabled}
             />
             <div>
               <Label>Template Accent Color</Label>
@@ -1013,17 +1026,20 @@ function LogoUploader({
   value,
   type,
   onChange,
+  disabled,
 }: {
   label: string;
   value: string;
   type: "main" | "print" | "email-header";
   onChange: (url: string) => void;
+  disabled?: boolean;
 }) {
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function upload(file: File) {
+    if (disabled) return;
     setError(null);
     setUploading(true);
     const fd = new FormData();
@@ -1102,13 +1118,13 @@ function LogoUploader({
         <button
           type="button"
           onClick={() => fileRef.current?.click()}
-          disabled={uploading}
-          style={{ ...btnSecondary, opacity: uploading ? 0.6 : 1 }}
+          disabled={uploading || disabled}
+          style={{ ...btnSecondary, opacity: (uploading || disabled) ? 0.6 : 1 }}
         >
           <Upload size={13} />
           {uploading ? "Uploading..." : "Upload"}
         </button>
-        {value && (
+        {value && !disabled && (
           <button type="button" onClick={() => onChange("")} style={btnSecondary}>
             Remove
           </button>

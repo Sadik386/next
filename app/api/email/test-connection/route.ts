@@ -2,10 +2,23 @@ import { NextRequest, NextResponse } from "next/server";
 import { requirePermission } from "@/lib/rbac";
 import { PERMISSIONS } from "@/constants/permissions";
 import { testSmtpConnection } from "@/services/email.service";
+import { hasFeatureAccess } from "@/lib/subscription-guard";
+import { FEATURE_KEYS } from "@/lib/pricing";
 
 export async function POST(req: NextRequest) {
   const auth = await requirePermission(req, PERMISSIONS.EDIT_SETTINGS);
   if (auth instanceof NextResponse) return auth;
+
+  const canUseSmtp = await hasFeatureAccess(auth.businessId, FEATURE_KEYS.CUSTOM_SMTP);
+  if (!canUseSmtp) {
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Business SMTP is not available on your current plan. Upgrade to Starter or higher to configure business email.",
+      },
+      { status: 403 }
+    );
+  }
 
   try {
     const result = await testSmtpConnection(auth.businessId);
