@@ -13,6 +13,7 @@ import {
   isUnlimited,
 } from "./pricing";
 import { getBusinessSubscription } from "./usage-service";
+import { safeJsonParse } from "./pricing";
 
 /**
  * PDF usage deduplication cache.
@@ -158,7 +159,7 @@ export async function hasFeatureAccess(businessId: number, featureKey: string): 
     return false;
   }
   
-  const planFeatures = JSON.parse(subscription.plan.features || '{}');
+  const planFeatures = safeJsonParse<Record<string, boolean>>(subscription.plan.features, {}) ?? {};
   return planFeatures[featureKey] ?? false;
 }
 
@@ -193,7 +194,7 @@ export async function checkLimitExceeded(options: CheckLimitOptions): Promise<{ 
   }
   
   // Active subscription - check plan limits
-  const planLimits = JSON.parse(subscription.plan.usageLimits || '{}');
+  const planLimits = safeJsonParse<Record<string, number>>(subscription.plan.usageLimits, {}) ?? {};
   const planLimit = planLimits[usageKey] ?? getDefaultLimit(usageKey);
   const currentUsage = await getCurrentUsage(businessId, usageKey);
   
