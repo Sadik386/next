@@ -54,6 +54,10 @@ export const PERMISSIONS = {
   BACKUP_RESTORE: "backup_restore",
 } as const;
 
+export const BACKUP_EXPORT = PERMISSIONS.BACKUP_EXPORT;
+export const BACKUP_VALIDATE = PERMISSIONS.BACKUP_VALIDATE;
+export const BACKUP_RESTORE = PERMISSIONS.BACKUP_RESTORE;
+
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
 
 export const ROLE_PERMISSIONS: Record<RoleName, Permission[]> = {

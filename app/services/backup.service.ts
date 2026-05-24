@@ -28,7 +28,7 @@ interface BackupMetadata {
   notes: string[];
 }
 
-interface BackupStructure {
+export interface BackupStructure {
   version: string;
   app: string;
   type: string;
