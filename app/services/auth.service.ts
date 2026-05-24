@@ -8,6 +8,8 @@ import {
 } from "@/lib/business-context";
 import type { Role, User } from "@prisma/client";
 import { randomBytes } from "crypto";
+import { getAppBaseUrl } from "@/lib/url";
+import { isDevelopment } from "@/lib/config/app-mode";
 
 type LoginUser = User & { role: Role };
 type LoginResult =
@@ -111,9 +113,12 @@ export async function forgotPassword(email: string) {
     },
   });
 
-  console.log(`[DEV] Password reset for ${email}: http://localhost:3000/reset-password?token=${token}`);
+  if (isDevelopment) {
+    const resetUrl = `${getAppBaseUrl()}/reset-password?token=${token}`;
+    console.log(`[AUTH] Password reset requested for ${email}. Reset URL: ${resetUrl}`);
+  }
 
-  return { success: true, message: "Reset link sent", devToken: token };
+  return { success: true, message: "Reset link sent" };
 }
 
 export async function resetPassword(token: string, newPassword: string) {

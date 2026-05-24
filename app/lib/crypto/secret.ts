@@ -4,14 +4,26 @@ const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 16;
 const TAG_LENGTH = 16;
 
-// Get encryption key from environment or fall back to JWT_SECRET (dev only)
 function getEncryptionKey(): Buffer {
-  const key = process.env.ENCRYPTION_KEY || process.env.JWT_SECRET;
-  if (!key) {
+  const encryptionKey = process.env.ENCRYPTION_KEY;
+  const jwtSecret = process.env.JWT_SECRET;
+
+  if (!encryptionKey && !jwtSecret) {
     throw new Error("Encryption key not configured. Set ENCRYPTION_KEY environment variable.");
   }
-  // Ensure key is 32 bytes for AES-256
-  return crypto.createHash("sha256").update(key).digest();
+
+  const keySource = encryptionKey || jwtSecret;
+
+  if (!encryptionKey && jwtSecret) {
+    if (process.env.NODE_ENV === "production") {
+      console.warn(
+        "[SECURITY] ENCRYPTION_KEY is not set. Using JWT_SECRET as fallback is not recommended in production. " +
+          "Please set a dedicated ENCRYPTION_KEY environment variable."
+      );
+    }
+  }
+
+  return crypto.createHash("sha256").update(keySource!).digest();
 }
 
 export function encryptSecret(plaintext: string): string {

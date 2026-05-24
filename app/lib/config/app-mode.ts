@@ -43,6 +43,8 @@ export const isCloud = currentAppMode === "cloud";
 export const isSelfHosted = currentAppMode === "self_hosted";
 export const isDesktop = currentAppMode === "desktop";
 
+export const isDevelopment = process.env.NODE_ENV === "development";
+
 export const isSetupRequired = parseEnvBoolean(
   process.env.APP_SETUP_REQUIRED,
   true

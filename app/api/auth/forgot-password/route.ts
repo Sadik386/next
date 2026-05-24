@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
     if ("error" in result) {
       return NextResponse.json({ error: result.error }, { status: 400 });
     }
-    return NextResponse.json({ success: true, message: result.message, devToken: result.devToken });
+    return NextResponse.json({ success: true, message: result.message });
   } catch {
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
