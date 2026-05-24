@@ -2,8 +2,8 @@ import nodemailer, { Transporter } from "nodemailer";
 import { prisma } from "@/lib/prisma";
 import { getCurrentBusinessId } from "@/lib/business";
 import { decryptSecret } from "@/lib/crypto/secret";
-import { USAGE_KEYS } from "@/lib/pricing";
-import { guardEmailSend } from "@/lib/subscription-guard";
+import { USAGE_KEYS, FEATURE_KEYS } from "@/lib/pricing";
+import { guardEmailSend, hasFeatureAccess } from "@/lib/subscription-guard";
 import { incrementUsageSafely } from "@/lib/usage-service";
 import {
   getSafeSmtpErrorMessage,
@@ -13,6 +13,7 @@ import {
 } from "@/lib/email-boundary";
 
 export interface EmailSettings {
+  businessName: string;
   smtpProvider: string;
   smtpHost: string;
   smtpPort: number;
@@ -58,6 +59,7 @@ export async function getEmailSettings(businessId?: number): Promise<EmailSettin
   const setting = await prisma.setting.findUnique({
     where: { businessId: bid },
     select: {
+      businessName: true,
       smtpProvider: true,
       smtpHost: true,
       smtpPort: true,
@@ -85,6 +87,7 @@ export async function getEmailSettings(businessId?: number): Promise<EmailSettin
   }
 
   return {
+    businessName: setting.businessName || "",
     smtpProvider: setting.smtpProvider || "SMTP",
     smtpHost: setting.smtpHost,
     smtpPort: setting.smtpPort || 587,
@@ -92,7 +95,7 @@ export async function getEmailSettings(businessId?: number): Promise<EmailSettin
     smtpPassword: decryptSecret(setting.smtpPassword || ""),
     smtpEncryption: setting.smtpEncryption || "TLS",
     smtpFromEmail: setting.smtpFromEmail || "",
-    smtpFromName: setting.smtpFromName || "",
+    smtpFromName: setting.smtpFromName || setting.businessName || "",
     smtpReplyTo: setting.smtpReplyTo || "",
     supportEmail: setting.supportEmail || "",
     emailFooterText: setting.emailFooterText || "",
@@ -148,7 +151,7 @@ export async function testSmtpConnection(businessId?: number): Promise<EmailResu
   try {
     const transporter = createTransporter(settings);
     await transporter.verify();
-    return { success: true, message: "SMTP connection successful." };
+    return { success: true, message: "SMTP connection successful. Your mail server is responding correctly." };
   } catch (error) {
     logSafeSmtpError("Business SMTP connection test failed:", error);
     return { success: false, message: getSafeSmtpErrorMessage(error, "test") };
@@ -171,18 +174,18 @@ export async function sendTestEmail(toEmail: string, businessId?: number): Promi
 
   try {
     const transporter = createTransporter(settings);
-    const businessName = settings.smtpFromName || "Your Business";
+    const headerDisplayName = settings.smtpFromName || settings.businessName || "Your Business";
     const emailHeaderLogoUrl = toAbsoluteEmailAssetUrl(settings.emailHeaderLogoUrl);
     const recipient = toEmail.trim();
 
     const htmlContent = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <div style="background-color: #f8f9fa; padding: 20px; text-align: center; border-radius: 8px;">
-          ${emailHeaderLogoUrl ? `<img src="${emailHeaderLogoUrl}" alt="${businessName}" style="max-height: 60px;" />` : ""}
-          <h2 style="color: #333; margin-top: 15px;">${businessName}</h2>
+        <div style="background-color: #f8f9fa; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+          ${emailHeaderLogoUrl ? `<img src="${emailHeaderLogoUrl}" alt="${headerDisplayName}" style="max-height: 60px; display: block; margin: 0 auto;" />` : ""}
+          <h2 style="color: #333; margin-top: 15px; margin-bottom: 0; font-size: 18px;">${headerDisplayName}</h2>
         </div>
-        <div style="padding: 20px;">
-          <h3 style="color: #333;">Test Email</h3>
+        <div style="padding: 20px; border: 1px solid #e5e7eb; border-top: none;">
+          <h3 style="color: #333; margin-bottom: 12px;">Test Email</h3>
           <p style="color: #666; line-height: 1.6;">
             This is a test email to verify your SMTP configuration is working correctly.
           </p>
@@ -190,20 +193,20 @@ export async function sendTestEmail(toEmail: string, businessId?: number): Promi
             If you received this email, your email settings are configured properly.
           </p>
         </div>
-        <div style="background-color: #f8f9fa; padding: 15px; text-align: center; font-size: 12px; color: #999; border-radius: 0 0 8px 8px;">
-          ${settings.emailFooterText ? `<p>${settings.emailFooterText}</p>` : ""}
-          ${settings.companyAddressFooter ? `<p>${settings.companyAddressFooter}</p>` : ""}
-          <p>© ${new Date().getFullYear()} ${businessName}</p>
+        <div style="background-color: #f8f9fa; padding: 20px 20px 16px; text-align: center; font-size: 11px; color: #9ca3af; border-radius: 0 0 8px 8px; border: 1px solid #e5e7eb; border-top: none;">
+          ${settings.emailFooterText ? `<p style="margin: 0 0 8px; color: #6b7280; line-height: 1.5;">${settings.emailFooterText}</p>` : ""}
+          ${settings.companyAddressFooter ? `<p style="margin: 0 0 8px; color: #6b7280; line-height: 1.5;">${settings.companyAddressFooter}</p>` : ""}
+          <p style="margin: 0; color: #d1d5db; font-size: 10px;">Powered by Accoraze</p>
         </div>
       </div>
     `;
 
-    const textContent = `Test Email\n\nThis is a test email to verify your SMTP configuration is working correctly.\n\nIf you received this email, your email settings are configured properly.\n\n© ${new Date().getFullYear()} ${businessName}`;
+    const textContent = `Test Email\n\nThis is a test email to verify your SMTP configuration is working correctly.\n\nIf you received this email, your email settings are configured properly.\n\n${settings.emailFooterText ? settings.emailFooterText + "\n" : ""}${settings.companyAddressFooter ? settings.companyAddressFooter + "\n" : ""}Powered by Accoraze`;
 
     const mailOptions: nodemailer.SendMailOptions = {
-      from: `"${settings.smtpFromName}" <${settings.smtpFromEmail}>`,
+      from: `"${settings.smtpFromName || headerDisplayName}" <${settings.smtpFromEmail}>`,
       to: recipient,
-      subject: `Test Email from ${businessName}`,
+      subject: `Test Email from ${headerDisplayName}`,
       text: textContent,
       html: htmlContent,
     };
@@ -214,7 +217,7 @@ export async function sendTestEmail(toEmail: string, businessId?: number): Promi
 
     await transporter.sendMail(mailOptions);
 
-    return { success: true, message: `Test email sent to ${recipient}.` };
+    return { success: true, message: `Test email sent successfully. Please check your inbox or spam folder.` };
   } catch (error) {
     logSafeSmtpError("Business test email send failed:", error);
     return { success: false, message: getSafeSmtpErrorMessage(error, "test") };
@@ -251,7 +254,7 @@ export async function sendEmail(params: SendEmailParams): Promise<EmailResult> {
     return { success: false, message: "Invalid recipient email address." };
   }
 
-  const guard = await guardEmailSend(businessId);
+const guard = await guardEmailSend(businessId);
   if (!guard.allowed) {
     return {
       success: false,
@@ -259,34 +262,47 @@ export async function sendEmail(params: SendEmailParams): Promise<EmailResult> {
     };
   }
 
+  const hasCustomSmtp = await hasFeatureAccess(businessId, FEATURE_KEYS.CUSTOM_SMTP);
+  if (!hasCustomSmtp) {
+    return {
+      success: false,
+      message: "Business SMTP is not available on your current plan. Upgrade to Starter or higher to send customer emails.",
+    };
+  }
+
   try {
     const transporter = createTransporter(settings);
-    const businessName = settings.smtpFromName || "Your Business";
+    const businessName = settings.smtpFromName || "";
+    const headerDisplayName = businessName || settings.businessName || "Your Business";
     const emailHeaderLogoUrl = toAbsoluteEmailAssetUrl(settings.emailHeaderLogoUrl);
     const recipient = params.to.trim();
 
     const htmlContent = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <div style="background-color: #f8f9fa; padding: 20px; text-align: center; border-radius: 8px;">
-          ${emailHeaderLogoUrl ? `<img src="${emailHeaderLogoUrl}" alt="${businessName}" style="max-height: 60px;" />` : ""}
-          <h2 style="color: #333; margin-top: 15px;">${businessName}</h2>
+        <div style="background-color: #f8f9fa; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+          ${emailHeaderLogoUrl ? `<img src="${emailHeaderLogoUrl}" alt="${headerDisplayName}" style="max-height: 60px; display: block; margin: 0 auto;" />` : ""}
+          <h2 style="color: #333; margin-top: 15px; margin-bottom: 0; font-size: 18px;">${headerDisplayName}</h2>
         </div>
-        <div style="padding: 20px;">
+        <div style="padding: 20px; border: 1px solid #e5e7eb; border-top: none;">
           ${params.html}
         </div>
-        <div style="background-color: #f8f9fa; padding: 15px; text-align: center; font-size: 12px; color: #999; border-radius: 0 0 8px 8px;">
-          ${settings.emailFooterText ? `<p>${settings.emailFooterText}</p>` : ""}
-          ${settings.companyAddressFooter ? `<p>${settings.companyAddressFooter}</p>` : ""}
-          <p>© ${new Date().getFullYear()} ${businessName}</p>
+        <div style="background-color: #f8f9fa; padding: 20px 20px 16px; text-align: center; font-size: 11px; color: #9ca3af; border-radius: 0 0 8px 8px; border: 1px solid #e5e7eb; border-top: none;">
+          ${settings.emailFooterText ? `<p style="margin: 0 0 8px; color: #6b7280; line-height: 1.5;">${settings.emailFooterText}</p>` : ""}
+          ${settings.companyAddressFooter ? `<p style="margin: 0 0 8px; color: #6b7280; line-height: 1.5;">${settings.companyAddressFooter}</p>` : ""}
+          <p style="margin: 0; color: #d1d5db; font-size: 10px;">Powered by Accoraze</p>
         </div>
       </div>
     `;
 
-const mailOptions: nodemailer.SendMailOptions = {
-      from: `"${settings.smtpFromName}" <${settings.smtpFromEmail}>`,
+    const textBody = params.text || params.html.replace(/<[^>]*>/g, "");
+    const textFooter = `${settings.emailFooterText ? settings.emailFooterText + "\n" : ""}${settings.companyAddressFooter ? settings.companyAddressFooter + "\n" : ""}Powered by Accoraze`;
+    const fullTextBody = textBody.trim().endsWith(textFooter.trim()) ? textBody : textBody + "\n\n" + textFooter;
+
+    const mailOptions: nodemailer.SendMailOptions = {
+      from: `"${settings.smtpFromName || headerDisplayName}" <${settings.smtpFromEmail}>`,
       to: recipient,
       subject: params.subject,
-      text: params.text || params.html.replace(/<[^>]*>/g, ""),
+      text: fullTextBody,
       html: htmlContent,
     };
 

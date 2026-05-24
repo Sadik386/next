@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
-import { RotateCcw, Save, Search, Send, Upload, Zap } from "lucide-react";
+import { RotateCcw, Save, Search, Send, Upload, Zap, CheckCircle, AlertTriangle, Mail, Lock } from "lucide-react";
 import { COUNTRIES } from "@/constants/countries";
 import { CURRENCIES } from "@/constants/currencies";
 import { useSettings, type Settings } from "@/contexts/SettingsContext";
@@ -135,6 +135,8 @@ export default function SettingsPage() {
   const [smtp, setSmtp] = useState<SmtpState>(() => smtpDefaults(null));
   const [saving, setSaving] = useState<string | null>(null);
   const [message, setMessage] = useState<Message | null>(null);
+  const [smtpStatus, setSmtpStatus] = useState<{ connected: boolean; fromEmail: string; lastTest: string | null }>({ connected: false, fromEmail: "", lastTest: null });
+  const [smtpAccessEnabled, setSmtpAccessEnabled] = useState(false);
   const smtpPasswordRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -142,7 +144,25 @@ export default function SettingsPage() {
     setForm(fromSettings(settings));
     const defaults = smtpDefaults(settings);
     setSmtp({ ...defaults, smtpPassword: "" });
+    setSmtpStatus({
+      connected: Boolean(settings.smtpHost && settings.smtpUsername),
+      fromEmail: settings.smtpFromEmail || settings.email || "",
+      lastTest: null,
+    });
   }, [settings]);
+
+  useEffect(() => {
+    async function loadSubscription() {
+      try {
+        const res = await fetch("/api/subscription", { cache: "no-store" });
+        if (res.ok) {
+          const data = await res.json();
+          setSmtpAccessEnabled(data.data?.smtpAccessEnabled ?? true);
+        }
+      } catch { /* silently ignore */ }
+    }
+    loadSubscription();
+  }, []);
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -160,9 +180,11 @@ export default function SettingsPage() {
         const res = await fetch("/api/email/test-connection", { method: "POST" });
         const data = await res.json();
         if (res.ok) {
-          setMessage({ kind: "ok", text: data.message || "Connection successful" });
+          setMessage({ kind: "ok", text: "SMTP connection successful. Your mail server is responding correctly." });
+          setSmtpStatus(prev => ({ ...prev, connected: true, lastTest: new Date().toLocaleString() }));
         } else {
           setMessage({ kind: "err", text: data.message || "Connection failed" });
+          setSmtpStatus(prev => ({ ...prev, connected: false, lastTest: new Date().toLocaleString() }));
         }
       } catch {
         setMessage({ kind: "err", text: "Network error" });
@@ -170,7 +192,6 @@ export default function SettingsPage() {
         setSaving(null);
       }
     } else if (action === "Send Test Email") {
-      // Use current user email or prompt - use settings email if available
       const testEmail = settings?.email || form.email;
       if (!testEmail) {
         setMessage({ kind: "err", text: "No email address found. Please set a business email first." });
@@ -187,7 +208,8 @@ export default function SettingsPage() {
         });
         const data = await res.json();
         if (res.ok) {
-          setMessage({ kind: "ok", text: data.message || "Test email sent" });
+          setMessage({ kind: "ok", text: "Test email sent successfully. Please check your inbox/spam folder." });
+          setSmtpStatus(prev => ({ ...prev, lastTest: new Date().toLocaleString() }));
         } else {
           setMessage({ kind: "err", text: data.message || "Failed to send" });
         }
@@ -345,11 +367,13 @@ export default function SettingsPage() {
         <EmailSmtpSection
           smtp={smtp}
           form={form}
+          smtpStatus={smtpStatus}
+          smtpAccessEnabled={smtpAccessEnabled}
           passwordRef={smtpPasswordRef}
           setSmtpField={setSmtpField}
           onPlaceholderAction={showSmtpPlaceholder}
           set={set}
-          saving={saving === "email-smtp"}
+          saving={saving}
           onSave={() =>
             patch("email-smtp", {
               emailHeaderLogoUrl: form.emailHeaderLogoUrl,
@@ -623,6 +647,8 @@ function InvoiceSection({
 function EmailSmtpSection({
   smtp,
   form,
+  smtpStatus,
+  smtpAccessEnabled,
   passwordRef,
   setSmtpField,
   onPlaceholderAction,
@@ -632,25 +658,49 @@ function EmailSmtpSection({
 }: {
   smtp: SmtpState;
   form: FormState;
+  smtpStatus: { connected: boolean; fromEmail: string; lastTest: string | null };
+  smtpAccessEnabled: boolean;
   passwordRef: React.RefObject<HTMLInputElement | null>;
   setSmtpField: <K extends keyof SmtpState>(k: K, v: SmtpState[K]) => void;
   onPlaceholderAction: (action: string) => void;
   set: <K extends keyof FormState>(k: K, v: FormState[K]) => void;
-  saving: boolean;
+  saving: string | null;
   onSave: () => void;
 }) {
   return (
     <Card title="Email & SMTP Configuration">
+      {!smtpAccessEnabled && (
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "10px",
+          padding: "10px 14px",
+          borderRadius: "8px",
+          backgroundColor: "#fef3c7",
+          border: "1px solid #fcd34d",
+          marginBottom: "14px",
+          fontSize: "12px",
+          color: "#92400e",
+        }}>
+          <Lock size={14} style={{ flexShrink: 0 }} />
+          <span>SMTP configuration is available on Starter plan and above. <a href="/system/subscription" style={{ fontWeight: 600, color: "#92400e", textDecoration: "underline" }}>Upgrade now</a> to access custom SMTP settings.</span>
+        </div>
+      )}
+      {smtpAccessEnabled && <SmtpStatusCard status={smtpStatus} saving={saving} />}
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
         <div>
           <Subheading>SMTP Connection</Subheading>
+          <p style={{ fontSize: "11px", color: "var(--text-muted)", marginBottom: "10px", marginTop: "-6px" }}>
+            Configure your mail server to send emails from your business address.
+          </p>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <div>
               <Label>Mail Driver / Provider</Label>
               <select
                 value={smtp.mailProvider}
                 onChange={(e) => setSmtpField("mailProvider", e.target.value)}
-                style={inputStyle}
+                style={{ ...inputStyle, opacity: smtpAccessEnabled ? 1 : 0.5, pointerEvents: smtpAccessEnabled ? "auto" : "none" }}
+                disabled={!smtpAccessEnabled}
               >
                 {MAIL_PROVIDERS.map((provider) => (
                   <option key={provider} value={provider}>
@@ -659,18 +709,9 @@ function EmailSmtpSection({
                 ))}
               </select>
             </div>
-            <Field label="SMTP Host" value={smtp.smtpHost} onChange={(v) => setSmtpField("smtpHost", v)} />
-            <Field
-              label="SMTP Port"
-              type="number"
-              value={smtp.smtpPort}
-              onChange={(v) => setSmtpField("smtpPort", v)}
-            />
-            <Field
-              label="SMTP Username"
-              value={smtp.smtpUsername}
-              onChange={(v) => setSmtpField("smtpUsername", v)}
-            />
+            <Field disabled={!smtpAccessEnabled} label="SMTP Host" value={smtp.smtpHost} onChange={(v) => setSmtpField("smtpHost", v)} />
+            <Field disabled={!smtpAccessEnabled} label="SMTP Port" type="number" value={smtp.smtpPort} onChange={(v) => setSmtpField("smtpPort", v)} />
+            <Field disabled={!smtpAccessEnabled} label="SMTP Username" value={smtp.smtpUsername} onChange={(v) => setSmtpField("smtpUsername", v)} />
             <div>
               <Label>SMTP Password</Label>
               <input
@@ -679,7 +720,8 @@ function EmailSmtpSection({
                 autoComplete="new-password"
                 value={smtp.smtpPassword}
                 onChange={(e) => setSmtpField("smtpPassword", e.target.value)}
-                style={inputStyle}
+                style={{ ...inputStyle, opacity: smtpAccessEnabled ? 1 : 0.5 }}
+                disabled={!smtpAccessEnabled}
               />
             </div>
             <div>
@@ -687,7 +729,8 @@ function EmailSmtpSection({
               <select
                 value={smtp.encryption}
                 onChange={(e) => setSmtpField("encryption", e.target.value)}
-                style={inputStyle}
+                style={{ ...inputStyle, opacity: smtpAccessEnabled ? 1 : 0.5, pointerEvents: smtpAccessEnabled ? "auto" : "none" }}
+                disabled={!smtpAccessEnabled}
               >
                 {ENCRYPTION_OPTIONS.map((option) => (
                   <option key={option} value={option}>
@@ -696,19 +739,9 @@ function EmailSmtpSection({
                 ))}
               </select>
             </div>
-            <Field
-              label="From Email"
-              type="email"
-              value={smtp.fromEmail}
-              onChange={(v) => setSmtpField("fromEmail", v)}
-            />
-            <Field label="From Name" value={smtp.fromName} onChange={(v) => setSmtpField("fromName", v)} />
-            <Field
-              label="Reply-To Email"
-              type="email"
-              value={smtp.replyToEmail}
-              onChange={(v) => setSmtpField("replyToEmail", v)}
-            />
+            <Field disabled={!smtpAccessEnabled} label="From Email" type="email" value={smtp.fromEmail} onChange={(v) => setSmtpField("fromEmail", v)} />
+            <Field disabled={!smtpAccessEnabled} label="From Name" value={smtp.fromName} onChange={(v) => setSmtpField("fromName", v)} />
+            <Field disabled={!smtpAccessEnabled} label="Reply-To Email" type="email" value={smtp.replyToEmail} onChange={(v) => setSmtpField("replyToEmail", v)} />
           </div>
         </div>
 
@@ -759,7 +792,7 @@ function EmailSmtpSection({
                 </span>
               </div>
             </div>
-            <div className="md:col-span-2">
+            <div className="md:col-span-2" style={{ marginBottom: "12px" }}>
               <Label>Email Footer Text</Label>
               <textarea
                 value={smtp.emailFooterText}
@@ -782,17 +815,60 @@ function EmailSmtpSection({
       </div>
 
       <div style={smtpActionsStyle}>
-        <button type="button" onClick={onSave} disabled={saving} style={{ ...btnPrimary, opacity: saving ? 0.6 : 1 }}>
-          <Save size={13} /> {saving ? "Saving..." : "Save Email & SMTP Settings"}
+        <p style={{ fontSize: "11px", color: "var(--text-muted)", marginRight: "auto" }}>
+          <span style={{ fontWeight: 500, color: "var(--text-secondary)" }}>Test SMTP Connection:</span> Checks whether your mail server credentials are valid.
+          {" "}<span style={{ fontWeight: 500, color: "var(--text-secondary)" }}>Send Test Email:</span> Sends a real email to verify delivery is working.
+        </p>
+        <button type="button" onClick={onSave} disabled={!!saving || !smtpAccessEnabled} style={{ ...btnPrimary, opacity: (!!saving || !smtpAccessEnabled) ? 0.6 : 1, minWidth: "180px", justifyContent: "center" }}>
+          <Save size={13} /> {saving === "email-smtp" ? "Saving..." : "Save Email & SMTP Settings"}
         </button>
-        <button type="button" onClick={() => onPlaceholderAction("Test SMTP Connection")} style={btnSecondary}>
-          <Zap size={13} /> Test SMTP Connection
+        <button type="button" onClick={() => onPlaceholderAction("Test SMTP Connection")} disabled={!!saving || !smtpAccessEnabled} style={{ ...smtpButtonStyle, opacity: !!saving || !smtpAccessEnabled ? 0.5 : 1 }}>
+          <Zap size={13} /> {saving === "test-connection" ? "Testing..." : "Test SMTP Connection"}
         </button>
-        <button type="button" onClick={() => onPlaceholderAction("Send Test Email")} style={btnSecondary}>
-          <Send size={13} /> Send Test Email
+        <button type="button" onClick={() => onPlaceholderAction("Send Test Email")} disabled={!!saving || !smtpAccessEnabled} style={{ ...smtpButtonStyle, opacity: !!saving || !smtpAccessEnabled ? 0.5 : 1 }}>
+          <Send size={13} /> {saving === "send-test" ? "Sending..." : "Send Test Email"}
         </button>
       </div>
     </Card>
+  );
+}
+
+/* ---------- SMTP Status Card ---------- */
+
+function SmtpStatusCard({ status }: { status: { connected: boolean; fromEmail: string; lastTest: string | null }; saving: string | null }) {
+  return (
+    <div style={{
+      display: "flex",
+      alignItems: "center",
+      gap: "12px",
+      padding: "12px 16px",
+      borderRadius: "10px",
+      border: "1px solid var(--card-border)",
+      backgroundColor: status.connected ? "#dcfce7" : "var(--input-bg)",
+      marginBottom: "16px",
+      minHeight: "72px",
+    }}>
+      {status.connected ? (
+        <CheckCircle size={20} color="#166534" />
+      ) : (
+        <AlertTriangle size={20} color="#92400e" />
+      )}
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: "13px", fontWeight: 600, color: status.connected ? "#166534" : "#92400e" }}>
+          {status.connected ? "SMTP Connected" : "SMTP Not Connected"}
+        </div>
+        <div style={{ fontSize: "11px", color: status.connected ? "#166534" : "#92400e", opacity: 0.8 }}>
+          From: {status.fromEmail || "—"}
+          {status.lastTest && <span style={{ marginLeft: "8px" }}>· Last tested: {status.lastTest}</span>}
+        </div>
+      </div>
+      {!status.connected && (
+        <div style={{ fontSize: "11px", color: "#92400e", display: "flex", alignItems: "center", gap: "4px" }}>
+          <Mail size={12} />
+          <span>Configure SMTP below</span>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -1119,12 +1195,14 @@ function Field({
   onChange,
   type = "text",
   required,
+  disabled,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   type?: string;
   required?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <div>
@@ -1133,7 +1211,8 @@ function Field({
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        style={inputStyle}
+        style={{ ...inputStyle, opacity: disabled ? 0.5 : 1 }}
+        disabled={disabled}
       />
     </div>
   );
@@ -1241,4 +1320,21 @@ const smtpActionsStyle: React.CSSProperties = {
   gap: "8px",
   flexWrap: "wrap",
   marginTop: "18px",
+};
+
+const smtpButtonStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "6px",
+  padding: "8px 14px",
+  borderRadius: "7px",
+  border: "1px solid var(--input-border)",
+  backgroundColor: "var(--card-bg)",
+  color: "var(--text-primary)",
+  fontSize: "12px",
+  fontWeight: 500,
+  cursor: "pointer",
+  minWidth: "150px",
+  justifyContent: "center",
+  transition: "opacity 0.15s ease",
 };
