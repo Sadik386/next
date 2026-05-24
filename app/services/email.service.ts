@@ -221,12 +221,19 @@ export async function sendTestEmail(toEmail: string, businessId?: number): Promi
   }
 }
 
+export interface EmailAttachment {
+  filename: string;
+  content: Buffer;
+  contentType?: string;
+}
+
 export interface SendEmailParams {
   to: string;
   subject: string;
   html: string;
   text?: string;
   businessId?: number;
+  attachments?: EmailAttachment[];
 }
 
 export async function sendEmail(params: SendEmailParams): Promise<EmailResult> {
@@ -275,7 +282,7 @@ export async function sendEmail(params: SendEmailParams): Promise<EmailResult> {
       </div>
     `;
 
-    const mailOptions: nodemailer.SendMailOptions = {
+const mailOptions: nodemailer.SendMailOptions = {
       from: `"${settings.smtpFromName}" <${settings.smtpFromEmail}>`,
       to: recipient,
       subject: params.subject,
@@ -285,6 +292,14 @@ export async function sendEmail(params: SendEmailParams): Promise<EmailResult> {
 
     if (settings.smtpReplyTo) {
       mailOptions.replyTo = settings.smtpReplyTo;
+    }
+
+    if (params.attachments && params.attachments.length > 0) {
+      mailOptions.attachments = params.attachments.map((att) => ({
+        filename: att.filename,
+        content: att.content,
+        contentType: att.contentType,
+      }));
     }
 
     await transporter.sendMail(mailOptions);

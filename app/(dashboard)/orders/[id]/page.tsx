@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useCallback, useEffect, useState, use } from "react";
-import { ArrowLeft, ChevronDown, Trash2, Check, Circle, FileText, Truck } from "lucide-react";
+import { ArrowLeft, ChevronDown, Trash2, Check, Circle, FileText, Truck, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { BarcodePopup } from "@/components/ui/BarcodePopup";
 import { usePDF } from "@/hooks/usePDF";
@@ -62,6 +62,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteReason, setDeleteReason] = useState("");
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState(false);
   const { downloadPDF, printPDF, isLoading } = usePDF();
 
   const load = useCallback(async () => {
@@ -129,7 +130,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     await setPayment("partial", amount);
   }
 
-  async function submitDeleteRequest() {
+async function submitDeleteRequest() {
     if (!deleteReason.trim()) return;
     setDeleteSubmitting(true);
     try {
@@ -149,6 +150,23 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
       toast.error(err instanceof Error ? err.message : "Delete request failed");
     } finally {
       setDeleteSubmitting(false);
+    }
+  }
+
+  async function sendInvoiceEmail() {
+    setSendingEmail(true);
+    try {
+      const res = await fetch(`/api/email/invoice/${id}`, { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        toast.success("Invoice email sent successfully.");
+      } else {
+        toast.error(data.message || "Failed to send invoice email.");
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to send invoice email.");
+    } finally {
+      setSendingEmail(false);
     }
   }
 
@@ -369,6 +387,29 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
               filename={`barcode-${order.orderId}`}
               size="md"
             />
+            {order.customer.email && (
+              <button
+                onClick={sendInvoiceEmail}
+                disabled={sendingEmail}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "6px 12px",
+                  borderRadius: "7px",
+                  border: "1px solid var(--input-border)",
+                  backgroundColor: sendingEmail ? "var(--input-bg)" : "var(--brand)",
+                  color: "white",
+                  fontSize: "13px",
+                  fontWeight: 500,
+                  cursor: sendingEmail ? "not-allowed" : "pointer",
+                  opacity: sendingEmail ? 0.7 : 1,
+                }}
+              >
+                <Mail size={13} />
+                {sendingEmail ? "Sending..." : "Send Invoice Email"}
+              </button>
+            )}
           </div>
         </div>
       </div>
