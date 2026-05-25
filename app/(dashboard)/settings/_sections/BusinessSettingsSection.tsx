@@ -261,12 +261,6 @@ function BrandingSection({
           type="main"
           onChange={(url) => set("logoUrl", url)}
         />
-        <LogoUploader
-          label="Print Logo"
-          value={form.printLogoUrl}
-          type="print"
-          onChange={(url) => set("printLogoUrl", url)}
-        />
       </div>
 
       <div style={{ marginTop: "16px" }}>
