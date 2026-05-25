@@ -24,6 +24,7 @@ import {
   type LegacyPlanCode,
   type PlanCode,
 } from "@/lib/pricing";
+import { calculateRenewalDates } from "@/lib/usage-service";
 import type {
   Business,
   BusinessMember,
@@ -272,6 +273,54 @@ export class PlatformAdminService {
           }
         }
       }
+    });
+
+    return this.getRequiredBusinessDetailForAdmin(businessId);
+  }
+
+  /**
+   * Renew/extend business subscription for admin.
+   * Uses currentPeriodEnd as base if still in future, otherwise uses approval date.
+   * Duration is in months. Subscription status is set to ACTIVE.
+   */
+  async renewBusinessSubscriptionForAdmin(params: {
+    businessId: number;
+    planName: string;
+    durationMonths: number;
+    adminId?: number;
+  }) {
+    const { businessId, planName, durationMonths } = params;
+
+    if (durationMonths < 1 || durationMonths > 12) {
+      throw new Error("Duration must be between 1 and 12 months");
+    }
+
+    const plan = await prisma.subscriptionPlan.findFirst({ where: { name: planName } });
+    if (!plan) throw new Error("Plan not found");
+
+    const subscription = await prisma.subscription.findUnique({
+      where: { businessId },
+    });
+    if (!subscription) throw new Error("No subscription found for this business");
+
+    const { newPeriodStart, newPeriodEnd } = calculateRenewalDates({
+      currentPeriodEnd: subscription.currentPeriodEnd,
+      approvedAt: new Date(),
+      durationMonths,
+    });
+
+    await prisma.subscription.update({
+      where: { businessId },
+      data: {
+        planId: plan.id,
+        status: SUBSCRIPTION_STATUS.ACTIVE,
+        billingCycle: durationMonths >= 12 ? "yearly" : "monthly",
+        currentPeriodStart: newPeriodStart,
+        currentPeriodEnd: newPeriodEnd,
+        cancelAtPeriodEnd: false,
+        canceledAt: null,
+        pausedAt: null,
+      },
     });
 
     return this.getRequiredBusinessDetailForAdmin(businessId);

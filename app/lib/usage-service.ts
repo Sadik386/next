@@ -1,5 +1,6 @@
 import { prisma } from './prisma';
 import { USAGE_KEYS, isUnlimited, PLAN_NAMES, SUBSCRIPTION_STATUS, BILLING_CYCLE } from './pricing';
+import { getEffectiveSubscriptionStatus } from './subscription-guard';
 
 interface UsageCheckResult {
   allowed: boolean;
@@ -34,24 +35,25 @@ export async function getBusinessSubscription(businessId: number) {
 
 /**
  * Check if business can use a specific usage key
- * Returns current usage, limit, and whether allowed
+ * Returns current usage, limit, and whether allowed.
+ * Uses effective status: ACTIVE/TRIALING must also have currentPeriodEnd >= now.
  */
 export async function checkUsageLimit(
   businessId: number,
   usageKey: string
 ): Promise<UsageCheckResult> {
   const { start, end } = getCurrentPeriod();
+  const effStatus = await getEffectiveSubscriptionStatus(businessId);
 
-  // Get subscription
-  const subscription = await getBusinessSubscription(businessId);
-
-  // Default to free plan limits if no subscription
   const defaultLimit = getDefaultLimit(usageKey);
   let planLimit = defaultLimit;
 
-  if (subscription && subscription.status === SUBSCRIPTION_STATUS.ACTIVE) {
-    const planLimits = JSON.parse(subscription.plan.usageLimits || '{}');
-    planLimit = planLimits[usageKey] ?? defaultLimit;
+  if (effStatus.isActive) {
+    const subscription = await getBusinessSubscription(businessId);
+    if (subscription) {
+      const planLimits = JSON.parse(subscription.plan.usageLimits || '{}');
+      planLimit = planLimits[usageKey] ?? getDefaultLimit(usageKey);
+    }
   }
 
   // Check for override
@@ -169,25 +171,27 @@ export async function getCurrentUsage(
 }
 
 /**
- * Check if a feature is enabled for a business
+ * Check if a feature is enabled for a business.
+ * Uses effective status: ACTIVE/TRIALING must also have currentPeriodEnd >= now.
  */
 export async function checkFeature(
   businessId: number,
   featureKey: string
 ): Promise<FeatureCheckResult> {
-  // Get subscription
-  const subscription = await getBusinessSubscription(businessId);
-
-  // Default to free plan features if no subscription
   const defaultEnabled = getDefaultFeature(featureKey);
-  let enabled = defaultEnabled;
+  const effStatus = await getEffectiveSubscriptionStatus(businessId);
 
-  if (subscription && subscription.status === SUBSCRIPTION_STATUS.ACTIVE) {
-    const planFeatures = JSON.parse(subscription.plan.features || '{}');
-    enabled = planFeatures[featureKey] ?? defaultEnabled;
+  if (!effStatus.isActive) {
+    return { enabled: defaultEnabled };
   }
 
-  return { enabled };
+  const subscription = await getBusinessSubscription(businessId);
+  if (!subscription) {
+    return { enabled: defaultEnabled };
+  }
+
+  const planFeatures = JSON.parse(subscription.plan.features || '{}');
+  return { enabled: planFeatures[featureKey] ?? defaultEnabled };
 }
 
 /**
@@ -272,15 +276,16 @@ export async function getAllCurrentUsage(businessId: number) {
 }
 
 /**
- * Get usage summary with limits
+ * Get usage summary with limits.
+ * Uses effective status: ACTIVE/TRIALING must also have currentPeriodEnd >= now.
  */
 export async function getUsageSummary(businessId: number) {
+  const effStatus = await getEffectiveSubscriptionStatus(businessId);
   const subscription = await getBusinessSubscription(businessId);
   const currentUsage = await getAllCurrentUsage(businessId);
 
-  // Get plan limits
   let planLimits: Record<string, number> = {};
-  if (subscription && subscription.status === SUBSCRIPTION_STATUS.ACTIVE) {
+  if (effStatus.isActive && subscription) {
     planLimits = JSON.parse(subscription.plan.usageLimits || '{}');
   }
 
@@ -331,7 +336,7 @@ export async function getUsageSummary(businessId: number) {
   }
 
   return {
-    plan: subscription?.plan.name ?? PLAN_NAMES.FREE,
+    plan: effStatus.effectivePlan,
     status: subscription?.status ?? null,
     usage: summary,
   };
@@ -490,4 +495,39 @@ export async function resumeSubscription(businessId: number) {
       resumedAt: new Date(),
     },
   });
+}
+
+export interface RenewalDates {
+  baseDate: Date;
+  newPeriodStart: Date;
+  newPeriodEnd: Date;
+}
+
+export function calculateRenewalDates(params: {
+  currentPeriodEnd: Date | null;
+  approvedAt?: Date;
+  durationMonths: number;
+}): RenewalDates {
+  const { currentPeriodEnd, approvedAt, durationMonths } = params;
+  const now = approvedAt ?? new Date();
+
+  const baseDate =
+    currentPeriodEnd instanceof Date && currentPeriodEnd > now
+      ? currentPeriodEnd
+      : now;
+
+  const newPeriodStart = new Date(baseDate);
+  const newPeriodEnd = addMonths(baseDate, durationMonths);
+
+  return { baseDate, newPeriodStart, newPeriodEnd };
+}
+
+function addMonths(date: Date, months: number): Date {
+  const result = new Date(date);
+  const targetMonth = result.getMonth() + months;
+  result.setFullYear(result.getFullYear() + Math.floor(targetMonth / 12));
+  result.setMonth(targetMonth % 12);
+  const lastDayOfMonth = new Date(result.getFullYear(), result.getMonth() + 1, 0).getDate();
+  result.setDate(Math.min(result.getDate(), lastDayOfMonth));
+  return result;
 }

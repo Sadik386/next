@@ -24,6 +24,7 @@ import {
   type PlanCode,
 } from "@/lib/pricing";
 import { getAllCurrentUsage, getBusinessSubscription } from "@/lib/usage-service";
+import { getEffectiveSubscriptionStatus } from "@/lib/subscription-guard";
 
 const SUBSCRIPTION_FEATURE_KEYS = [
   FEATURE_KEYS.API_ACCESS,
@@ -79,6 +80,14 @@ export interface SubscriptionDashboardData {
   };
   features: Record<SubscriptionFeatureKey, boolean>;
   usageLimits: Record<string, number>;
+  effective: {
+    isActive: boolean;
+    isExpired: boolean;
+    isEffectiveFree: boolean;
+    effectivePlan: string;
+    effectiveStatus: string;
+    reason: string;
+  };
 }
 
 function toNumber(value: unknown, fallback = 0): number {
@@ -125,18 +134,14 @@ function getDashboardFeatures(features: Record<string, boolean>) {
   return dashboardFeatures;
 }
 
-function isFeatureAccessEnabled(subscription: { status: string } | null): boolean {
-  if (!subscription) return false;
-  return (
-    subscription.status === SUBSCRIPTION_STATUS.ACTIVE ||
-    subscription.status === SUBSCRIPTION_STATUS.TRIALING
-  );
-}
-
 export async function getSubscriptionDashboardData(
   businessId: number
 ): Promise<SubscriptionDashboardData> {
-  const subscription = await getBusinessSubscription(businessId);
+  const [subscription, effStatus] = await Promise.all([
+    getBusinessSubscription(businessId),
+    getEffectiveSubscriptionStatus(businessId),
+  ]);
+
   const fallbackPlan = subscription?.plan
     ? null
     : await prisma.subscriptionPlan.findUnique({ where: { name: PLAN_NAMES.FREE } });
@@ -150,34 +155,51 @@ export async function getSubscriptionDashboardData(
     prisma.product.count({ where: { businessId } }),
   ]);
 
-const planCode = normalizePlanCode(plan?.name ?? PLAN_NAMES.FREE);
-    const rawFeatures = getPlanFeatures(plan?.features);
-    const features = getDashboardFeatures(rawFeatures);
-    const usageLimits = safeJsonParse<Record<string, number>>(plan?.usageLimits, {}) ?? {};
+  const assignedPlanCode = normalizePlanCode(plan?.name ?? PLAN_NAMES.FREE);
+  const effectivePlanCode = normalizePlanCode(effStatus.effectivePlan);
 
-    const userLimit = plan?.maxUsers ?? getPlanUserLimit(planCode);
-    const productLimit = plan?.maxProducts ?? getPlanProductLimit(planCode);
-    const emailLimit = getPlanEmailLimit(planCode);
-    const pdfPrintLimit = getPlanPdfPrintLimit(planCode);
-    const emailUsage =
-      usageRecords.find((record) => record.key === USAGE_KEYS.EMAILS_SENT)?.value ?? 0;
-    const pdfPrintUsage =
-      usageRecords.find((record) => record.key === USAGE_KEYS.PDF_PRINT_COUNT)?.value ?? 0;
+  const rawFeatures = effStatus.isActive
+    ? getPlanFeatures(plan?.features)
+    : getPlanFeatures(fallbackPlan?.features ?? null);
+  const features = getDashboardFeatures(rawFeatures);
+  const usageLimits = effStatus.isActive
+    ? safeJsonParse<Record<string, number>>(plan?.usageLimits, {}) ?? {}
+    : safeJsonParse<Record<string, number>>(fallbackPlan?.usageLimits ?? "{}", {}) ?? {};
 
-    const planDescription = isCurrentPlan(planCode)
-      ? getPlanDescription(planCode as PlanCode)
-      : plan?.description || "";
+  const userLimit = effStatus.isActive
+    ? (plan?.maxUsers ?? getPlanUserLimit(effectivePlanCode))
+    : getPlanUserLimit(effectivePlanCode);
+  const productLimit = effStatus.isActive
+    ? (plan?.maxProducts ?? getPlanProductLimit(effectivePlanCode))
+    : getPlanProductLimit(effectivePlanCode);
+  const emailLimit = getPlanEmailLimit(effectivePlanCode);
+  const pdfPrintLimit = getPlanPdfPrintLimit(effectivePlanCode);
+  const emailUsage =
+    usageRecords.find((record) => record.key === USAGE_KEYS.EMAILS_SENT)?.value ?? 0;
+  const pdfPrintUsage =
+    usageRecords.find((record) => record.key === USAGE_KEYS.PDF_PRINT_COUNT)?.value ?? 0;
 
-return {
+  const planDescription = isCurrentPlan(assignedPlanCode)
+    ? getPlanDescription(assignedPlanCode as PlanCode)
+    : plan?.description || "";
+
+  const apiAccessEnabled = effStatus.isActive
+    ? (features[FEATURE_KEYS.API_ACCESS] ?? false)
+    : false;
+  const smtpAccessEnabled = effStatus.isActive
+    ? (features[FEATURE_KEYS.CUSTOM_SMTP] ?? false)
+    : false;
+
+  return {
     plan: {
-      code: planCode,
-      label: getNormalizedLabel(planCode),
+      code: assignedPlanCode,
+      label: getNormalizedLabel(assignedPlanCode),
       description: planDescription,
-      badge: getPlanBadge(planCode),
+      badge: getPlanBadge(assignedPlanCode),
       status: subscription?.status ?? SUBSCRIPTION_STATUS.ACTIVE,
       billingCycle: subscription?.billingCycle ?? "monthly",
-      priceMonthly: getPlanMonthlyPrice(planCode, plan),
-      priceYearly: getPlanYearlyPrice(planCode, plan),
+      priceMonthly: getPlanMonthlyPrice(assignedPlanCode, plan),
+      priceYearly: getPlanYearlyPrice(assignedPlanCode, plan),
       isActive: plan?.isActive ?? true,
       isTrial: plan?.isTrial ?? false,
       currentPeriodStart: toIso(subscription?.currentPeriodStart),
@@ -197,10 +219,18 @@ return {
         limit: pdfPrintLimit,
         isUnlimited: isUnlimited(pdfPrintLimit),
       },
-      apiAccessEnabled: features[FEATURE_KEYS.API_ACCESS],
-      smtpAccessEnabled: features[FEATURE_KEYS.CUSTOM_SMTP] && isFeatureAccessEnabled(subscription),
+      apiAccessEnabled,
+      smtpAccessEnabled,
     },
     features,
     usageLimits,
+    effective: {
+      isActive: effStatus.isActive,
+      isExpired: effStatus.isExpired,
+      isEffectiveFree: !effStatus.isActive,
+      effectivePlan: effStatus.effectivePlan,
+      effectiveStatus: effStatus.rawStatus,
+      reason: effStatus.reason,
+    },
   };
 }

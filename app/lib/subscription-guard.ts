@@ -104,17 +104,88 @@ export class SubscriptionGuardError extends Error {
   }
 }
 
+export type SubscriptionStatusResult = {
+  rawStatus: string;
+  isExpired: boolean;
+  isActive: boolean;
+  effectivePlan: string;
+  reason: string;
+};
+
+export async function getEffectiveSubscriptionStatus(
+  businessId: number
+): Promise<SubscriptionStatusResult> {
+  const subscription = await getBusinessSubscription(businessId);
+  const now = new Date();
+
+  if (!subscription) {
+    return {
+      rawStatus: "none",
+      isExpired: false,
+      isActive: false,
+      effectivePlan: PLAN_NAMES.FREE,
+      reason: "No subscription — Free plan",
+    };
+  }
+
+  const isPeriodExpired =
+    subscription.currentPeriodEnd instanceof Date &&
+    subscription.currentPeriodEnd < now;
+
+  const isEffectiveActive =
+    (subscription.status === SUBSCRIPTION_STATUS.ACTIVE ||
+      subscription.status === SUBSCRIPTION_STATUS.TRIALING) &&
+    !isPeriodExpired;
+
+  if (!isEffectiveActive) {
+    let reason: string;
+    if (subscription.status === SUBSCRIPTION_STATUS.TRIALING && isPeriodExpired) {
+      reason = "Trial period expired";
+    } else if (subscription.status === SUBSCRIPTION_STATUS.ACTIVE && isPeriodExpired) {
+      reason = "Subscription period expired";
+    } else if (subscription.status === SUBSCRIPTION_STATUS.EXPIRED) {
+      reason = "Subscription expired";
+    } else if (subscription.status === SUBSCRIPTION_STATUS.CANCELED) {
+      reason = "Subscription canceled";
+    } else if (subscription.status === SUBSCRIPTION_STATUS.PAUSED) {
+      reason = "Subscription paused";
+    } else {
+      reason = `Subscription status: ${subscription.status}`;
+    }
+    return {
+      rawStatus: subscription.status,
+      isExpired: isPeriodExpired,
+      isActive: false,
+      effectivePlan: PLAN_NAMES.FREE,
+      reason,
+    };
+  }
+
+  return {
+    rawStatus: subscription.status,
+    isExpired: false,
+    isActive: true,
+    effectivePlan: subscription.plan.name,
+    reason: "Subscription active",
+  };
+}
+
+export async function isEffectivePlanActive(businessId: number): Promise<boolean> {
+  const status = await getEffectiveSubscriptionStatus(businessId);
+  return status.isActive;
+}
+
 interface CheckLimitOptions {
   businessId: number;
   usageKey: string;
 }
 
 /**
- * Check if subscription is active and not expired
+ * Check if subscription is active and not expired.
+ * Uses effective status: ACTIVE/TRIALING must also have currentPeriodEnd >= now.
  */
 export async function isSubscriptionActive(businessId: number): Promise<boolean> {
-  const subscription = await getBusinessSubscription(businessId);
-  return subscription?.status === SUBSCRIPTION_STATUS.ACTIVE || subscription?.status === SUBSCRIPTION_STATUS.TRIALING;
+  return isEffectivePlanActive(businessId);
 }
 
 /**
@@ -148,60 +219,57 @@ export async function isTrialExpired(businessId: number): Promise<boolean> {
 }
 
 /**
- * Check if business has access to a specific feature
+ * Check if business has access to a specific feature.
+ * Uses effective status to determine the applicable plan.
  */
 export async function hasFeatureAccess(businessId: number, featureKey: string): Promise<boolean> {
+  const effStatus = await getEffectiveSubscriptionStatus(businessId);
+  if (!effStatus.isActive) return false;
+
   const subscription = await getBusinessSubscription(businessId);
   if (!subscription) return false;
-  
-  // Only check features for active or trialing subscriptions
-  if (subscription.status !== SUBSCRIPTION_STATUS.ACTIVE && subscription.status !== SUBSCRIPTION_STATUS.TRIALING) {
-    return false;
-  }
-  
+
   const planFeatures = safeJsonParse<Record<string, boolean>>(subscription.plan.features, {}) ?? {};
   return planFeatures[featureKey] ?? false;
 }
 
 /**
- * Check if business has exceeded a usage limit
+ * Check if business has exceeded a usage limit.
+ * Uses effective status: ACTIVE/TRIALING must also have currentPeriodEnd >= now.
+ * Falls back to Free plan limits when subscription is not effective.
  */
 export async function checkLimitExceeded(options: CheckLimitOptions): Promise<{ exceeded: boolean; current: number; limit: number }> {
   const { businessId, usageKey } = options;
-  
+
+  const effStatus = await getEffectiveSubscriptionStatus(businessId);
+  const currentUsage = await getCurrentUsage(businessId, usageKey);
+
+  if (!effStatus.isActive) {
+    const defaultLimit = getDefaultLimit(usageKey);
+    return {
+      exceeded: currentUsage >= defaultLimit && defaultLimit !== -1,
+      current: currentUsage,
+      limit: defaultLimit,
+    };
+  }
+
   const subscription = await getBusinessSubscription(businessId);
   if (!subscription) {
-    // No subscription - use free plan limits
     const defaultLimit = getDefaultLimit(usageKey);
-    const currentUsage = await getCurrentUsage(businessId, usageKey);
     return {
       exceeded: currentUsage >= defaultLimit && defaultLimit !== -1,
       current: currentUsage,
-      limit: defaultLimit
+      limit: defaultLimit,
     };
   }
-  
-  // Check subscription status
-  if (subscription.status !== SUBSCRIPTION_STATUS.ACTIVE && subscription.status !== SUBSCRIPTION_STATUS.TRIALING) {
-    // Expired, canceled, paused subscription - treat as free plan
-    const defaultLimit = getDefaultLimit(usageKey);
-    const currentUsage = await getCurrentUsage(businessId, usageKey);
-    return {
-      exceeded: currentUsage >= defaultLimit && defaultLimit !== -1,
-      current: currentUsage,
-      limit: defaultLimit
-    };
-  }
-  
-  // Active subscription - check plan limits
+
   const planLimits = safeJsonParse<Record<string, number>>(subscription.plan.usageLimits, {}) ?? {};
   const planLimit = planLimits[usageKey] ?? getDefaultLimit(usageKey);
-  const currentUsage = await getCurrentUsage(businessId, usageKey);
-  
+
   return {
     exceeded: currentUsage >= planLimit && planLimit !== -1,
     current: currentUsage,
-    limit: planLimit
+    limit: planLimit,
   };
 }
 
@@ -300,42 +368,35 @@ export async function incrementUsageSafely(
 }
 
 /**
- * Guard for product creation - checks product limit and trial status
+ * Guard for product creation - checks product limit and effective subscription status.
+ * Uses effective status: ACTIVE/TRIALING must also have currentPeriodEnd >= now.
  */
 export async function guardProductCreation(businessId: number): Promise<SubscriptionGuardResult> {
-  const subscription = await getBusinessSubscription(businessId);
-  
-  // Check if trial is expired
-  if (subscription && subscription.status === SUBSCRIPTION_STATUS.TRIALING && await isTrialExpired(businessId)) {
+  const effStatus = await getEffectiveSubscriptionStatus(businessId);
+
+  if (effStatus.rawStatus === SUBSCRIPTION_STATUS.TRIALING && effStatus.isExpired) {
     return {
       allowed: false,
       reason: `Your trial has expired. Upgrade or switch plan to continue.`,
       code: "TRIAL_EXPIRED"
     };
   }
-  
-  // Determine limit based on subscription status
+
   let productLimit: number;
-  if (!subscription) {
-    // No subscription - use free plan
-    productLimit = getPlanProductLimit(PLAN_NAMES.FREE);
-  } else if (subscription.status === SUBSCRIPTION_STATUS.ACTIVE || subscription.status === SUBSCRIPTION_STATUS.TRIALING) {
-    // Active or trial subscription
-    productLimit = subscription.plan.maxProducts ?? getPlanProductLimit(normalizePlanCode(subscription.plan.name));
+  if (effStatus.isActive) {
+    const subscription = await getBusinessSubscription(businessId);
+    productLimit = subscription?.plan.maxProducts ?? getPlanProductLimit(normalizePlanCode(effStatus.effectivePlan));
   } else {
-    // Expired, canceled, paused - treat as free
     productLimit = getPlanProductLimit(PLAN_NAMES.FREE);
   }
-  
-  // Check current product count
+
   const currentProductCount = await prisma.product.count({
     where: {
       businessId,
       deletedAt: null,
     }
   });
-  
-  // Check if limit exceeded (unlimited = -1)
+
   if (productLimit !== -1 && currentProductCount >= productLimit) {
     return {
       allowed: false,
@@ -343,47 +404,40 @@ export async function guardProductCreation(businessId: number): Promise<Subscrip
       code: "PRODUCT_LIMIT_EXCEEDED"
     };
   }
-  
+
   return { allowed: true };
 }
 
 /**
- * Guard for user creation - checks user/team limit and trial status
+ * Guard for user creation - checks user/team limit and effective subscription status.
+ * Uses effective status: ACTIVE/TRIALING must also have currentPeriodEnd >= now.
  */
 export async function guardUserCreation(businessId: number): Promise<SubscriptionGuardResult> {
-  const subscription = await getBusinessSubscription(businessId);
-  
-  // Check if trial is expired
-  if (subscription && subscription.status === SUBSCRIPTION_STATUS.TRIALING && await isTrialExpired(businessId)) {
+  const effStatus = await getEffectiveSubscriptionStatus(businessId);
+
+  if (effStatus.rawStatus === SUBSCRIPTION_STATUS.TRIALING && effStatus.isExpired) {
     return {
       allowed: false,
       reason: `Your trial has expired. Upgrade or switch plan to continue.`,
       code: "TRIAL_EXPIRED"
     };
   }
-  
-  // Determine limit based on subscription status
+
   let userLimit: number;
-  if (!subscription) {
-    // No subscription - use free plan
-    userLimit = getPlanUserLimit(PLAN_NAMES.FREE);
-  } else if (subscription.status === SUBSCRIPTION_STATUS.ACTIVE || subscription.status === SUBSCRIPTION_STATUS.TRIALING) {
-    // Active or trial subscription
-    userLimit = subscription.plan.maxUsers ?? getPlanUserLimit(normalizePlanCode(subscription.plan.name));
+  if (effStatus.isActive) {
+    const subscription = await getBusinessSubscription(businessId);
+    userLimit = subscription?.plan.maxUsers ?? getPlanUserLimit(normalizePlanCode(effStatus.effectivePlan));
   } else {
-    // Expired, canceled, paused - treat as free
     userLimit = getPlanUserLimit(PLAN_NAMES.FREE);
   }
-  
-  // Check current user count (active business members)
+
   const currentUserCount = await prisma.businessMember.count({
     where: {
       businessId,
       status: activeBusinessMemberStatusWhere()
     }
   });
-  
-  // Check if limit exceeded (unlimited = -1)
+
   if (userLimit !== -1 && currentUserCount >= userLimit) {
     return {
       allowed: false,
@@ -391,27 +445,27 @@ export async function guardUserCreation(businessId: number): Promise<Subscriptio
       code: "USER_LIMIT_EXCEEDED"
     };
   }
-  
+
   return { allowed: true };
 }
 
 /**
- * Guard for API key creation - checks API access feature and trial status
+ * Guard for API key creation - checks API access feature and effective subscription status.
+ * Uses effective status: ACTIVE/TRIALING must also have currentPeriodEnd >= now.
  */
 export async function guardApiKeyCreation(businessId: number): Promise<SubscriptionGuardResult> {
-  const subscription = await getBusinessSubscription(businessId);
-  
-  // Check if trial is expired
-  if (subscription && subscription.status === SUBSCRIPTION_STATUS.TRIALING && await isTrialExpired(businessId)) {
+  const effStatus = await getEffectiveSubscriptionStatus(businessId);
+
+  if (effStatus.rawStatus === SUBSCRIPTION_STATUS.TRIALING && effStatus.isExpired) {
     return {
       allowed: false,
       reason: `Your trial has expired. Upgrade or switch plan to continue.`,
       code: "TRIAL_EXPIRED"
     };
   }
-  
+
   const hasApiAccess = await hasFeatureAccess(businessId, FEATURE_KEYS.API_ACCESS);
-  
+
   if (!hasApiAccess) {
     return {
       allowed: false,
@@ -419,42 +473,34 @@ export async function guardApiKeyCreation(businessId: number): Promise<Subscript
       code: "API_ACCESS_DENIED"
     };
   }
-  
+
   return { allowed: true };
 }
 
 /**
- * Guard for email sending - checks email quota and trial status
+ * Guard for email sending - checks email quota and effective subscription status.
+ * Uses effective status: ACTIVE/TRIALING must also have currentPeriodEnd >= now.
  */
 export async function guardEmailSend(businessId: number): Promise<SubscriptionGuardResult> {
-  const subscription = await getBusinessSubscription(businessId);
-  
-  // Check if trial is expired
-  if (subscription && subscription.status === SUBSCRIPTION_STATUS.TRIALING && await isTrialExpired(businessId)) {
+  const effStatus = await getEffectiveSubscriptionStatus(businessId);
+
+  if (effStatus.rawStatus === SUBSCRIPTION_STATUS.TRIALING && effStatus.isExpired) {
     return {
       allowed: false,
       reason: `Your trial has expired. Upgrade or switch plan to continue.`,
       code: "TRIAL_EXPIRED"
     };
   }
-  
-  // Determine email limit based on subscription status
+
   let emailLimit: number;
-  if (!subscription) {
-    // No subscription - use free plan
-    emailLimit = getPlanEmailLimit(PLAN_NAMES.FREE);
-  } else if (subscription.status === SUBSCRIPTION_STATUS.ACTIVE || subscription.status === SUBSCRIPTION_STATUS.TRIALING) {
-    // Active or trial subscription
-    emailLimit = getPlanEmailLimit(normalizePlanCode(subscription.plan.name));
+  if (effStatus.isActive) {
+    emailLimit = getPlanEmailLimit(normalizePlanCode(effStatus.effectivePlan));
   } else {
-    // Expired, canceled, paused - treat as free
     emailLimit = getPlanEmailLimit(PLAN_NAMES.FREE);
   }
-  
-  // Check current email usage
+
   const emailUsage = await getCurrentUsage(businessId, USAGE_KEYS.EMAILS_SENT);
-  
-  // Check if limit exceeded (unlimited = -1)
+
   if (emailLimit !== -1 && emailUsage >= emailLimit) {
     return {
       allowed: false,
@@ -462,28 +508,27 @@ export async function guardEmailSend(businessId: number): Promise<SubscriptionGu
       code: "EMAIL_QUOTA_EXCEEDED"
     };
   }
-  
+
   return { allowed: true };
 }
 
 /**
- * Guard for webhook creation - checks webhook feature access and trial status
+ * Guard for webhook creation - checks webhook feature access and effective subscription status.
+ * Uses effective status: ACTIVE/TRIALING must also have currentPeriodEnd >= now.
  */
 export async function guardWebhookCreation(businessId: number): Promise<SubscriptionGuardResult> {
-  const subscription = await getBusinessSubscription(businessId);
-  
-  // Check if trial is expired
-  if (subscription && subscription.status === SUBSCRIPTION_STATUS.TRIALING && await isTrialExpired(businessId)) {
+  const effStatus = await getEffectiveSubscriptionStatus(businessId);
+
+  if (effStatus.rawStatus === SUBSCRIPTION_STATUS.TRIALING && effStatus.isExpired) {
     return {
       allowed: false,
       reason: `Your trial has expired. Upgrade or switch plan to continue.`,
       code: "TRIAL_EXPIRED"
     };
   }
-  
-  // Check if webhook feature is enabled
+
   const hasWebhookAccess = await hasFeatureAccess(businessId, FEATURE_KEYS.WEBHOOKS);
-  
+
   if (!hasWebhookAccess) {
     return {
       allowed: false,
@@ -491,39 +536,38 @@ export async function guardWebhookCreation(businessId: number): Promise<Subscrip
       code: "WEBHOOK_ACCESS_DENIED"
     };
   }
-  
+
   return { allowed: true };
 }
 
 /**
- * Guard for PDF/Print usage - checks PDF quota and trial status
+ * Guard for PDF/Print usage - checks PDF quota and effective subscription status.
+ * Uses effective status: ACTIVE/TRIALING must also have currentPeriodEnd >= now.
  */
 export async function guardPdfPrintUsage(businessId: number): Promise<SubscriptionGuardResult> {
-  const subscription = await getBusinessSubscription(businessId);
-  
-  if (subscription && subscription.status === SUBSCRIPTION_STATUS.TRIALING && await isTrialExpired(businessId)) {
+  const effStatus = await getEffectiveSubscriptionStatus(businessId);
+
+  if (effStatus.rawStatus === SUBSCRIPTION_STATUS.TRIALING && effStatus.isExpired) {
     return {
       allowed: false,
       reason: `Your trial has expired. Upgrade or switch plan to continue.`,
       code: "TRIAL_EXPIRED"
     };
   }
-  
+
   let pdfLimit: number;
-  if (!subscription) {
-    pdfLimit = getPlanPdfPrintLimit(PLAN_NAMES.FREE);
-  } else if (subscription.status === SUBSCRIPTION_STATUS.ACTIVE || subscription.status === SUBSCRIPTION_STATUS.TRIALING) {
-    pdfLimit = getPlanPdfPrintLimit(normalizePlanCode(subscription.plan.name));
+  if (effStatus.isActive) {
+    pdfLimit = getPlanPdfPrintLimit(normalizePlanCode(effStatus.effectivePlan));
   } else {
     pdfLimit = getPlanPdfPrintLimit(PLAN_NAMES.FREE);
   }
-  
+
   if (pdfLimit === -1) {
     return { allowed: true };
   }
-  
+
   const pdfUsage = await getCurrentUsage(businessId, USAGE_KEYS.PDF_PRINT_COUNT);
-  
+
   if (pdfUsage >= pdfLimit) {
     return {
       allowed: false,
@@ -531,28 +575,27 @@ export async function guardPdfPrintUsage(businessId: number): Promise<Subscripti
       code: "PDF_PRINT_LIMIT_EXCEEDED"
     };
   }
-  
+
   return { allowed: true };
 }
 
 /**
- * Guard for API usage - checks API access feature, trial status, and API call limits
+ * Guard for API usage - checks API access feature, effective subscription status, and API call limits.
+ * Uses effective status: ACTIVE/TRIALING must also have currentPeriodEnd >= now.
  */
 export async function guardApiUsage(businessId: number): Promise<SubscriptionGuardResult> {
-  const subscription = await getBusinessSubscription(businessId);
-  
-  // Check if trial is expired
-  if (subscription && subscription.status === SUBSCRIPTION_STATUS.TRIALING && await isTrialExpired(businessId)) {
+  const effStatus = await getEffectiveSubscriptionStatus(businessId);
+
+  if (effStatus.rawStatus === SUBSCRIPTION_STATUS.TRIALING && effStatus.isExpired) {
     return {
       allowed: false,
       reason: `Your trial has expired. Upgrade or switch plan to continue.`,
       code: "TRIAL_EXPIRED"
     };
   }
-  
-  // Check if API access feature is enabled
+
   const hasApiAccess = await hasFeatureAccess(businessId, FEATURE_KEYS.API_ACCESS);
-  
+
   if (!hasApiAccess) {
     return {
       allowed: false,
@@ -560,23 +603,20 @@ export async function guardApiUsage(businessId: number): Promise<SubscriptionGua
       code: "API_ACCESS_DENIED"
     };
   }
-  
-  // Check if subscription is active (not canceled/paused/expired)
-  const isActive = await isSubscriptionActive(businessId);
-  if (!isActive) {
+
+  if (!effStatus.isActive) {
     return {
       allowed: false,
       reason: `API access is not available for your current subscription status.`,
       code: "SUBSCRIPTION_INACTIVE"
     };
   }
-  
-  // Check API call limits if applicable
+
   const limitCheck = await checkLimitExceeded({
     businessId,
     usageKey: USAGE_KEYS.API_CALLS
   });
-  
+
   if (limitCheck.exceeded && !isUnlimited(limitCheck.limit)) {
     return {
       allowed: false,
@@ -584,6 +624,6 @@ export async function guardApiUsage(businessId: number): Promise<SubscriptionGua
       code: "API_CALL_LIMIT_EXCEEDED"
     };
   }
-  
+
   return { allowed: true };
 }
