@@ -157,7 +157,7 @@ export default function SettingsPage() {
         const res = await fetch("/api/subscription", { cache: "no-store" });
         if (res.ok) {
           const data = await res.json();
-          setSmtpAccessEnabled(data.data?.smtpAccessEnabled ?? false);
+          setSmtpAccessEnabled(data.data?.usage?.smtpAccessEnabled ?? false);
         }
       } catch { /* silently ignore */ }
     }
@@ -683,10 +683,10 @@ function EmailSmtpSection({
             color: "#92400e",
           }}>
             <Lock size={14} style={{ flexShrink: 0 }} />
-            <span>SMTP configuration is available on Starter plan and above. <a href="/system/subscription" style={{ fontWeight: 600, color: "#92400e", textDecoration: "underline" }}>Upgrade now</a> to access custom SMTP settings.</span>
+            <span>Custom SMTP is not available on your current plan. <a href="/system/subscription" style={{ fontWeight: 600, color: "#92400e", textDecoration: "underline" }}>Upgrade</a> to Starter, Business or Custom to configure business email.</span>
           </div>
           <p style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "8px", lineHeight: "1.5" }}>
-            Upgrade to Starter or higher to enable branded business email delivery and custom SMTP configuration.
+            Upgrade to Starter, Business or Custom plan to unlock custom SMTP configuration for your business.
           </p>
         </div>
       ) : (

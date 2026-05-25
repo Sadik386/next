@@ -123,7 +123,7 @@ const planFeatures = {
     auditLog: false,
   },
   starter: {
-    customSmtp: false,
+    customSmtp: true,
     apiAccess: false,
     webhooks: false,
     whiteLabel: false,

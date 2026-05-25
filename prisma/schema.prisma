@@ -594,8 +594,8 @@ model SubscriptionPlan {
   priceYearly  Decimal  @db.Decimal(10, 2)
   maxUsers    Int       @default(1)
   maxProducts Int       @default(-1) // -1 = unlimited
-  features    String    // JSON object of feature flags
-  usageLimits String    // JSON object of usage limits
+  features    String    @db.LongText
+  usageLimits String    @db.LongText
   isActive    Boolean   @default(true)
   isTrial     Boolean   @default(false)
   createdAt   DateTime  @default(now())

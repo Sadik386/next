@@ -1,0 +1,3 @@
+ALTER TABLE `SubscriptionPlan`
+MODIFY `features` LONGTEXT NOT NULL,
+MODIFY `usageLimits` LONGTEXT NOT NULL;

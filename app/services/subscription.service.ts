@@ -125,6 +125,14 @@ function getDashboardFeatures(features: Record<string, boolean>) {
   return dashboardFeatures;
 }
 
+function isFeatureAccessEnabled(subscription: { status: string } | null): boolean {
+  if (!subscription) return false;
+  return (
+    subscription.status === SUBSCRIPTION_STATUS.ACTIVE ||
+    subscription.status === SUBSCRIPTION_STATUS.TRIALING
+  );
+}
+
 export async function getSubscriptionDashboardData(
   businessId: number
 ): Promise<SubscriptionDashboardData> {
@@ -190,7 +198,7 @@ return {
         isUnlimited: isUnlimited(pdfPrintLimit),
       },
       apiAccessEnabled: features[FEATURE_KEYS.API_ACCESS],
-      smtpAccessEnabled: features[FEATURE_KEYS.CUSTOM_SMTP],
+      smtpAccessEnabled: features[FEATURE_KEYS.CUSTOM_SMTP] && isFeatureAccessEnabled(subscription),
     },
     features,
     usageLimits,
