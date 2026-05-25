@@ -3,6 +3,7 @@ import { loginUser } from "@/services/auth.service";
 import { prisma } from "@/lib/prisma";
 import { createLog } from "@/services/activity-log.service";
 import { getRequestInfo } from "@/lib/request-info";
+import { verifyTurnstileToken } from "@/services/turnstile.service";
 
 // Rate limiter: 5 attempts per 15 minutes per IP
 const loginAttempts = new Map<string, { count: number; resetAt: number }>();
@@ -34,7 +35,23 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { email, password } = await req.json();
+    let body: Record<string, unknown>;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+    }
+
+    const turnstileToken = body.turnstileToken as string | undefined;
+    if (!turnstileToken) {
+      return NextResponse.json({ error: "CAPTCHA verification failed. Please try again." }, { status: 400 });
+    }
+    const turnstileResult = await verifyTurnstileToken(turnstileToken);
+    if (!turnstileResult.success) {
+      return NextResponse.json({ error: "CAPTCHA verification failed. Please try again." }, { status: 400 });
+    }
+
+    const { email, password } = body as { email: string; password: string };
     if (!email || !password) {
       return NextResponse.json({ error: "Email and password are required" }, { status: 400 });
     }

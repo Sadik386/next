@@ -3,6 +3,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import LegalFooter from "@/lib/LegalFooter";
+import TurnstileWidget from "@/components/TurnstileWidget";
 
 const COUNTRIES = [
   { code: "BD", name: "Bangladesh", currency: "BDT" },
@@ -58,6 +59,7 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string>("");
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -144,6 +146,7 @@ export default function RegisterPage() {
           businessUsername,
           country,
           currency,
+          turnstileToken,
         }),
       });
       const data = await res.json();
@@ -697,6 +700,14 @@ export default function RegisterPage() {
               </div>
             </div>
           </div>
+
+          <TurnstileWidget
+            onVerify={(token) => setTurnstileToken(token)}
+            onError={() => setTurnstileToken("")}
+            onExpired={() => setTurnstileToken("")}
+            theme="light"
+            size="normal"
+          />
 
           <button
             type="submit"

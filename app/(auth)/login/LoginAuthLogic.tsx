@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import LegalFooter from "@/lib/LegalFooter";
+import TurnstileWidget from "@/components/TurnstileWidget";
 
 export default function LoginAuthLogic() {
   const router = useRouter();
@@ -16,6 +17,7 @@ export default function LoginAuthLogic() {
   const [showResend, setShowResend] = useState(false);
   const [resending, setResending] = useState(false);
   const [resent, setResent] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string>("");
 
   const redirectParam = searchParams.get('redirect');
 
@@ -57,7 +59,7 @@ export default function LoginAuthLogic() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, turnstileToken }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -179,7 +181,7 @@ if (checkingSetup) {
                   const r = await fetch("/api/auth/resend-verification", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ email }),
+                    body: JSON.stringify({ email, turnstileToken }),
                   });
                   const rd = await r.json();
                   setResent(true);
@@ -291,6 +293,13 @@ if (checkingSetup) {
               Forgot password?
             </a>
           </div>
+          <TurnstileWidget
+            onVerify={(token) => setTurnstileToken(token)}
+            onError={() => setTurnstileToken("")}
+            onExpired={() => setTurnstileToken("")}
+            theme="light"
+            size="compact"
+          />
           <button
             type="submit" // Changed to type="submit"
             disabled={loading}

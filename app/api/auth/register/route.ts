@@ -8,6 +8,7 @@ import { BUSINESS_MEMBER_STATUS } from "@/constants/business-member-status";
 import { ROLES } from "@/constants/roles";
 import { PLAN_NAMES } from "@/lib/pricing";
 import { createEmailVerificationToken, sendVerificationEmail } from "@/services/email-verification.service";
+import { verifyTurnstileToken } from "@/services/turnstile.service";
 
 function toBusinessSlug(name: string): string {
   return name
@@ -21,6 +22,22 @@ export async function POST(req: NextRequest) {
   const { ip } = getRequestInfo(req);
   if (!checkRateLimit(ip, { windowMs: 60 * 60 * 1000, maxRequests: 5 })) {
     return NextResponse.json(getRateLimitResponse("Too many registration attempts. Try again in an hour."), { status: 429 });
+  }
+
+  let body: Record<string, unknown>;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+  }
+
+  const turnstileToken = body.turnstileToken as string | undefined;
+  if (!turnstileToken) {
+    return NextResponse.json({ error: "CAPTCHA verification failed. Please try again." }, { status: 400 });
+  }
+  const turnstileResult = await verifyTurnstileToken(turnstileToken);
+  if (!turnstileResult.success) {
+    return NextResponse.json({ error: "CAPTCHA verification failed. Please try again." }, { status: 400 });
   }
 
   try {
@@ -37,7 +54,20 @@ export async function POST(req: NextRequest) {
       businessUsername,
       country,
       currency,
-    } = await req.json();
+    } = body as {
+      name: string;
+      username: string;
+      email: string;
+      phone: string;
+      password: string;
+      gender: string;
+      dob: string;
+      address: string;
+      businessName: string;
+      businessUsername: string;
+      country: string;
+      currency: string;
+    };
 
     if (!name || !username || !email || !password || !businessName || !businessUsername) {
       return NextResponse.json({ error: "All required fields are required" }, { status: 400 });

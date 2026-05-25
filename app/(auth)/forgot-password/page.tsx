@@ -3,6 +3,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import LegalFooter from "@/lib/LegalFooter";
+import TurnstileWidget from "@/components/TurnstileWidget";
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
@@ -12,6 +13,7 @@ export default function ForgotPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [shaking, setShaking] = useState(false);
   const [devToken, setDevToken] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState<string>("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,7 +29,7 @@ export default function ForgotPasswordPage() {
       const res = await fetch("/api/auth/forgot-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, turnstileToken }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -184,6 +186,13 @@ export default function ForgotPasswordPage() {
                   }}
                 />
               </div>
+              <TurnstileWidget
+                onVerify={(token) => setTurnstileToken(token)}
+                onError={() => setTurnstileToken("")}
+                onExpired={() => setTurnstileToken("")}
+                theme="light"
+                size="compact"
+              />
               <button
                 type="submit"
                 disabled={loading}

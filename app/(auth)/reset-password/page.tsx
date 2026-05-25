@@ -3,6 +3,7 @@ import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import LegalFooter from "@/lib/LegalFooter";
+import TurnstileWidget from "@/components/TurnstileWidget";
 
 function ResetPasswordForm() {
   const router = useRouter();
@@ -15,6 +16,7 @@ function ResetPasswordForm() {
   const [loading, setLoading] = useState(false);
   const [shaking, setShaking] = useState(false);
   const [tokenError, setTokenError] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string>("");
 
   const getPasswordStrength = (pwd: string): { level: number; label: string; color: string } => {
     if (!pwd) return { level: 0, label: "", color: "" };
@@ -70,7 +72,7 @@ function ResetPasswordForm() {
       const res = await fetch("/api/auth/reset-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, password }),
+        body: JSON.stringify({ token, password, turnstileToken }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -265,6 +267,13 @@ function ResetPasswordForm() {
                 }}
               />
             </div>
+            <TurnstileWidget
+              onVerify={(token) => setTurnstileToken(token)}
+              onError={() => setTurnstileToken("")}
+              onExpired={() => setTurnstileToken("")}
+              theme="light"
+              size="compact"
+            />
             <button
               type="submit"
               disabled={loading}
