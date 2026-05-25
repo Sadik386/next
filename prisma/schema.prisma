@@ -53,8 +53,10 @@ model User {
   passwordResetTokens    PasswordResetToken[]
   lastLoginAt           DateTime?
   lastLoginIp           String?    @db.VarChar(45)
+  emailVerifiedAt       DateTime?
   subscriptionRequests  SubscriptionRequest[]
   requestNotes          RequestNote[]
+  emailVerificationTokens EmailVerificationToken[]
 }
 
 model Notification {
@@ -570,6 +572,17 @@ model PasswordResetToken {
   usedAt    DateTime?
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model EmailVerificationToken {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  token     String   @unique @db.VarChar(255)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model SubscriptionPlan {

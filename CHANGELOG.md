@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.1] - 2026-05-25
+
+### Added
+- Email verification system for new user registrations
+  - `EmailVerificationToken` table with secure token generation
+  - `emailVerifiedAt` field on User model
+  - Email verification service (`email-verification.service.ts`)
+  - API routes: `/api/auth/verify-email` (GET/POST), `/api/auth/resend-verification`
+  - UI page: `/verify-email` with loading, success, and error states
+  - Login flow blocks unverified users with helpful message
+
+### Database
+- Migration: `20260525112134_add_email_verification` (ready for deploy)
+
 ## [1.0.0] - 2026-05-12
 
 ### Added

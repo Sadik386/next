@@ -4,6 +4,37 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import LegalFooter from "@/lib/LegalFooter";
 
+const COUNTRIES = [
+  { code: "BD", name: "Bangladesh", currency: "BDT" },
+  { code: "IN", name: "India", currency: "INR" },
+  { code: "PK", name: "Pakistan", currency: "PKR" },
+  { code: "US", name: "United States", currency: "USD" },
+  { code: "GB", name: "United Kingdom", currency: "GBP" },
+  { code: "CA", name: "Canada", currency: "CAD" },
+  { code: "AU", name: "Australia", currency: "AUD" },
+  { code: "DE", name: "Germany", currency: "EUR" },
+  { code: "FR", name: "France", currency: "EUR" },
+  { code: "AE", name: "United Arab Emirates", currency: "AED" },
+  { code: "SA", name: "Saudi Arabia", currency: "SAR" },
+  { code: "MY", name: "Malaysia", currency: "MYR" },
+  { code: "SG", name: "Singapore", currency: "SGD" },
+];
+
+const CURRENCIES = [
+  { code: "BDT", name: "BDT - Taka" },
+  { code: "INR", name: "INR - Rupee" },
+  { code: "PKR", name: "PKR - Rupee" },
+  { code: "USD", name: "USD - Dollar" },
+  { code: "GBP", name: "GBP - Pound" },
+  { code: "CAD", name: "CAD - Dollar" },
+  { code: "AUD", name: "AUD - Dollar" },
+  { code: "EUR", name: "EUR - Euro" },
+  { code: "AED", name: "AED - Dirham" },
+  { code: "SAR", name: "SAR - Riyal" },
+  { code: "MYR", name: "MYR - Ringgit" },
+  { code: "SGD", name: "SGD - Dollar" },
+];
+
 export default function RegisterPage() {
   const router = useRouter();
   const [formData, setFormData] = useState({
@@ -16,6 +47,10 @@ export default function RegisterPage() {
     gender: "",
     dob: "",
     address: "",
+    businessName: "",
+    businessUsername: "",
+    country: "BD",
+    currency: "BDT",
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -25,16 +60,55 @@ export default function RegisterPage() {
   const [success, setSuccess] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+    if (name === "country") {
+      const selectedCountry = COUNTRIES.find((c) => c.code === value);
+      setFormData((prev) => ({
+        ...prev,
+        country: value,
+        currency: selectedCountry?.currency || prev.currency,
+      }));
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: value }));
+    }
+  };
+
+  const toBusinessSlug = (name: string): string => {
+    return name
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+  };
+
+  const handleBusinessNameBlur = () => {
+    if (formData.businessName && !formData.businessUsername) {
+      setFormData((prev) => ({
+        ...prev,
+        businessUsername: toBusinessSlug(prev.businessName),
+      }));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    const { name, username, email, phone, password, confirmPassword, gender, dob, address } = formData;
+    const { name, username, email, phone, password, confirmPassword, gender, dob, address, businessName, businessUsername, country, currency } = formData;
 
-    if (!name || !username || !email || !password) {
+    if (!name || !username || !email || !password || !businessName || !businessUsername) {
       setError("All required fields are required");
+      setShaking(true);
+      setTimeout(() => setShaking(false), 500);
+      return;
+    }
+    if (!/^[a-z0-9-]+$/.test(businessUsername)) {
+      setError("Business username can only contain lowercase letters, numbers, and hyphens");
+      setShaking(true);
+      setTimeout(() => setShaking(false), 500);
+      return;
+    }
+    if (businessUsername.length < 3) {
+      setError("Business username must be at least 3 characters");
       setShaking(true);
       setTimeout(() => setShaking(false), 500);
       return;
@@ -57,7 +131,20 @@ export default function RegisterPage() {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, username, email, phone, password, gender, dob, address }),
+        body: JSON.stringify({
+          name,
+          username,
+          email,
+          phone,
+          password,
+          gender,
+          dob,
+          address,
+          businessName,
+          businessUsername,
+          country,
+          currency,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -132,7 +219,7 @@ export default function RegisterPage() {
             Create Account
           </h2>
           <p style={{ fontSize: "13px", color: "#6b7280", marginBottom: "18px" }}>
-            Submit your details for administrator approval.
+            Your business workspace will be created instantly.
           </p>
           <form onSubmit={handleSubmit}>
           {success ? (
@@ -150,10 +237,10 @@ export default function RegisterPage() {
                 <span style={{ fontSize: "28px" }}>✓</span>
               </div>
               <h3 style={{ fontSize: "16px", fontWeight: 600, color: "#111318", marginBottom: "8px" }}>
-                Request Submitted!
+                Welcome! Your business workspace is ready.
               </h3>
-              <p style={{ fontSize: "13px", color: "#6b7280", marginBottom: "20px", lineHeight: 1.5 }}>
-                Your account is pending administrator approval.<br/>You&apos;ll be notified once approved.
+              <p style={{ fontSize: "13px", color: "#6b7280", marginBottom: "8px", lineHeight: 1.5 }}>
+                Check your email to verify your account and activate full access.
               </p>
               <Link
                 href="/login"
@@ -381,6 +468,139 @@ export default function RegisterPage() {
                 transition: "all 0.2s ease",
               }}
             />
+          </div>
+
+          <div style={{
+            background: "#fef3c7",
+            border: "1px solid #fcd34d",
+            borderRadius: "8px",
+            padding: "10px 12px",
+            marginBottom: "14px",
+            fontSize: "12px",
+            color: "#92400e",
+            lineHeight: 1.4,
+          }}>
+            Your business workspace will be created instantly. Accoraze may review, limit, suspend, or place accounts in read-only mode if information is misleading, abusive, or violates our terms.
+          </div>
+
+          <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: "12px", marginTop: "4px" }}>
+            <p style={{ fontSize: "12px", fontWeight: 600, color: "#374151", marginBottom: "10px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+              Business Information
+            </p>
+          </div>
+
+          <div style={{ marginBottom: "12px" }}>
+            <label style={{ display: "block", fontSize: "13px", fontWeight: 500, color: "#374151", marginBottom: "5px" }}>
+              Business Name <span style={{ color: "#dc2626" }}>*</span>
+            </label>
+            <input
+              type="text"
+              name="businessName"
+              value={formData.businessName}
+              onChange={handleChange}
+              onBlur={handleBusinessNameBlur}
+              disabled={loading}
+              placeholder="My Business"
+              style={{
+                width: "100%",
+                padding: "9px 13px",
+                borderRadius: "8px",
+                border: "1px solid #e5e7eb",
+                backgroundColor: "white",
+                color: "#111318",
+                fontSize: "13px",
+                outline: "none",
+                boxSizing: "border-box",
+                opacity: loading ? 0.6 : 1,
+                transition: "all 0.2s ease",
+              }}
+            />
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "12px" }}>
+            <div>
+              <label style={{ display: "block", fontSize: "13px", fontWeight: 500, color: "#374151", marginBottom: "5px" }}>
+                Business Username <span style={{ color: "#dc2626" }}>*</span>
+              </label>
+              <input
+                type="text"
+                name="businessUsername"
+                value={formData.businessUsername}
+                onChange={handleChange}
+                disabled={loading}
+                placeholder="my-business"
+                style={{
+                  width: "100%",
+                  padding: "9px 13px",
+                  borderRadius: "8px",
+                  border: "1px solid #e5e7eb",
+                  backgroundColor: "white",
+                  color: "#111318",
+                  fontSize: "13px",
+                  outline: "none",
+                  boxSizing: "border-box",
+                  opacity: loading ? 0.6 : 1,
+                  transition: "all 0.2s ease",
+                }}
+              />
+            </div>
+            <div>
+              <label style={{ display: "block", fontSize: "13px", fontWeight: 500, color: "#374151", marginBottom: "5px" }}>
+                Country
+              </label>
+              <select
+                name="country"
+                value={formData.country}
+                onChange={handleChange}
+                disabled={loading}
+                style={{
+                  width: "100%",
+                  padding: "9px 13px",
+                  borderRadius: "8px",
+                  border: "1px solid #e5e7eb",
+                  backgroundColor: "white",
+                  color: "#111318",
+                  fontSize: "13px",
+                  outline: "none",
+                  boxSizing: "border-box",
+                  opacity: loading ? 0.6 : 1,
+                  transition: "all 0.2s ease",
+                }}
+              >
+                {COUNTRIES.map((c) => (
+                  <option key={c.code} value={c.code}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div style={{ marginBottom: "12px" }}>
+            <label style={{ display: "block", fontSize: "13px", fontWeight: 500, color: "#374151", marginBottom: "5px" }}>
+              Currency
+            </label>
+            <select
+              name="currency"
+              value={formData.currency}
+              onChange={handleChange}
+              disabled={loading}
+              style={{
+                width: "100%",
+                padding: "9px 13px",
+                borderRadius: "8px",
+                border: "1px solid #e5e7eb",
+                backgroundColor: "white",
+                color: "#111318",
+                fontSize: "13px",
+                outline: "none",
+                boxSizing: "border-box",
+                opacity: loading ? 0.6 : 1,
+                transition: "all 0.2s ease",
+              }}
+            >
+              {CURRENCIES.map((c) => (
+                <option key={c.code} value={c.code}>{c.name}</option>
+              ))}
+            </select>
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "18px" }}>

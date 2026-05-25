@@ -13,6 +13,9 @@ export default function LoginAuthLogic() {
   const [loading, setLoading] = useState(false);
   const [checkingSetup, setCheckingSetup] = useState(true);
   const [setupCheckFailed, setSetupCheckFailed] = useState(false);
+  const [showResend, setShowResend] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resent, setResent] = useState(false);
 
   const redirectParam = searchParams.get('redirect');
 
@@ -59,6 +62,9 @@ export default function LoginAuthLogic() {
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || "Login failed");
+        if (data.error && data.error.includes("verify your email")) {
+          setShowResend(true);
+        }
         return;
       }
       // Construct the final redirect URL, preserving the original redirectParam
@@ -150,6 +156,70 @@ if (checkingSetup) {
             }}
           >
             {error}
+          </div>
+        )}
+        {showResend && !resent && (
+          <div
+            style={{
+              background: "#eff6ff",
+              border: "1px solid #bfdbfe",
+              borderRadius: "8px",
+              padding: "9px 12px",
+              marginBottom: "14px",
+              fontSize: "12px",
+              color: "#1d4ed8",
+              textAlign: "center",
+            }}
+          >
+            Didn&apos;t receive a verification email?{" "}
+            <button
+              onClick={async () => {
+                setResending(true);
+                try {
+                  const r = await fetch("/api/auth/resend-verification", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email }),
+                  });
+                  const rd = await r.json();
+                  setResent(true);
+                  setShowResend(false);
+                  setError(rd.message || "Verification email sent.");
+                } catch {
+                  setError("Failed to resend. Please try again.");
+                } finally {
+                  setResending(false);
+                }
+              }}
+              disabled={resending}
+              style={{
+                background: "none",
+                border: "none",
+                color: "#1d4ed8",
+                fontWeight: 600,
+                cursor: resending ? "not-allowed" : "pointer",
+                padding: 0,
+                fontSize: "12px",
+                textDecoration: "underline",
+              }}
+            >
+              {resending ? "Sending..." : "Resend verification email"}
+            </button>
+          </div>
+        )}
+        {resent && (
+          <div
+            style={{
+              background: "#dcfce7",
+              border: "1px solid #bbf7d0",
+              borderRadius: "8px",
+              padding: "9px 12px",
+              marginBottom: "14px",
+              fontSize: "13px",
+              color: "#16a34a",
+            }}
+          >
+            Verification email sent. Check your inbox.
           </div>
         )}
         <form onSubmit={handleFormSubmit}>

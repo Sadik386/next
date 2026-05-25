@@ -95,6 +95,7 @@ export async function loginUser(email: string, password: string): Promise<LoginR
       return { error: "Your account is not assigned to an active business." };
     }
     if (!userByUsername.isActive) return { error: "Account deactivated" };
+    if (!userByUsername.emailVerifiedAt) return { error: "Please verify your email before signing in. Check your inbox for a verification link." };
     const isValid = await verifyPassword(password, userByUsername.password);
     if (!isValid) return { error: "Invalid email/username or password" };
     return await createLoginResult(userByUsername);
@@ -110,6 +111,7 @@ const hasMembership = await prisma.businessMember.findFirst({
       return { error: "Your account is not assigned to an active business." };
     }
     if (!user.isActive) return { error: "Account deactivated" };
+    if (!user.emailVerifiedAt) return { error: "Please verify your email before signing in. Check your inbox for a verification link." };
     const isValid = await verifyPassword(password, user.password);
     if (!isValid) return { error: "Invalid email or password" };
     return await createLoginResult(user);

@@ -8,6 +8,7 @@ const PUBLIC_PAGE_ROUTES = new Set([
   "/register",
   "/forgot-password",
   "/reset-password",
+  "/verify-email",
 ]);
 
 const PUBLIC_AUTH_PAGE_ROUTES = new Set([
@@ -15,6 +16,7 @@ const PUBLIC_AUTH_PAGE_ROUTES = new Set([
   "/register",
   "/forgot-password",
   "/reset-password",
+  "/verify-email",
 ]);
 
 const PUBLIC_PAGE_PREFIXES = ["/pos/mobile", "/scan/pos", "/scan/products"];
@@ -25,6 +27,8 @@ const PUBLIC_API_ROUTES = [
   "/api/auth/register",
   "/api/auth/forgot-password",
   "/api/auth/reset-password",
+  "/api/auth/verify-email",
+  "/api/auth/resend-verification",
   "/api/health",
   "/api/v1/docs",
 ];
