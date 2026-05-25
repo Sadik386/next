@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import LegalFooter from "@/lib/LegalFooter";
 import TurnstileWidget from "@/components/TurnstileWidget";
+import type { TurnstileWidgetHandle } from "@/components/TurnstileWidget";
 
 export default function LoginAuthLogic() {
   const router = useRouter();
@@ -18,6 +19,7 @@ export default function LoginAuthLogic() {
   const [resending, setResending] = useState(false);
   const [resent, setResent] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState<string>("");
+  const turnstileRef = useRef<TurnstileWidgetHandle>(null);
 
   const redirectParam = searchParams.get('redirect');
 
@@ -184,11 +186,19 @@ if (checkingSetup) {
                     body: JSON.stringify({ email, turnstileToken }),
                   });
                   const rd = await r.json();
-                  setResent(true);
-                  setShowResend(false);
-                  setError(rd.message || "Verification email sent.");
+                  if (r.ok) {
+                    setResent(true);
+                    setShowResend(false);
+                    setError("");
+                  } else {
+                    setError(rd.message || "Failed to resend. Please try again.");
+                    turnstileRef.current?.reset();
+                    setTurnstileToken("");
+                  }
                 } catch {
                   setError("Failed to resend. Please try again.");
+                  turnstileRef.current?.reset();
+                  setTurnstileToken("");
                 } finally {
                   setResending(false);
                 }
@@ -294,6 +304,7 @@ if (checkingSetup) {
             </a>
           </div>
           <TurnstileWidget
+            ref={turnstileRef}
             onVerify={(token) => setTurnstileToken(token)}
             onError={() => setTurnstileToken("")}
             onExpired={() => setTurnstileToken("")}

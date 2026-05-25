@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 
 declare global {
   interface Window {
@@ -21,14 +21,18 @@ interface TurnstileWidgetProps {
   size?: "normal" | "compact";
 }
 
-export default function TurnstileWidget({
+export interface TurnstileWidgetHandle {
+  reset: () => void;
+}
+
+const TurnstileWidget = forwardRef<TurnstileWidgetHandle, TurnstileWidgetProps>(function TurnstileWidget({
   onVerify,
   onError,
   onExpired,
   className,
   theme = "light",
   size = "normal",
-}: TurnstileWidgetProps) {
+}, ref) {
   const containerRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | null>(null);
   const [isReady, setIsReady] = useState(false);
@@ -83,6 +87,17 @@ export default function TurnstileWidget({
     };
   }, [onVerify, onError, onExpired, theme, size]);
 
+  useImperativeHandle(ref, () => ({
+    reset() {
+      if (widgetIdRef.current && typeof window !== "undefined" && window.turnstile) {
+        try {
+          window.turnstile.reset(widgetIdRef.current);
+        } catch {
+        }
+      }
+    },
+  }), []);
+
   return (
     <div
       ref={containerRef}
@@ -90,13 +105,6 @@ export default function TurnstileWidget({
       style={{ marginBottom: "14px", minHeight: size === "compact" ? "44px" : "65px" }}
     />
   );
-}
+});
 
-export function resetTurnstile(widgetId: string) {
-  if (typeof window !== "undefined" && window.turnstile) {
-    try {
-      window.turnstile.reset(widgetId);
-    } catch {
-    }
-  }
-}
+export default TurnstileWidget;

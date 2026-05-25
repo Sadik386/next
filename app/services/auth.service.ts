@@ -9,6 +9,7 @@ import {
 import { activeBusinessMemberStatusWhere } from "@/constants/business-member-status";
 import type { Role, User } from "@prisma/client";
 import { randomBytes } from "crypto";
+import { sendForgotPasswordEmail } from "@/services/email-verification.service";
 
 type LoginUser = User & { role: Role };
 type LoginResult =
@@ -136,6 +137,9 @@ export async function forgotPassword(email: string) {
       expiresAt,
     },
   });
+
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  await sendForgotPasswordEmail(user.email, user.name || "User", token, baseUrl);
 
   return { success: true, message: "Reset link sent" };
 }
