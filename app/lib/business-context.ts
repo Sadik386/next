@@ -63,7 +63,7 @@ export async function resolveBusinessContextForUser(
           ...membershipWhere,
           businessId: requestedBusinessId,
         },
-        select: { businessId: true, isDefault: true },
+        select: { businessId: true, isDefault: true, role: { select: { id: true, name: true, label: true } } },
       })
     : null;
 
@@ -79,23 +79,27 @@ export async function resolveBusinessContextForUser(
         isDefault: true,
       },
       orderBy: { createdAt: "asc" },
-      select: { businessId: true, isDefault: true },
+      select: { businessId: true, isDefault: true, role: { select: { id: true, name: true, label: true } } },
     })) ??
     (await prisma.businessMember.findFirst({
       where: membershipWhere,
       orderBy: [{ createdAt: "asc" }],
-      select: { businessId: true, isDefault: true },
+      select: { businessId: true, isDefault: true, role: { select: { id: true, name: true, label: true } } },
     }));
 
   if (!membership) {
     throw new BusinessContextError();
   }
 
+  const businessRole = membership.role;
+  const resolvedRole = businessRole?.name ?? user.role ?? null;
+  const jwtPayload = toJwtPayload({ ...user, role: resolvedRole }, membership.businessId);
+
   return {
     businessId: membership.businessId,
-    user: toJwtPayload(user, membership.businessId),
+    user: jwtPayload,
     userId: user.id,
-    role: user.role ?? null,
+    role: resolvedRole,
     source: requestedMembership
       ? "jwt"
       : membership.isDefault

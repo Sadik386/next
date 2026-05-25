@@ -4,6 +4,7 @@ import { getCurrentBusinessId } from "@/lib/business";
 import {
   BUSINESS_MEMBER_STATUS,
   activeBusinessMemberStatusWhere,
+  pendingBusinessMemberStatusWhere,
 } from "@/constants/business-member-status";
 import {
   PERMISSIONS,
@@ -84,24 +85,25 @@ async function authorizeBusinessActor(
     return serviceError("Forbidden: Business context required.", 403);
   }
 
-  const dbActor = await prisma.user.findFirst({
+  const dbActor = await prisma.businessMember.findFirst({
     where: {
-      id: actor.id,
-      isActive: true,
-      deletedAt: null,
-      businessMemberships: {
-        some: {
-          businessId: actor.businessId,
-          status: activeBusinessMemberStatusWhere(),
-          business: { isActive: true },
-        },
-      },
+      userId: actor.id,
+      businessId: actor.businessId,
+      status: activeBusinessMemberStatusWhere(),
+      business: { isActive: true },
     },
-    include: { role: true },
+    include: {
+      user: true,
+      role: true,
+    },
   });
 
-  const actorRole = dbActor?.role.name;
-  if (!dbActor || !isRoleName(actorRole)) {
+  if (!dbActor) {
+    return serviceError("Forbidden: Insufficient permissions.", 403);
+  }
+
+  const actorRole = dbActor.role.name;
+  if (!isRoleName(actorRole)) {
     return serviceError("Forbidden: Insufficient permissions.", 403);
   }
 
@@ -111,10 +113,10 @@ async function authorizeBusinessActor(
 
   return {
     actor: {
-      id: dbActor.id,
+      id: dbActor.userId,
       businessId: actor.businessId,
       role: actorRole,
-      isFounder: dbActor.isFounder,
+      isFounder: dbActor.user.isFounder,
     },
   };
 }
@@ -276,44 +278,63 @@ export async function updatePassword(userId: number, currentPassword: string, ne
 
 // Users functions
 export async function getUsers({ search, role, status, page = 1, limit = 20 }: { search?: string; role?: string; status?: string; page?: number; limit?: number }) {
-  const where: Record<string, unknown> = {};
   const businessId = getCurrentBusinessId();
-  
+
+  const membershipWhere: Record<string, unknown> = {
+    businessId,
+    status: { in: [BUSINESS_MEMBER_STATUS.ACTIVE, BUSINESS_MEMBER_STATUS.PENDING] },
+  };
+  if (role) membershipWhere.role = { name: role };
+
+  if (status === "active") {
+    membershipWhere.status = activeBusinessMemberStatusWhere();
+  }
+
+  const userWhere: Record<string, unknown> = {
+    deletedAt: null,
+  };
+  if (status === "inactive") userWhere.isActive = false;
   if (search) {
-    where.OR = [
+    userWhere.OR = [
       { name: { contains: search } },
       { email: { contains: search } },
     ];
   }
-  if (role) where.role = { name: role };
-  if (status === "active") where.isActive = true;
-  if (status === "inactive") where.isActive = false;
-  where.deletedAt = null;
-  where.businessMemberships = {
-    some: { businessId, status: activeBusinessMemberStatusWhere() },
-  };
 
   const [items, total] = await Promise.all([
-    prisma.user.findMany({
-      where,
-      include: { role: true },
-      orderBy: { id: "desc" },
+    prisma.businessMember.findMany({
+      where: {
+        ...membershipWhere,
+        user: userWhere,
+      },
+      include: {
+        user: { include: { role: true } },
+        role: true,
+      },
+      orderBy: { userId: "desc" },
       skip: (page - 1) * limit,
       take: limit,
     }),
-    prisma.user.count({ where }),
+    prisma.businessMember.count({
+      where: {
+        ...membershipWhere,
+        user: userWhere,
+      },
+    }),
   ]);
 
   return {
-    items: items.map((u) => ({
-      id: u.id,
-      name: u.name,
-      email: u.email,
-      phone: u.phone,
-      role: serializeRole(u.role),
-      isActive: u.isActive,
-      isFounder: u.isFounder,
-      createdAt: u.createdAt,
+    items: items.map((bm) => ({
+      id: bm.user.id,
+      name: bm.user.name,
+      email: bm.user.email,
+      phone: bm.user.phone,
+      role: serializeRole(bm.role),
+      roleId: bm.role.id,
+      isActive: bm.user.isActive,
+      isFounder: bm.user.isFounder,
+      createdAt: bm.user.createdAt,
+      membershipStatus: bm.status as string,
     })),
     total,
     page,
@@ -323,16 +344,19 @@ export async function getUsers({ search, role, status, page = 1, limit = 20 }: {
 
 export async function getUserById(id: number) {
   const businessId = getCurrentBusinessId();
-  const user = await prisma.user.findFirst({
+  const bm = await prisma.businessMember.findFirst({
     where: {
-      id,
-      businessMemberships: {
-        some: { businessId, status: activeBusinessMemberStatusWhere() },
-      },
+      userId: id,
+      businessId,
+      status: activeBusinessMemberStatusWhere(),
     },
-    include: { role: true },
+    include: {
+      user: { include: { role: true } },
+      role: true,
+    },
   });
-  if (!user || user.deletedAt) return null;
+  if (!bm || bm.user.deletedAt) return null;
+  const user = bm.user;
   return {
     id: user.id,
     name: user.name,
@@ -342,8 +366,8 @@ export async function getUserById(id: number) {
     gender: user.gender,
     dob: user.dob,
     address: user.address,
-    role: user.role.name,
-    roleId: user.roleId,
+    role: bm.role.name,
+    roleId: bm.role.id,
     isActive: user.isActive,
     isFounder: user.isFounder,
     createdAt: user.createdAt,
@@ -363,8 +387,19 @@ export async function createUser(
   if ("error" in assignment) return assignment;
 
   const businessId = assignment.actor.businessId;
+
+  if (data.roleName === ROLES.SUPER_ADMIN) {
+    return serviceError("Cannot assign Super Admin role through this flow. Contact platform administrator.", 403);
+  }
+
   const existing = await prisma.user.findUnique({ where: { email: data.email } });
-  if (existing) return serviceError("Email already in use", 409);
+
+  if (existing) {
+    return serviceError(
+      "This email already belongs to an existing user. Use 'Invite User' to add them to this business.",
+      409
+    );
+  }
 
   const username = data.email.split("@")[0];
   const existingUsername = await prisma.user.findUnique({ where: { username } });
@@ -385,16 +420,17 @@ export async function createUser(
         username,
         password: hashedPassword,
         roleId: assignment.roleRecord.id,
+        isActive: true,
       },
-      include: { role: true },
     });
 
     await tx.businessMember.create({
       data: {
         userId: createdUser.id,
         businessId,
+        roleId: assignment.roleRecord.id,
         isDefault: true,
-        status: BUSINESS_MEMBER_STATUS.ACTIVE,
+        status: BUSINESS_MEMBER_STATUS.PENDING,
       },
     });
 
@@ -403,9 +439,15 @@ export async function createUser(
 
   await incrementUsageSafely(businessId, USAGE_KEYS.USERS_CREATED);
 
+  const withRole = await prisma.user.findUnique({
+    where: { id: user.id },
+    include: { role: true },
+  });
+
   return {
     success: true,
-    user: serializeUser(user),
+    existingUser: false,
+    user: serializeUser(withRole!),
   };
 }
 
@@ -425,10 +467,18 @@ export async function changeRole(
     return serviceError("Forbidden: You cannot change your own role.", 403);
   }
 
-  const user = await getBusinessUserWithRole(userId, assignment.actor.businessId);
+  const user = await prisma.businessMember.findFirst({
+    where: {
+      userId,
+      businessId: assignment.actor.businessId,
+      status: activeBusinessMemberStatusWhere(),
+      business: { isActive: true },
+    },
+    include: { user: { include: { role: true } }, role: true },
+  });
   if (!user) return serviceError("User not found", 404);
 
-  const founderError = protectFounderMutation(user, assignment.actor, "modify");
+  const founderError = protectFounderMutation(user.user, assignment.actor, "modify");
   if (founderError) return founderError;
 
   if (!isRoleName(user.role.name)) {
@@ -439,13 +489,127 @@ export async function changeRole(
     return serviceError("Forbidden: You cannot modify this user's role.", 403);
   }
 
-  const updated = await prisma.user.update({
-    where: { id: userId },
+  const updated = await prisma.businessMember.update({
+    where: { id: user.id },
     data: { roleId: assignment.roleRecord.id },
+    include: { user: { include: { role: true } }, role: true },
+  });
+
+  return {
+    success: true,
+    user: {
+      id: updated.user.id,
+      name: updated.user.name,
+      email: updated.user.email,
+      phone: updated.user.phone ?? null,
+      role: serializeRole(updated.role),
+      isActive: updated.user.isActive,
+      isFounder: Boolean(updated.user.isFounder),
+      createdAt: updated.user.createdAt,
+    },
+  };
+}
+
+async function getMembershipWithUser(membershipId: number) {
+  return prisma.businessMember.findUnique({
+    where: { id: membershipId },
+    include: { user: { include: { role: true } }, role: true },
+  });
+}
+
+export async function inviteUser(
+  data: { email: string; roleName: string },
+  actor?: UserMutationActor
+) {
+  const assignment = await authorizeAssignableRole(
+    actor,
+    data.roleName,
+    PERMISSIONS.CREATE_USER
+  );
+  if ("error" in assignment) return assignment;
+
+  const businessId = assignment.actor.businessId;
+
+  if (data.roleName === ROLES.SUPER_ADMIN) {
+    return serviceError("Cannot invite as Super Admin. Contact platform administrator.", 403);
+  }
+
+  const existingUser = await prisma.user.findUnique({
+    where: { email: data.email },
     include: { role: true },
   });
 
-  return { success: true, user: serializeUser(updated) };
+  if (!existingUser) {
+    return serviceError(
+      "This email is not registered. Use 'Create New User' instead.",
+      404
+    );
+  }
+
+  if (existingUser.deletedAt) {
+    return serviceError("This account has been deleted.", 400);
+  }
+
+  const existingMembership = await prisma.businessMember.findFirst({
+    where: {
+      userId: existingUser.id,
+      businessId,
+      status: { in: [BUSINESS_MEMBER_STATUS.ACTIVE, BUSINESS_MEMBER_STATUS.PENDING] },
+    },
+  });
+  if (existingMembership) {
+    return serviceError("This user is already a member of this business.", 409);
+  }
+
+  await prisma.businessMember.create({
+    data: {
+      userId: existingUser.id,
+      businessId,
+      roleId: assignment.roleRecord.id,
+      isDefault: true,
+      status: BUSINESS_MEMBER_STATUS.PENDING,
+    },
+  });
+
+  return {
+    success: true,
+    user: {
+      id: existingUser.id,
+      name: existingUser.name,
+      email: existingUser.email,
+      role: serializeRole(assignment.roleRecord),
+      createdAt: existingUser.createdAt,
+    },
+  };
+}
+
+export async function acceptInvite(
+  userId: number,
+  businessId: number,
+  actorId: number
+) {
+  if (userId !== actorId) {
+    return serviceError("Forbidden: Can only accept your own invite.", 403);
+  }
+
+  const membership = await prisma.businessMember.findFirst({
+    where: {
+      userId,
+      businessId,
+      status: BUSINESS_MEMBER_STATUS.PENDING,
+    },
+  });
+
+  if (!membership) {
+    return serviceError("Invite not found or already accepted.", 404);
+  }
+
+  await prisma.businessMember.update({
+    where: { id: membership.id },
+    data: { status: BUSINESS_MEMBER_STATUS.ACTIVE },
+  });
+
+  return { success: true };
 }
 
 export async function changeStatus(
@@ -460,17 +624,25 @@ export async function changeStatus(
     return serviceError("Forbidden: You cannot change your own status.", 403);
   }
 
-  const user = await getBusinessUserWithRole(userId, auth.actor.businessId);
-  if (!user) return serviceError("User not found", 404);
+  const membership = await prisma.businessMember.findFirst({
+    where: {
+      userId,
+      businessId: auth.actor.businessId,
+      status: activeBusinessMemberStatusWhere(),
+      business: { isActive: true },
+    },
+    include: { user: { include: { role: true } }, role: true },
+  });
+  if (!membership) return serviceError("User not found", 404);
 
-  const founderError = protectFounderMutation(user, auth.actor, "change status for");
+  const founderError = protectFounderMutation(membership.user, auth.actor, "change status for");
   if (founderError) return founderError;
 
-  if (!isRoleName(user.role.name)) {
+  if (!isRoleName(membership.role.name)) {
     return serviceError("Target user has an unsupported role", 403);
   }
 
-  if (!canManageBusinessRole(auth.actor.role, user.role.name)) {
+  if (!canManageBusinessRole(auth.actor.role, membership.role.name)) {
     return serviceError("Forbidden: You cannot change this user's status.", 403);
   }
 
@@ -538,7 +710,7 @@ export async function approveRegistrationRequest(
     return serviceError(guard.reason ?? "User limit reached for your current plan.", 403);
   }
 
-  const user = await prisma.$transaction(async (tx) => {
+const user = await prisma.$transaction(async (tx) => {
     const createdUser = await tx.user.create({
       data: {
         name: registration.name,
@@ -552,13 +724,13 @@ export async function approveRegistrationRequest(
         address: registration.address,
         isActive: true,
       },
-      include: { role: true },
     });
 
     await tx.businessMember.create({
       data: {
         userId: createdUser.id,
         businessId: assignment.actor.businessId,
+        roleId: assignment.roleRecord.id,
         isDefault: true,
         status: BUSINESS_MEMBER_STATUS.ACTIVE,
       },
@@ -614,10 +786,15 @@ await tx.activityLog.create({
       });
     }
 
-    return createdUser;
+return createdUser;
   });
 
   await incrementUsageSafely(assignment.actor.businessId, USAGE_KEYS.USERS_CREATED);
 
-  return { success: true, user: serializeUser(user) };
+  const withRole = await prisma.user.findUnique({
+    where: { id: user.id },
+    include: { role: true },
+  });
+
+  return { success: true, user: serializeUser(withRole!) };
 }

@@ -17,6 +17,7 @@ import {
 import { useSidebar } from "@/contexts/SidebarContext";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { useAuth } from "@/contexts/AuthContext";
+import { BusinessSwitcher } from "@/components/layout/BusinessSwitcher";
 
 type Notification = {
   id: number;
@@ -436,6 +437,7 @@ export default function Topbar() {
             margin: "0 6px",
           }}
         />
+        <BusinessSwitcher />
         <button
           style={{
             padding: "5px 12px",

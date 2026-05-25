@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { sendPlatformEmail } from "./platform-email.service";
+import { BUSINESS_MEMBER_STATUS } from "@/constants/business-member-status";
 import { randomBytes } from "crypto";
 
 const VERIFICATION_TOKEN_EXPIRY_HOURS = 24;
@@ -10,14 +11,14 @@ export interface CreateVerificationTokenResult {
   error?: string;
 }
 
-export async function createEmailVerificationToken(userId: number, userEmail: string): Promise<CreateVerificationTokenResult> {
+export async function createEmailVerificationToken(userId: number, userEmail: string, businessId?: number): Promise<CreateVerificationTokenResult> {
   const token = randomBytes(32).toString("hex");
   const expiresAt = new Date(Date.now() + VERIFICATION_TOKEN_EXPIRY_HOURS * 60 * 60 * 1000);
 
-  await prisma.emailVerificationToken.deleteMany({ where: { userId } });
+  await prisma.emailVerificationToken.deleteMany({ where: businessId ? { userId, businessId } : { userId } });
 
   await prisma.emailVerificationToken.create({
-    data: { userId, token, expiresAt },
+    data: { userId, businessId, token, expiresAt },
   });
 
   return { success: true, token };
@@ -264,14 +265,36 @@ export async function verifyEmail(token: string): Promise<{ success: boolean; er
   }
 
   if (verificationToken.expiresAt < new Date()) {
+    await prisma.emailVerificationToken.delete({ where: { id: verificationToken.id } });
     return { success: false, error: "This verification link has expired. Please request a new one." };
   }
 
+  const userId = verificationToken.userId;
+  const businessId = verificationToken.businessId;
+
   await prisma.$transaction(async (tx) => {
     await tx.user.update({
-      where: { id: verificationToken.userId },
+      where: { id: userId },
       data: { emailVerifiedAt: new Date() },
     });
+
+    if (businessId) {
+      const pendingMembership = await tx.businessMember.findFirst({
+        where: {
+          userId,
+          businessId,
+          status: BUSINESS_MEMBER_STATUS.PENDING,
+        },
+      });
+
+      if (pendingMembership) {
+        await tx.businessMember.update({
+          where: { id: pendingMembership.id },
+          data: { status: BUSINESS_MEMBER_STATUS.ACTIVE },
+        });
+      }
+    }
+
     await tx.emailVerificationToken.delete({
       where: { id: verificationToken.id },
     });

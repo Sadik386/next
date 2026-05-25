@@ -4,6 +4,7 @@ import { isCloud } from "./config/app-mode";
 import { ROLES, type RoleName } from "@/constants/roles";
 import { prisma } from "@/lib/prisma";
 import type { JWTPayload } from "@/lib/jwt";
+import { activeBusinessMemberStatusWhere } from "@/constants/business-member-status";
 
 export type PlatformAdminUser = {
   id: number;
@@ -17,7 +18,7 @@ export type PlatformAdminUser = {
 export async function getPlatformAdminUser(
   user: JWTPayload | null
 ): Promise<PlatformAdminUser | null> {
-  if (!isCloud || !user || user.role !== ROLES.SUPER_ADMIN || user.isFounder !== true) {
+  if (!isCloud || !user) {
     return null;
   }
 
@@ -26,13 +27,22 @@ export async function getPlatformAdminUser(
       id: user.id,
       isActive: true,
       deletedAt: null,
-      role: { name: ROLES.SUPER_ADMIN },
       isFounder: true,
     },
     include: { role: true },
   });
 
   if (!dbUser) return null;
+
+  const hasSuperAdminMembership = await prisma.businessMember.findFirst({
+    where: {
+      userId: user.id,
+      status: activeBusinessMemberStatusWhere(),
+      business: { isActive: true },
+      role: { name: ROLES.SUPER_ADMIN },
+    },
+  });
+  if (!hasSuperAdminMembership) return null;
 
   return {
     id: dbUser.id,

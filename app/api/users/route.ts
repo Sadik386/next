@@ -5,6 +5,8 @@ import { RoleName } from "@/constants/roles";
 import { getUsers, createUser } from "@/services/user.service";
 import { runWithBusinessContext } from "@/lib/business-context";
 import { hasPermission } from "@/lib/rbac";
+import { createEmailVerificationToken, sendVerificationEmail } from "@/services/email-verification.service";
+import { prisma } from "@/lib/prisma";
 
 export async function GET(req: NextRequest) {
   const user = await getAuthUser();
@@ -66,6 +68,18 @@ export async function POST(req: NextRequest) {
       if ("error" in result) {
         return NextResponse.json({ error: result.error }, { status: result.status ?? 400 });
       }
+
+      const business = await prisma.business.findUnique({
+        where: { id: user.businessId },
+        select: { name: true },
+      });
+
+      const tokenResult = await createEmailVerificationToken(result.user.id, email, user.businessId);
+      if (tokenResult.success && tokenResult.token) {
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+        await sendVerificationEmail(email, name, business?.name || "Accoraze", tokenResult.token, baseUrl);
+      }
+
       return NextResponse.json({ user: result.user }, { status: 201 });
     } catch (error) {
       console.error("Error creating user:", error);

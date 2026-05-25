@@ -359,7 +359,7 @@ async function ensureDefaultAdminUser(roleId: number) {
   });
 }
 
-async function ensureDefaultBusinessMember(userId: number, businessId: number) {
+async function ensureDefaultBusinessMember(userId: number, businessId: number, roleId: number) {
   await prisma.businessMember.updateMany({
     where: {
       userId,
@@ -380,15 +380,16 @@ async function ensureDefaultBusinessMember(userId: number, businessId: number) {
     create: {
       userId,
       businessId,
+      roleId,
       isDefault: true,
       status: ACTIVE_MEMBER_STATUS,
     },
   });
 }
 
-async function backfillUserMemberships(businessId: number) {
+async function backfillUserMemberships(businessId: number, roleId: number) {
   const users = await prisma.user.findMany({
-    select: { id: true },
+    select: { id: true, roleId: true },
   });
 
   for (const user of users) {
@@ -433,6 +434,7 @@ async function backfillUserMemberships(businessId: number) {
       create: {
         userId: user.id,
         businessId,
+        roleId: user.roleId,
         isDefault: true,
         status: ACTIVE_MEMBER_STATUS,
       },
@@ -557,8 +559,8 @@ async function main() {
   const defaultAdmin = await ensureDefaultAdminUser(superAdminRole.id);
   console.log("Default admin verified");
 
-  await ensureDefaultBusinessMember(defaultAdmin.id, defaultBusiness.id);
-  await backfillUserMemberships(defaultBusiness.id);
+  await ensureDefaultBusinessMember(defaultAdmin.id, defaultBusiness.id, superAdminRole.id);
+  await backfillUserMemberships(defaultBusiness.id, superAdminRole.id);
   console.log("Business memberships verified");
 
   await ensureDefaultSetting(defaultBusiness.id);

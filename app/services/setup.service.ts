@@ -205,6 +205,7 @@ export async function completeSetup(input: CompleteSetupInput) {
         data: {
           userId: user.id,
           businessId: business.id,
+          roleId: superAdminRole.id,
           isDefault: true,
           status: BUSINESS_MEMBER_STATUS.ACTIVE,
         },

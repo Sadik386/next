@@ -12,6 +12,7 @@ type User = {
   isFounder: boolean;
   createdAt: string;
   role: { id: number; name: RoleName; label: string };
+  membershipStatus?: string;
 };
 
 type AssignableRole = { id: number; name: RoleName; label: string };
@@ -60,6 +61,14 @@ export default function UsersPage() {
   const [createError, setCreateError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteForm, setInviteForm] = useState({
+    email: "",
+    roleName: "" as RoleName | "",
+  });
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [inviting, setInviting] = useState(false);
+
   const [roleTarget, setRoleTarget] = useState<User | null>(null);
   const [newRole, setNewRole] = useState<RoleName | "">("");
   const [roleSaving, setRoleSaving] = useState(false);
@@ -98,6 +107,7 @@ export default function UsersPage() {
   }, []);
 
   const canCreate = assignableRoles.length > 0;
+  const canInvite = assignableRoles.length > 0;
 
   function openCreate() {
     setCreateForm({
@@ -109,6 +119,15 @@ export default function UsersPage() {
     });
     setCreateError(null);
     setCreateOpen(true);
+  }
+
+  function openInvite() {
+    setInviteForm({
+      email: "",
+      roleName: assignableRoles[0]?.name ?? "",
+    });
+    setInviteError(null);
+    setInviteOpen(true);
   }
 
   async function submitCreate(e: React.FormEvent) {
@@ -189,6 +208,28 @@ export default function UsersPage() {
     load();
   }
 
+  async function submitInvite(e: React.FormEvent) {
+    e.preventDefault();
+    setInviteError(null);
+    const email = inviteForm.email.trim();
+    if (!email) return setInviteError("Email is required");
+    if (!inviteForm.roleName) return setInviteError("Role is required");
+    setInviting(true);
+    const res = await fetch("/api/users/invite", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, roleName: inviteForm.roleName }),
+    });
+    setInviting(false);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setInviteError(data.error ?? "Invite failed");
+      return;
+    }
+    setInviteOpen(false);
+    load();
+  }
+
   return (
     <div>
       <div
@@ -207,10 +248,19 @@ export default function UsersPage() {
             Manage system users and their roles
           </p>
         </div>
-        {canCreate && (
-          <button onClick={openCreate} style={btnPrimary}>
-            <Plus size={14} /> New User
-          </button>
+        {(canCreate || canInvite) && (
+          <div style={{ display: "flex", gap: "6px" }}>
+            {canCreate && (
+              <button onClick={openCreate} style={btnPrimary}>
+                <Plus size={14} /> New User
+              </button>
+            )}
+            {canInvite && (
+              <button onClick={openInvite} style={{ ...btnSecondary, marginLeft: "0" }}>
+                <Plus size={14} /> Invite User
+              </button>
+            )}
+          </div>
         )}
       </div>
 
@@ -263,6 +313,7 @@ export default function UsersPage() {
         >
           <option value="">All Statuses</option>
           <option value="active">Active</option>
+          <option value="pending">Pending</option>
           <option value="inactive">Inactive</option>
         </select>
       </div>
@@ -310,8 +361,9 @@ export default function UsersPage() {
                   : DEFAULT_ROLE_COLOR;
                 const isMe = me?.id === u.id;
                 const isFounder = u.isFounder;
+                const isPending = u.membershipStatus === "pending";
                 const canModify = !isFounder || isMe;
-                const showActions = !isMe && canModify && u.role.name !== "super_admin";
+                const showActions = !isMe && canModify && u.role.name !== "super_admin" && !isPending;
                 return (
                   <tr key={u.id} style={{ borderTop: "1px solid var(--card-border)" }}>
                     <td style={cellStyle}>
@@ -393,18 +445,33 @@ export default function UsersPage() {
                       </span>
                     </td>
                     <td style={cellStyle}>
-                      <span
-                        style={{
-                          fontSize: "11px",
-                          fontWeight: 600,
-                          padding: "3px 9px",
-                          borderRadius: "999px",
-                          backgroundColor: u.isActive ? "#dcfce7" : "#fee2e2",
-                          color: u.isActive ? "#166534" : "#991b1b",
-                        }}
-                      >
-                        {u.isActive ? "Active" : "Inactive"}
-                      </span>
+                      {u.membershipStatus === "pending" ? (
+                        <span
+                          style={{
+                            fontSize: "11px",
+                            fontWeight: 600,
+                            padding: "3px 9px",
+                            borderRadius: "999px",
+                            backgroundColor: "#fef3c7",
+                            color: "#92400e",
+                          }}
+                        >
+                          Pending
+                        </span>
+                      ) : (
+                        <span
+                          style={{
+                            fontSize: "11px",
+                            fontWeight: 600,
+                            padding: "3px 9px",
+                            borderRadius: "999px",
+                            backgroundColor: u.isActive ? "#dcfce7" : "#fee2e2",
+                            color: u.isActive ? "#166534" : "#991b1b",
+                          }}
+                        >
+                          {u.isActive ? "Active" : "Inactive"}
+                        </span>
+                      )}
                     </td>
                     <td style={{ ...cellStyle, color: "var(--text-secondary)" }}>
                       {new Date(u.createdAt).toLocaleDateString()}
@@ -558,6 +625,95 @@ export default function UsersPage() {
                   style={{ ...btnPrimary, opacity: creating ? 0.6 : 1 }}
                 >
                   {creating ? "Creating..." : "Create User"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </>
+      )}
+
+      {inviteOpen && (
+        <>
+          <div onClick={() => setInviteOpen(false)} style={modalOverlay} />
+          <div style={{ ...modalBox, width: "400px" }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "14px",
+              }}
+            >
+              <h3
+                style={{
+                  fontSize: "15px",
+                  fontWeight: 600,
+                  color: "var(--text-primary)",
+                }}
+              >
+                Invite Existing User
+              </h3>
+              <button onClick={() => setInviteOpen(false)} style={iconButton}>
+                <X size={16} />
+              </button>
+            </div>
+            <p style={{ fontSize: "13px", color: "var(--text-secondary)", marginBottom: "14px" }}>
+              Add an existing user to this business. They will receive a notification and must accept the invite to gain access.
+            </p>
+            <form onSubmit={submitInvite} style={{ display: "grid", gap: "12px" }}>
+              <div>
+                <Label required>Email</Label>
+                <input
+                  type="email"
+                  value={inviteForm.email}
+                  onChange={(e) =>
+                    setInviteForm((f) => ({ ...f, email: e.target.value }))
+                  }
+                  style={inputStyle}
+                />
+              </div>
+              <div>
+                <Label required>Role</Label>
+                <select
+                  value={inviteForm.roleName}
+                  onChange={(e) =>
+                    setInviteForm((f) => ({
+                      ...f,
+                      roleName: e.target.value as RoleName,
+                    }))
+                  }
+                  style={inputStyle}
+                >
+                  <option value="">Select role</option>
+                  {assignableRoles.map((r) => (
+                    <option key={r.id} value={r.name}>
+                      {r.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {inviteError && <div style={errorBox}>{inviteError}</div>}
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  gap: "8px",
+                  marginTop: "4px",
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setInviteOpen(false)}
+                  style={btnSecondary}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={inviting}
+                  style={{ ...btnPrimary, opacity: inviting ? 0.6 : 1 }}
+                >
+                  {inviting ? "Inviting..." : "Send Invite"}
                 </button>
               </div>
             </form>

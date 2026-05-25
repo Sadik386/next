@@ -31,14 +31,14 @@ type LoginResult =
       user?: never;
     };
 
-async function createLoginResult(user: LoginUser): Promise<LoginResult> {
+async function createLoginResult(user: LoginUser, businessContextRole: string): Promise<LoginResult> {
   try {
     const businessContext = await resolveBusinessContextForUser({
       id: user.id,
       name: user.name,
       username: user.username || undefined,
       email: user.email,
-      role: user.role.name,
+      role: businessContextRole,
       businessId: undefined,
     });
 
@@ -47,7 +47,7 @@ async function createLoginResult(user: LoginUser): Promise<LoginResult> {
       name: user.name,
       username: user.username || undefined,
       email: user.email,
-      role: user.role.name,
+      role: businessContextRole,
       businessId: businessContext.businessId,
       isFounder: user.isFounder,
     };
@@ -64,7 +64,7 @@ async function createLoginResult(user: LoginUser): Promise<LoginResult> {
         id: user.id,
         name: user.name,
         email: user.email,
-        role: user.role.name,
+        role: businessContextRole,
         businessId: businessContext.businessId,
         isFounder: user.isFounder,
       },
@@ -88,38 +88,41 @@ export async function loginUser(email: string, password: string): Promise<LoginR
       include: { role: true },
     });
     if (!userByUsername) return { error: "Invalid email/username or password" };
-    const byUsernameHasMembership = await prisma.businessMember.findFirst({
+    const byUsernameMembership = await prisma.businessMember.findFirst({
       where: {
         userId: userByUsername.id,
         status: activeBusinessMemberStatusWhere(),
         business: { isActive: true },
       },
+      include: { role: true },
     });
-    if (!byUsernameHasMembership) {
+    if (!byUsernameMembership) {
       return { error: "Your account is not assigned to an active business." };
     }
     if (!userByUsername.isActive) return { error: "Account deactivated" };
     if (!userByUsername.emailVerifiedAt) return { error: "Please verify your email before signing in. Check your inbox for a verification link." };
     const isValid = await verifyPassword(password, userByUsername.password);
     if (!isValid) return { error: "Invalid email/username or password" };
-    return await createLoginResult(userByUsername);
+
+    return await createLoginResult(userByUsername, byUsernameMembership.role.name);
   }
-const hasMembership = await prisma.businessMember.findFirst({
+const userMembership = await prisma.businessMember.findFirst({
       where: {
         userId: user.id,
         status: activeBusinessMemberStatusWhere(),
         business: { isActive: true },
       },
+      include: { role: true },
     });
-    if (!hasMembership) {
+    if (!userMembership) {
       return { error: "Your account is not assigned to an active business." };
     }
     if (!user.isActive) return { error: "Account deactivated" };
     if (!user.emailVerifiedAt) return { error: "Please verify your email before signing in. Check your inbox for a verification link." };
     const isValid = await verifyPassword(password, user.password);
     if (!isValid) return { error: "Invalid email or password" };
-    return await createLoginResult(user);
-}
+    return await createLoginResult(user, userMembership.role.name);
+  }
 
 export async function forgotPassword(email: string) {
   const user = await prisma.user.findUnique({ where: { email } });

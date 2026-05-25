@@ -2,9 +2,8 @@
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Shield, Save, Loader2, Eye, EyeOff, User, Lock, Clock } from "lucide-react";
+import { Save, Loader2, Eye, EyeOff, User, Lock, Clock } from "lucide-react";
 import { UserAvatar } from "@/components/ui/UserAvatar";
-import { ROLE_LABELS, RoleName } from "@/constants/roles";
 
 type UserProfile = {
   id: number;
@@ -207,12 +206,7 @@ function ProfileContent() {
                   <div style={{ fontSize: "18px", fontWeight: 700, color: "var(--text-primary)" }}>{user?.name}</div>
                   <div style={{ fontSize: "14px", color: "var(--text-muted)" }}>{user?.email}</div>
                 </div>
-                <div style={{ marginLeft: "auto", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "6px" }}>
-                  <span style={roleBadgeStyle}>
-                    <Shield size={12} />
-                    {ROLE_LABELS[user?.role as RoleName] || user?.role}
-                  </span>
-                </div>
+                
               </div>
 
               <form onSubmit={handleSubmit}>
@@ -383,18 +377,7 @@ const cardStyle: React.CSSProperties = {
   padding: "20px",
 };
 
-const roleBadgeStyle: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: "4px",
-  marginLeft: "auto",
-  padding: "4px 10px",
-  borderRadius: "12px",
-  background: "var(--brand-light)",
-  fontSize: "12px",
-  fontWeight: 500,
-  color: "var(--brand)",
-};
+
 
 const labelStyle: React.CSSProperties = {
   display: "block",

@@ -146,6 +146,7 @@ export async function POST(req: NextRequest) {
         data: {
           userId: user.id,
           businessId: business.id,
+          roleId: adminRole.id,
           isDefault: true,
           status: BUSINESS_MEMBER_STATUS.ACTIVE,
         },
