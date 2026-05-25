@@ -20,6 +20,7 @@ type LoginResult =
         email: string;
         role: string;
         businessId: number;
+        isFounder: boolean;
       };
       error?: never;
     }
@@ -47,6 +48,7 @@ async function createLoginResult(user: LoginUser): Promise<LoginResult> {
       email: user.email,
       role: user.role.name,
       businessId: businessContext.businessId,
+      isFounder: user.isFounder,
     };
     const token = await signToken(payload);
     setActiveBusinessContext({
@@ -63,6 +65,7 @@ async function createLoginResult(user: LoginUser): Promise<LoginResult> {
         email: user.email,
         role: user.role.name,
         businessId: businessContext.businessId,
+        isFounder: user.isFounder,
       },
     };
   } catch (error) {

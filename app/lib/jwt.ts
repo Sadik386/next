@@ -13,6 +13,7 @@ export interface JWTPayload {
   role: string;
   username?: string;
   businessId?: number;
+  isFounder?: boolean;
 }
 
 export async function signToken(payload: JWTPayload): Promise<string> {

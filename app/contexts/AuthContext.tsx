@@ -8,6 +8,7 @@ export interface AuthUser {
   role: string;
   username?: string;
   businessId?: number;
+  isFounder?: boolean;
 }
 
 interface AuthContextValue {

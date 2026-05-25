@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
     }
 
     const adminRole = await prisma.role.findUnique({
-      where: { name: ROLES.ADMIN },
+      where: { name: ROLES.SUPER_ADMIN },
     });
     if (!adminRole) {
       return NextResponse.json({ error: "Role not found. Please contact support." }, { status: 500 });

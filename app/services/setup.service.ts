@@ -271,6 +271,7 @@ export async function completeSetup(input: CompleteSetupInput) {
     role: "super_admin",
     username: result.user.username,
     businessId: result.business.id,
+    isFounder: true,
   });
 
   return {
@@ -282,6 +283,7 @@ export async function completeSetup(input: CompleteSetupInput) {
       email: result.user.email,
       role: "super_admin",
       businessId: result.business.id,
+      isFounder: true,
     },
   };
 }

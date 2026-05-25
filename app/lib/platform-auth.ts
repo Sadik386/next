@@ -17,7 +17,7 @@ export type PlatformAdminUser = {
 export async function getPlatformAdminUser(
   user: JWTPayload | null
 ): Promise<PlatformAdminUser | null> {
-  if (!isCloud || !user || user.role !== ROLES.SUPER_ADMIN) {
+  if (!isCloud || !user || user.role !== ROLES.SUPER_ADMIN || user.isFounder !== true) {
     return null;
   }
 
@@ -27,6 +27,7 @@ export async function getPlatformAdminUser(
       isActive: true,
       deletedAt: null,
       role: { name: ROLES.SUPER_ADMIN },
+      isFounder: true,
     },
     include: { role: true },
   });
