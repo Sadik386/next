@@ -120,7 +120,7 @@ model Category {
 
 model Product {
   id          Int        @id @default(autoincrement())
-  productId   String     @unique @db.VarChar(20)
+  productId   String     @db.VarChar(20)
   businessId  Int
   name        String     @db.VarChar(255)
   sku         String?    @db.VarChar(100)
@@ -141,6 +141,8 @@ model Product {
   orderItems  OrderItem[]
   sales       Sale[]
   variants    ProductVariant[]
+
+  @@unique([businessId, productId])
 }
 
 model ProductVariant {
@@ -240,7 +242,7 @@ model ActivityLog {
 
 model Customer {
   id              Int       @id @default(autoincrement())
-  customerId      String    @unique @db.VarChar(20)
+  customerId      String    @db.VarChar(20)
   businessId      Int
   name            String    @db.VarChar(150)
   email           String?   @db.VarChar(150)
@@ -258,11 +260,13 @@ model Customer {
   deletedAt       DateTime?
   orders          Order[]
   sales           Sale[]
+
+  @@unique([businessId, customerId])
 }
 
 model Supplier {
   id              Int       @id @default(autoincrement())
-  supplierId      String    @unique @db.VarChar(20)
+  supplierId      String    @db.VarChar(20)
   businessId      Int
   companyName     String    @db.VarChar(255)
   contactName    String    @db.VarChar(150)
@@ -294,6 +298,8 @@ model Supplier {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   deletedAt     DateTime?
+
+  @@unique([businessId, supplierId])
 }
 
 model Setting {
@@ -344,7 +350,7 @@ model Setting {
 
 model Order {
   id              Int         @id @default(autoincrement())
-  orderId         String      @unique @db.VarChar(20)
+  orderId         String    @db.VarChar(20)
   businessId      Int
   customerId      Int
   status          String      @default("pending") @db.VarChar(20)
@@ -366,6 +372,8 @@ model Order {
   createdByUser   User        @relation("OrderCreatedBy", fields: [createdBy], references: [id])
   items           OrderItem[]
   sales           Sale[]
+
+  @@unique([businessId, orderId])
 }
 
 model OrderItem {
@@ -389,7 +397,7 @@ model OrderItem {
 
 model Sale {
   id              Int       @id @default(autoincrement())
-  saleId          String    @unique @db.VarChar(20)
+  saleId          String    @db.VarChar(20)
   businessId      Int
   orderId         Int?
   customerId      Int?
@@ -424,12 +432,13 @@ model Sale {
   productVariant  ProductVariant? @relation(fields: [productVariantId], references: [id], onDelete: SetNull)
   createdByUser   User      @relation("SaleCreatedBy", fields: [createdBy], references: [id])
 
+  @@unique([businessId, saleId])
   @@index([productVariantId])
 }
 
 model Expense {
   id            Int       @id @default(autoincrement())
-  expenseId     String    @unique @db.VarChar(20)
+  expenseId       String    @db.VarChar(20)
   businessId    Int
   date          DateTime  @default(now())
   amount        Decimal   @db.Decimal(10, 2)
@@ -448,6 +457,8 @@ model Expense {
   updatedAt     DateTime  @updatedAt
   deletedAt     DateTime?
   createdByUser User      @relation("ExpenseCreatedBy", fields: [createdBy], references: [id])
+
+  @@unique([businessId, expenseId])
 }
 
 model Business {
