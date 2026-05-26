@@ -1,11 +1,14 @@
 {
-    "name": "accoraze",
+"name": "accoraze",
     "version": "1.0.0",
     "private": true,
+    "engines": {
+        "node": ">=20"
+    },
     "scripts": {
         "dev": "next dev",
         "build": "next build",
-        "start": "next start",
+        "start": "next start -p 3001",
         "lint": "eslint",
         "seed": "ts-node --project tsconfig.seed.json prisma/seed.ts",
         "seed:prod": "ts-node --project tsconfig.seed.json prisma/seed.production.ts",
@@ -15,7 +18,7 @@
         "db:studio": "prisma studio"
     },
     "prisma": {
-        "seed": "ts-node --project tsconfig.seed.json prisma/seed.ts"
+        "seed": "ts-node --project tsconfig.seed.json prisma/seed.production.ts"
     },
     "dependencies": {
         "@prisma/client": "^5.22.0",
