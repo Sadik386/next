@@ -175,6 +175,33 @@ export async function isEffectivePlanActive(businessId: number): Promise<boolean
   return status.isActive;
 }
 
+const READ_ONLY_MESSAGE = "Your subscription is not active. Please renew or update your plan to continue.";
+const READ_ONLY_CODE = "SUBSCRIPTION_READ_ONLY";
+
+/**
+ * Guard that blocks core transactional writes when subscription is not effectively active.
+ *
+ * Rule:
+ * - No subscription record → Free/lifetime user → ALLOW
+ * - Subscription exists AND is effectively active (ACTIVE/TRIALING + period not expired) → ALLOW
+ * - Subscription exists AND is NOT effectively active (expired/canceled/paused/period ended) → BLOCK
+ *
+ * This ensures Free plan lifetime users are never blocked, only paid subscribers
+ * whose subscription has lapsed are restricted.
+ */
+export async function guardReadOnlyWrite(businessId: number): Promise<void> {
+  const subscription = await getBusinessSubscription(businessId);
+
+  if (!subscription) {
+    return;
+  }
+
+  const effStatus = await getEffectiveSubscriptionStatus(businessId);
+  if (!effStatus.isActive) {
+    throw new SubscriptionGuardError(READ_ONLY_MESSAGE, READ_ONLY_CODE);
+  }
+}
+
 interface CheckLimitOptions {
   businessId: number;
   usageKey: string;

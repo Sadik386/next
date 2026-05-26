@@ -6,6 +6,7 @@ import { runWithBusinessContext } from "@/lib/business-context";
 import { hasPermission } from "@/lib/rbac";
 import { RoleName } from "@/constants/roles";
 import { parseDateRangeFromSearchParams } from "@/lib/date-filter";
+import { guardReadOnlyWrite, SubscriptionGuardError } from "@/lib/subscription-guard";
 
 const ORDER_CREATE_NOT_FOUND_MESSAGES = new Set([
   "Customer not found",
@@ -108,6 +109,15 @@ export async function POST(req: NextRequest) {
 
   return runWithBusinessContext(user, async () => {
     try {
+      await guardReadOnlyWrite(user.businessId!);
+    } catch (guardErr) {
+      if (guardErr instanceof SubscriptionGuardError) {
+        return NextResponse.json({ error: guardErr.message, code: guardErr.code }, { status: guardErr.status });
+      }
+      throw guardErr;
+    }
+
+    try {
       const body = await req.json();
       if (!isRecord(body)) {
         return NextResponse.json({ error: "Invalid order payload" }, { status: 400 });
@@ -124,6 +134,9 @@ export async function POST(req: NextRequest) {
       );
       return NextResponse.json({ order });
     } catch (err) {
+      if (err instanceof SubscriptionGuardError) {
+        return NextResponse.json({ error: err.message, code: err.code }, { status: err.status });
+      }
       console.error("Error creating order", getSafeErrorLog(err));
       const { message, status } = getCreateOrderErrorResponse(err);
       return NextResponse.json({ error: message }, { status });

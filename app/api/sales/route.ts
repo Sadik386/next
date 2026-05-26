@@ -6,6 +6,7 @@ import { runWithBusinessContext } from "@/lib/business-context";
 import { hasPermission } from "@/lib/rbac";
 import { RoleName } from "@/constants/roles";
 import { parseDateRangeFromSearchParams } from "@/lib/date-filter";
+import { guardReadOnlyWrite, SubscriptionGuardError } from "@/lib/subscription-guard";
 
 export async function GET(req: NextRequest) {
   const user = await getAuthUser();
@@ -61,6 +62,15 @@ export async function POST(req: NextRequest) {
 
   return runWithBusinessContext(user, async () => {
     try {
+      await guardReadOnlyWrite(user.businessId!);
+    } catch (guardErr) {
+      if (guardErr instanceof SubscriptionGuardError) {
+        return NextResponse.json({ error: guardErr.message, code: guardErr.code }, { status: guardErr.status });
+      }
+      throw guardErr;
+    }
+
+    try {
       const body = await req.json();
       if (!body.customerId) {
         return NextResponse.json({ error: "Customer is required" }, { status: 400 });
@@ -74,6 +84,9 @@ export async function POST(req: NextRequest) {
       const sale = await createSale(body, user.id);
       return NextResponse.json({ sale });
     } catch (err) {
+      if (err instanceof SubscriptionGuardError) {
+        return NextResponse.json({ error: err.message, code: err.code }, { status: err.status });
+      }
       console.error("Error creating sale:", err);
       const message = err instanceof Error ? err.message : "Server error";
       return NextResponse.json({ error: message }, { status: 400 });

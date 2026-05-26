@@ -3,10 +3,20 @@ import { requirePermission } from "@/lib/rbac";
 import { PERMISSIONS } from "@/constants/permissions";
 import { runWithBusinessContext } from "@/lib/business-context";
 import { checkoutPos, POS_PAYMENT_METHOD_REQUIRED_MESSAGE } from "@/services/pos.service";
+import { guardReadOnlyWrite, SubscriptionGuardError } from "@/lib/subscription-guard";
 
 export async function POST(req: NextRequest) {
   const auth = await requirePermission(req, PERMISSIONS.USE_POS);
   if (auth instanceof NextResponse) return auth;
+
+  try {
+    await guardReadOnlyWrite(auth.businessId);
+  } catch (guardErr) {
+    if (guardErr instanceof SubscriptionGuardError) {
+      return NextResponse.json({ error: guardErr.message, code: guardErr.code }, { status: guardErr.status });
+    }
+    throw guardErr;
+  }
 
   const user = { ...auth.user, businessId: auth.businessId };
 
@@ -47,6 +57,9 @@ export async function POST(req: NextRequest) {
       );
       return NextResponse.json({ order });
     } catch (err) {
+      if (err instanceof SubscriptionGuardError) {
+        return NextResponse.json({ error: err.message, code: err.code }, { status: err.status });
+      }
       console.error("POS checkout error:", err);
       const message = err instanceof Error ? err.message : "Server error";
       const status =
