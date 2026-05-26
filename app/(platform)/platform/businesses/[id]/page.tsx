@@ -9,6 +9,7 @@ import {
   Loader2,
   Mail,
   Package,
+  RefreshCw,
   RotateCcw,
   Save,
   Users,
@@ -136,10 +137,13 @@ export default function PlatformBusinessDetailPage() {
     productLimitOverride: "",
     emailLimitOverride: "",
   });
+  const [renewPlanDraft, setRenewPlanDraft] = useState("");
+  const [renewDurationDraft, setRenewDurationDraft] = useState("1");
 
   const applyDetail = useCallback((next: BusinessDetail) => {
     setDetail(next);
     setPlanDraft(next.plan.code);
+    setRenewPlanDraft(next.plan.code);
     setOverrideDraft({
       userLimitOverride: formatOverrideInput(next.overrides.userLimitOverride),
       productLimitOverride: formatOverrideInput(next.overrides.productLimitOverride),
@@ -242,6 +246,16 @@ export default function PlatformBusinessDetailPage() {
     );
   };
 
+  const renewSubscription = () => {
+    if (!renewPlanDraft || !detail) return;
+    if (!window.confirm("Renew subscription for " + renewDurationDraft + " month(s) on the " + (detail.plans.find(p => p.name === renewPlanDraft)?.label ?? renewPlanDraft) + " plan?")) return;
+    patchBusiness(
+      { action: "renew-subscription", planName: renewPlanDraft, durationMonths: Number(renewDurationDraft) },
+      "renew",
+      "Subscription renewed successfully"
+    );
+  };
+
   if (loading) {
     return (
       <div style={loadingStyle}>
@@ -333,32 +347,75 @@ export default function PlatformBusinessDetailPage() {
 
         <section style={cardStyle}>
           <div style={sectionTitleStyle}>
-            <RotateCcw size={16} />
-            Admin Actions
+            <RefreshCw size={16} />
+            Renew / Extend Subscription
           </div>
-          <div style={{ display: "grid", gap: "10px" }}>
+          <div style={{ display: "grid", gap: "14px" }}>
+            <InfoItem label="Status" value={detail.subscription.status} />
+            <InfoItem label="Period End" value={detail.subscription.currentPeriodEnd ? formatDate(detail.subscription.currentPeriodEnd) : "N/A"} />
+            <label style={labelStyle}>
+              Plan
+              <select value={renewPlanDraft} onChange={(e) => setRenewPlanDraft(e.target.value)} style={inputStyle}>
+                {detail.plans.map((plan) => (
+                  <option key={plan.name} value={plan.name}>
+                    {plan.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label style={labelStyle}>
+              Duration
+              <select value={renewDurationDraft} onChange={(e) => setRenewDurationDraft(e.target.value)} style={inputStyle}>
+                <option value="1">1 month</option>
+                <option value="2">2 months</option>
+                <option value="3">3 months</option>
+                <option value="6">6 months</option>
+                <option value="12">12 months</option>
+              </select>
+            </label>
             <button
               type="button"
-              style={detail.business.isActive ? dangerButtonStyle : primaryButtonStyle}
-              disabled={saving === "status"}
-              onClick={toggleStatus}
+              style={primaryButtonStyle}
+              disabled={saving === "renew"}
+              onClick={renewSubscription}
             >
-              {detail.business.isActive ? "Suspend Business" : "Reactivate Business"}
+              <RefreshCw size={14} />
+              {saving === "renew" ? "Renewing..." : "Renew Subscription"}
             </button>
-            <label style={labelStyle}>
-              Internal Note
-              <textarea
-                disabled
-                placeholder="Internal note storage is not available in the current schema."
-                style={{ ...inputStyle, minHeight: "78px", resize: "vertical" }}
-              />
-            </label>
-            <button type="button" style={secondaryButtonStyle} disabled>
-              Save Internal Note
-            </button>
+            <div style={mutedTextStyle}>
+              Extension is calculated from the current period end date if still active, or from today if already expired.
+            </div>
           </div>
         </section>
       </div>
+
+      <section style={cardStyle}>
+        <div style={sectionTitleStyle}>
+          <RotateCcw size={16} />
+          Admin Actions
+        </div>
+        <div style={{ display: "grid", gap: "10px" }}>
+          <button
+            type="button"
+            style={detail.business.isActive ? dangerButtonStyle : primaryButtonStyle}
+            disabled={saving === "status"}
+            onClick={toggleStatus}
+          >
+            {detail.business.isActive ? "Suspend Business" : "Reactivate Business"}
+          </button>
+          <label style={labelStyle}>
+            Internal Note
+            <textarea
+              disabled
+              placeholder="Internal note storage is not available in the current schema."
+              style={{ ...inputStyle, minHeight: "78px", resize: "vertical" }}
+            />
+          </label>
+          <button type="button" style={secondaryButtonStyle} disabled>
+            Save Internal Note
+          </button>
+        </div>
+      </section>
 
       <section style={cardStyle}>
         <div style={sectionTitleStyle}>

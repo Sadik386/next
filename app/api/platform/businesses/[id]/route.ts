@@ -71,6 +71,26 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       return NextResponse.json({ success: true, business });
     }
 
+    if (action === "renew-subscription") {
+      const planName = body.planName as string;
+      const durationMonths = Number(body.durationMonths);
+
+      if (!planName) {
+        return NextResponse.json({ success: false, error: "Plan name is required" }, { status: 400 });
+      }
+      if (![1, 2, 3, 6, 12].includes(durationMonths)) {
+        return NextResponse.json({ success: false, error: "Duration must be 1, 2, 3, 6, or 12 months" }, { status: 400 });
+      }
+
+      const business = await platformAdminService.renewBusinessSubscriptionForAdmin({
+        businessId,
+        planName,
+        durationMonths,
+        adminId: auth.user.id,
+      });
+      return NextResponse.json({ success: true, business });
+    }
+
     return NextResponse.json({ success: false, error: "Unsupported action" }, { status: 400 });
   } catch (error) {
     const message = errorMessage(error);
