@@ -7,6 +7,7 @@ import {
   ProductValidationError,
 } from "@/services/product.service";
 import { runWithBusinessContext } from "@/lib/business-context";
+import { guardReadOnlyWrite, SubscriptionGuardError } from "@/lib/subscription-guard";
 
 export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const auth = await requireAuth(req);
@@ -24,6 +25,14 @@ export async function PUT(req: NextRequest, ctx: { params: Promise<{ id: string 
   if (auth instanceof NextResponse) return auth;
   return runWithBusinessContext({ ...auth.user, businessId: auth.businessId }, async () => {
     try {
+      try {
+        await guardReadOnlyWrite(auth.businessId);
+      } catch (guardErr) {
+        if (guardErr instanceof SubscriptionGuardError) {
+          return NextResponse.json({ error: guardErr.message, code: guardErr.code }, { status: guardErr.status });
+        }
+        throw guardErr;
+      }
       const { id } = await ctx.params;
       const numericId = Number(id);
       if (!Number.isInteger(numericId) || numericId <= 0) {

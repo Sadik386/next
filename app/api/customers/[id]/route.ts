@@ -3,6 +3,7 @@ import { requireAuth, requirePermission } from "@/lib/rbac";
 import { PERMISSIONS } from "@/constants/permissions";
 import { getCustomerByIdOrCustomerId, updateCustomer } from "@/services/customer.service";
 import { runWithBusinessContext, AuthenticatedUser } from "@/lib/business-context";
+import { guardReadOnlyWrite, SubscriptionGuardError } from "@/lib/subscription-guard";
 
 export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const auth = await requireAuth(req);
@@ -30,9 +31,17 @@ export async function PUT(req: NextRequest, ctx: { params: Promise<{ id: string 
 
   return runWithBusinessContext(user, async () => {
     try {
+      try {
+        await guardReadOnlyWrite(auth.businessId);
+      } catch (guardErr) {
+        if (guardErr instanceof SubscriptionGuardError) {
+          return NextResponse.json({ error: guardErr.message, code: guardErr.code }, { status: guardErr.status });
+        }
+        throw guardErr;
+      }
       const customer = await getCustomerByIdOrCustomerId(id);
       if (!customer) return NextResponse.json({ error: "Customer not found" }, { status: 404 });
-      
+
       const body = await req.json();
       const updated = await updateCustomer(customer.id, body, auth.user.id);
       return NextResponse.json({ customer: updated });

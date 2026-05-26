@@ -6,6 +6,7 @@ import { runWithBusinessContext } from "@/lib/business-context";
 import { hasPermission } from "@/lib/rbac";
 import { RoleName } from "@/constants/roles";
 import { parseDateRangeFromSearchParams } from "@/lib/date-filter";
+import { guardReadOnlyWrite, SubscriptionGuardError } from "@/lib/subscription-guard";
 
 export async function GET(req: NextRequest) {
   const user = await getAuthUser();
@@ -47,6 +48,14 @@ export async function POST(req: NextRequest) {
 
   return runWithBusinessContext(user, async () => {
     try {
+      try {
+        await guardReadOnlyWrite(user.businessId!);
+      } catch (guardErr) {
+        if (guardErr instanceof SubscriptionGuardError) {
+          return NextResponse.json({ error: guardErr.message, code: guardErr.code }, { status: guardErr.status });
+        }
+        throw guardErr;
+      }
       const body = await req.json();
       if (body.amount === undefined || body.amount === null || body.amount === "") {
         return NextResponse.json({ error: "Amount is required" }, { status: 400 });

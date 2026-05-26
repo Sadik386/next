@@ -3,12 +3,13 @@ import { requireAuth, requirePermission } from "@/lib/rbac";
 import { PERMISSIONS } from "@/constants/permissions";
 import { getSupplierByIdOrSupplierId, updateSupplier, SupplierValidationError } from "@/services/supplier.service";
 import { runWithBusinessContext, AuthenticatedUser } from "@/lib/business-context";
+import { guardReadOnlyWrite, SubscriptionGuardError } from "@/lib/subscription-guard";
 
 export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const auth = await requireAuth(req);
   if (auth instanceof NextResponse) return auth;
   const user = { ...auth.user, businessId: auth.businessId } as AuthenticatedUser;
-  
+
   return runWithBusinessContext(user, async () => {
     const { id } = await ctx.params;
     const supplier = await getSupplierByIdOrSupplierId(id);
@@ -21,13 +22,21 @@ export async function PUT(req: NextRequest, ctx: { params: Promise<{ id: string 
   const auth = await requirePermission(req, PERMISSIONS.EDIT_SUPPLIER);
   if (auth instanceof NextResponse) return auth;
   const user = { ...auth.user, businessId: auth.businessId } as AuthenticatedUser;
-  
+
   return runWithBusinessContext(user, async () => {
     try {
+      try {
+        await guardReadOnlyWrite(auth.businessId);
+      } catch (guardErr) {
+        if (guardErr instanceof SubscriptionGuardError) {
+          return NextResponse.json({ error: guardErr.message, code: guardErr.code }, { status: guardErr.status });
+        }
+        throw guardErr;
+      }
       const { id } = await ctx.params;
       const supplier = await getSupplierByIdOrSupplierId(id);
       if (!supplier) return NextResponse.json({ error: "Supplier not found" }, { status: 404 });
-      
+
       const body = await req.json();
       const updated = await updateSupplier(supplier.id, body, auth.user.id);
       return NextResponse.json({ supplier: updated });
