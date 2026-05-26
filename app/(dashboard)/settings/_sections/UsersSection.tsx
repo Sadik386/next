@@ -399,7 +399,7 @@ export default function UsersSection() {
             <Label required>New Role</Label>
             <select value={newRole} onChange={(e) => setNewRole(e.target.value as RoleName)} style={inputStyle}>
               <option value="">Select a role</option>
-              {assignableRoles.filter((r) => r.name !== roleTarget.role.name).map((r) => (<option key={r.id} value={r.name}>{r.label}</option>))}
+              {assignableRoles.filter((r) => r.name !== roleTarget.role.name).map((r) => (<option key={r.id} value={r.name}>{escapeHtml(r.label)}</option>))}
             </select>
             {roleError && <div style={{ ...errorBox, marginTop: "10px" }}>{roleError}</div>}
             <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "16px" }}>

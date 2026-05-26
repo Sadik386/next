@@ -763,7 +763,7 @@ export default function UsersPage() {
                 .filter((r) => r.name !== roleTarget.role.name)
                 .map((r) => (
                   <option key={r.id} value={r.name}>
-                    {r.label}
+                    {escapeHtml(r.label)}
                   </option>
                 ))}
             </select>
