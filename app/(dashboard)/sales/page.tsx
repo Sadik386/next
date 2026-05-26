@@ -8,6 +8,7 @@ import { usePDF } from "@/hooks/usePDF";
 import { FloatingPopover } from "@/components/ui/FloatingPopover";
 import DateRangePicker, { DateRangeValue, buildDateFilterParams } from "@/components/ui/DateRangePicker";
 import { readErrorMessage } from "@/lib/read-error-message";
+import { PLAN_NAMES } from "@/lib/pricing";
 
 type SaleListItem = {
   id: number;
@@ -107,6 +108,7 @@ export default function SalesPage() {
   const [deleteTarget, setDeleteTarget] = useState<SaleListItem | null>(null);
   const [deleteReason, setDeleteReason] = useState("");
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+  const [subscriptionBlocked, setSubscriptionBlocked] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -114,11 +116,28 @@ export default function SalesPage() {
     params.set("grouped", "true");
     if (search) params.set("search", search);
     if (paymentFilter) params.set("paymentStatus", paymentFilter);
-    const res = await fetch(`/api/sales?${buildDateFilterParams(params, dateRange)}`);
-    if (res.ok) {
-      const data = await res.json();
+    const [salesRes, subRes] = await Promise.all([
+      fetch(`/api/sales?${buildDateFilterParams(params, dateRange)}`),
+      fetch(`/api/subscription`, { cache: "no-store" }),
+    ]);
+    if (salesRes.ok) {
+      const data = await salesRes.json();
       setSales(data.items ?? []);
     }
+
+    if (subRes.ok) {
+      const subData = await subRes.json();
+      const effective = subData?.data?.effective;
+      const plan = subData?.data?.plan;
+      const isActive = effective?.isActive === true;
+      const planCode = (plan?.code ?? "free") as string;
+      const isBlocked =
+        !isActive &&
+        planCode.toLowerCase() !== "free" &&
+        planCode !== PLAN_NAMES.FREE;
+      setSubscriptionBlocked(isBlocked);
+    }
+
     setLoading(false);
   }, [search, paymentFilter, dateRange]);
 
@@ -332,6 +351,19 @@ export default function SalesPage() {
         <DateRangePicker value={dateRange} onChange={setDateRange} />
       </div>
 
+      {subscriptionBlocked && (
+        <div style={{
+          marginBottom: "12px",
+          fontSize: "12px",
+          color: "#92400e",
+          backgroundColor: "#fef3c7",
+          padding: "8px 12px",
+          borderRadius: "6px",
+        }}>
+          Your subscription is not active. Renew your plan to download, print, or email documents.
+        </div>
+      )}
+
       <div style={tableWrap}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
           <thead>
@@ -404,7 +436,7 @@ export default function SalesPage() {
                       <FloatingPopover
                         trigger={
                           <span style={{ display: "inline-flex" }}>
-                            <IconBtn title="Receipt" disabled={isLoading(`rec-dl-${s.id}`) || isLoading(`rec-print-${s.id}`)}>
+                            <IconBtn title={subscriptionBlocked ? "Subscription not active" : "Receipt"} disabled={isLoading(`rec-dl-${s.id}`) || isLoading(`rec-print-${s.id}`) || subscriptionBlocked}>
                               <Receipt size={13} />
                             </IconBtn>
                           </span>
@@ -420,7 +452,7 @@ export default function SalesPage() {
                               </svg>
                             ),
                             onClick: () => downloadPDF(`/api/pdf/receipt/${s.saleId}`, `receipt-${s.saleId}.pdf`, `rec-dl-${s.id}`),
-                            disabled: isLoading(`rec-dl-${s.id}`),
+                            disabled: isLoading(`rec-dl-${s.id}`) || subscriptionBlocked,
                           },
                           {
                             label: "Print Receipt",
@@ -432,7 +464,7 @@ export default function SalesPage() {
                               </svg>
                             ),
                             onClick: () => printPDF(`/api/pdf/receipt/${s.saleId}`, `rec-print-${s.id}`),
-                            disabled: isLoading(`rec-print-${s.id}`),
+                            disabled: isLoading(`rec-print-${s.id}`) || subscriptionBlocked,
                           },
                         ]}
                       />

@@ -12,6 +12,8 @@ import { guardPdfPrintUsage, incrementUsageSafely } from "@/lib/subscription-gua
 import { USAGE_KEYS } from "@/lib/pricing";
 import { checkPdfUsageCount } from "@/lib/subscription-guard";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ orderId: string }> }

@@ -11,6 +11,7 @@ import { buildDocumentProfile, toBusinessInfo } from "@/lib/pdf/documentProfile"
 import { receiptTotals } from "@/lib/pdf/documentTotals";
 import { formatDocumentDate } from "@/lib/pdf/formatters";
 import { printLogoUrl } from "@/lib/pdf/assets";
+import { guardEmailSend } from "@/lib/subscription-guard";
 
 export async function POST(
   req: NextRequest,
@@ -26,6 +27,14 @@ export async function POST(
   const { saleId } = await ctx.params;
 
   return runWithBusinessContext(user, async () => {
+    const emailGuard = await guardEmailSend(auth.businessId);
+    if (!emailGuard.allowed) {
+      return NextResponse.json(
+        { success: false, message: emailGuard.reason || "Email not available on your current plan." },
+        { status: 403 }
+      );
+    }
+
     const numId = Number(saleId);
     const isNumeric = !isNaN(numId) && isFinite(numId) && Number.isInteger(numId);
 

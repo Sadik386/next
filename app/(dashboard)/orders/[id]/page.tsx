@@ -7,6 +7,7 @@ import { BarcodePopup } from "@/components/ui/BarcodePopup";
 import { usePDF } from "@/hooks/usePDF";
 import { FloatingPopover } from "@/components/ui/FloatingPopover";
 import { readErrorMessage } from "@/lib/read-error-message";
+import { PLAN_NAMES } from "@/lib/pricing";
 
 type OrderItem = {
   id: number;
@@ -64,19 +65,39 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
   const { downloadPDF, printPDF, isLoading } = usePDF();
+  const [subscriptionBlocked, setSubscriptionBlocked] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const res = await fetch(`/api/orders/${id}`);
-    if (res.status === 404) {
+    const [orderRes, subRes] = await Promise.all([
+      fetch(`/api/orders/${id}`),
+      fetch(`/api/subscription`, { cache: "no-store" }),
+    ]);
+
+    if (orderRes.status === 404) {
       setNotFound(true);
       setLoading(false);
       return;
     }
-    if (res.ok) {
-      const data = await res.json();
+
+    if (orderRes.ok) {
+      const data = await orderRes.json();
       setOrder(data.order);
     }
+
+    if (subRes.ok) {
+      const subData = await subRes.json();
+      const effective = subData?.data?.effective;
+      const plan = subData?.data?.plan;
+      const isActive = effective?.isActive === true;
+      const planCode = (plan?.code ?? "free") as string;
+      const isBlocked =
+        !isActive &&
+        planCode.toLowerCase() !== "free" &&
+        planCode !== PLAN_NAMES.FREE;
+      setSubscriptionBlocked(isBlocked);
+    }
+
     setLoading(false);
   }, [id]);
 
@@ -270,11 +291,12 @@ async function submitDeleteRequest() {
                     borderRadius: "7px",
                     border: "1px solid var(--input-border)",
                     backgroundColor: "var(--card-bg)",
-                    color: "var(--text-primary)",
+                    color: subscriptionBlocked ? "var(--text-muted)" : "var(--text-primary)",
                     fontSize: "13px",
                     fontWeight: 500,
-                    cursor: "pointer",
+                    cursor: subscriptionBlocked ? "not-allowed" : "pointer",
                   }}
+                  title={subscriptionBlocked ? "Your subscription is not active. Renew your plan to access documents." : undefined}
                 >
                   <FileText size={13} /> Invoice
                 </button>
@@ -290,7 +312,7 @@ async function submitDeleteRequest() {
                     </svg>
                   ),
                   onClick: () => downloadPDF(`/api/pdf/invoice/${order.id}`, `invoice-${order.orderId}.pdf`, `inv-dl-${order.id}`),
-                  disabled: isLoading(`inv-dl-${order.id}`),
+                  disabled: isLoading(`inv-dl-${order.id}`) || subscriptionBlocked,
                 },
                 {
                   label: "Print Invoice",
@@ -302,12 +324,12 @@ async function submitDeleteRequest() {
                     </svg>
                   ),
                   onClick: () => printPDF(`/api/pdf/invoice/${order.id}`, `inv-print-${order.id}`),
-                  disabled: isLoading(`inv-print-${order.id}`),
+                  disabled: isLoading(`inv-print-${order.id}`) || subscriptionBlocked,
                 },
               ]}
               width={180}
             />
-            <FloatingPopover
+<FloatingPopover
               trigger={
                 <button
                   style={{
@@ -318,18 +340,19 @@ async function submitDeleteRequest() {
                     borderRadius: "7px",
                     border: "1px solid var(--input-border)",
                     backgroundColor: "var(--card-bg)",
-                    color: "var(--text-primary)",
+                    color: subscriptionBlocked ? "var(--text-muted)" : "var(--text-primary)",
                     fontSize: "13px",
                     fontWeight: 500,
-                    cursor: "pointer",
+                    cursor: subscriptionBlocked ? "not-allowed" : "pointer",
                   }}
+                  title={subscriptionBlocked ? "Your subscription is not active. Renew your plan to access documents." : undefined}
                 >
                   <Truck size={13} /> Delivery Slip
                 </button>
               }
               items={[
                 {
-                  label: "Download PDF",
+                  label: "Download Slip",
                   icon: (
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -338,7 +361,7 @@ async function submitDeleteRequest() {
                     </svg>
                   ),
                   onClick: () => downloadPDF(`/api/pdf/delivery-slip/${order.id}`, `delivery-${order.orderId}.pdf`, `del-dl-${order.id}`),
-                  disabled: isLoading(`del-dl-${order.id}`),
+                  disabled: isLoading(`del-dl-${order.id}`) || subscriptionBlocked,
                 },
                 {
                   label: "Print Slip",
@@ -350,7 +373,7 @@ async function submitDeleteRequest() {
                     </svg>
                   ),
                   onClick: () => printPDF(`/api/pdf/delivery-slip/${order.id}`, `del-print-${order.id}`),
-                  disabled: isLoading(`del-print-${order.id}`),
+                  disabled: isLoading(`del-print-${order.id}`) || subscriptionBlocked,
                 },
               ]}
               width={180}
@@ -390,7 +413,7 @@ async function submitDeleteRequest() {
             {order.customer.email && (
               <button
                 onClick={sendInvoiceEmail}
-                disabled={sendingEmail}
+                disabled={sendingEmail || subscriptionBlocked}
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
@@ -398,19 +421,32 @@ async function submitDeleteRequest() {
                   padding: "6px 12px",
                   borderRadius: "7px",
                   border: "1px solid var(--input-border)",
-                  backgroundColor: sendingEmail ? "var(--input-bg)" : "var(--brand)",
+                  backgroundColor: sendingEmail ? "var(--input-bg)" : subscriptionBlocked ? "var(--input-bg)" : "var(--brand)",
                   color: "white",
                   fontSize: "13px",
                   fontWeight: 500,
-                  cursor: sendingEmail ? "not-allowed" : "pointer",
-                  opacity: sendingEmail ? 0.7 : 1,
+                  cursor: sendingEmail || subscriptionBlocked ? "not-allowed" : "pointer",
+                  opacity: sendingEmail || subscriptionBlocked ? 0.7 : 1,
                 }}
+                title={subscriptionBlocked ? "Your subscription is not active. Renew your plan to send emails." : undefined}
               >
                 <Mail size={13} />
                 {sendingEmail ? "Sending..." : "Send Invoice Email"}
               </button>
             )}
           </div>
+          {subscriptionBlocked && (
+            <div style={{
+              marginTop: "6px",
+              fontSize: "11px",
+              color: "#92400e",
+              backgroundColor: "#fef3c7",
+              padding: "5px 10px",
+              borderRadius: "6px",
+            }}>
+              Your subscription is not active. Renew your plan to download, print, or email documents.
+            </div>
+          )}
         </div>
       </div>
 

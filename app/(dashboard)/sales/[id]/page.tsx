@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, use } from "react";
 import { ArrowLeft, Receipt, Printer, FileDown, ExternalLink, Mail, Loader2, Check, X } from "lucide-react";
 import { usePDF } from "@/hooks/usePDF";
 import { FloatingPopover } from "@/components/ui/FloatingPopover";
+import { PLAN_NAMES } from "@/lib/pricing";
 
 type SaleItem = {
   id: number;
@@ -72,19 +73,38 @@ export default function SaleDetailPage({ params }: { params: Promise<{ id: strin
   const [sendEmailState, setSendEmailState] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [sendEmailMsg, setSendEmailMsg] = useState("");
   const { downloadPDF, printPDF, isLoading } = usePDF();
+  const [subscriptionBlocked, setSubscriptionBlocked] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/sales/${id}`);
-      if (res.status === 404) {
+      const [saleRes, subRes] = await Promise.all([
+        fetch(`/api/sales/${id}`),
+        fetch(`/api/subscription`, { cache: "no-store" }),
+      ]);
+
+      if (saleRes.status === 404) {
         setNotFound(true);
         setLoading(false);
         return;
       }
-      if (res.ok) {
-        const data = await res.json();
-        setSale(data.sale);
+
+      if (saleRes.ok) {
+        const saleData = await saleRes.json();
+        setSale(saleData.sale);
+      }
+
+if (subRes.ok) {
+        const subData = await subRes.json();
+        const effective = subData?.data?.effective;
+        const plan = subData?.data?.plan;
+        const isActive = effective?.isActive === true;
+        const planCode = (plan?.code ?? "free") as string;
+        const isBlocked =
+          !isActive &&
+          planCode.toLowerCase() !== "free" &&
+          planCode !== PLAN_NAMES.FREE;
+        setSubscriptionBlocked(isBlocked);
       }
     } catch (err) {
       console.error("Failed to load sale:", err);
@@ -169,8 +189,9 @@ export default function SaleDetailPage({ params }: { params: Promise<{ id: strin
           <FloatingPopover
             trigger={
               <button
-                disabled={isLoading(`rec-dl-${sale.id}`) || isLoading(`rec-print-${sale.id}`)}
+                disabled={isLoading(`rec-dl-${sale.id}`) || isLoading(`rec-print-${sale.id}`) || subscriptionBlocked}
                 style={btnPrimary}
+                title={subscriptionBlocked ? "Your subscription is not active. Renew your plan to download or print documents." : undefined}
               >
                 <Receipt size={14} /> Receipt Actions
               </button>
@@ -180,22 +201,22 @@ export default function SaleDetailPage({ params }: { params: Promise<{ id: strin
                 label: "Download Receipt",
                 icon: <FileDown size={14} />,
                 onClick: () => downloadPDF(`/api/pdf/receipt/${sale.saleId}`, `receipt-${sale.saleId}.pdf`, `rec-dl-${sale.id}`),
-                disabled: isLoading(`rec-dl-${sale.id}`),
+                disabled: isLoading(`rec-dl-${sale.id}`) || subscriptionBlocked,
               },
               {
                 label: "Print Receipt",
                 icon: <Printer size={14} />,
                 onClick: () => printPDF(`/api/pdf/receipt/${sale.saleId}`, `rec-print-${sale.id}`),
-                disabled: isLoading(`rec-print-${sale.id}`),
+                disabled: isLoading(`rec-print-${sale.id}`) || subscriptionBlocked,
               },
             ]}
           />
           {sale.customer?.email && (
             <button
               onClick={sendReceiptEmail}
-              disabled={sendEmailState === "sending"}
+              disabled={sendEmailState === "sending" || subscriptionBlocked}
               style={{ ...btnSecondary, minWidth: "140px" }}
-              title="Send receipt to customer email"
+              title={subscriptionBlocked ? "Your subscription is not active. Renew your plan to send emails." : "Send receipt to customer email"}
             >
               {sendEmailState === "sending" ? (
                 <><Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> Sending...</>
@@ -209,6 +230,18 @@ export default function SaleDetailPage({ params }: { params: Promise<{ id: strin
             </button>
           )}
         </div>
+        {subscriptionBlocked && (
+          <div style={{
+            marginTop: "6px",
+            fontSize: "11px",
+            color: "#92400e",
+            backgroundColor: "#fef3c7",
+            padding: "5px 10px",
+            borderRadius: "6px",
+          }}>
+            Your subscription is not active. Renew your plan to download, print, or email documents.
+          </div>
+        )}
         {sendEmailMsg && (
           <div style={{
             marginTop: "6px",

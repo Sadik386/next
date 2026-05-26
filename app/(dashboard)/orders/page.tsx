@@ -9,6 +9,7 @@ import { usePDF } from "@/hooks/usePDF";
 import { FloatingPopover } from "@/components/ui/FloatingPopover";
 import DateRangePicker, { DateRangeValue, buildDateFilterParams } from "@/components/ui/DateRangePicker";
 import { readErrorMessage } from "@/lib/read-error-message";
+import { PLAN_NAMES } from "@/lib/pricing";
 
 type OrderListItem = {
   id: number;
@@ -128,6 +129,7 @@ export default function OrdersPage() {
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
 
   const [barcodeTarget, setBarcodeTarget] = useState<OrderListItem | null>(null);
+  const [subscriptionBlocked, setSubscriptionBlocked] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -135,11 +137,28 @@ export default function OrdersPage() {
     if (search) params.set("search", search);
     if (statusFilter) params.set("status", statusFilter);
     if (paymentFilter) params.set("paymentStatus", paymentFilter);
-    const res = await fetch(`/api/orders?${buildDateFilterParams(params, dateRange)}`);
-    if (res.ok) {
-      const data = await res.json();
+    const [ordersRes, subRes] = await Promise.all([
+      fetch(`/api/orders?${buildDateFilterParams(params, dateRange)}`),
+      fetch(`/api/subscription`, { cache: "no-store" }),
+    ]);
+    if (ordersRes.ok) {
+      const data = await ordersRes.json();
       setOrders(data.items ?? []);
     }
+
+    if (subRes.ok) {
+      const subData = await subRes.json();
+      const effective = subData?.data?.effective;
+      const plan = subData?.data?.plan;
+      const isActive = effective?.isActive === true;
+      const planCode = (plan?.code ?? "free") as string;
+      const isBlocked =
+        !isActive &&
+        planCode.toLowerCase() !== "free" &&
+        planCode !== PLAN_NAMES.FREE;
+      setSubscriptionBlocked(isBlocked);
+    }
+
     setLoading(false);
   }, [search, statusFilter, paymentFilter, dateRange]);
 
@@ -458,6 +477,19 @@ export default function OrdersPage() {
         <DateRangePicker value={dateRange} onChange={setDateRange} />
       </div>
 
+      {subscriptionBlocked && (
+        <div style={{
+          marginBottom: "12px",
+          fontSize: "12px",
+          color: "#92400e",
+          backgroundColor: "#fef3c7",
+          padding: "8px 12px",
+          borderRadius: "6px",
+        }}>
+          Your subscription is not active. Renew your plan to download, print, or email documents.
+        </div>
+      )}
+
       <div className="acc-table-wrap" style={tableWrap}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
           <thead>
@@ -529,10 +561,10 @@ export default function OrdersPage() {
                       <IconBtn onClick={() => openEdit(o)} title="Edit">
                         <Pencil size={13} />
                       </IconBtn>
-                      <FloatingPopover
+<FloatingPopover
                         trigger={
                           <span style={{ display: "inline-flex" }}>
-                            <IconBtn title="Invoice" disabled={isLoading(`inv-dl-${o.id}`) || isLoading(`inv-print-${o.id}`)}>
+                            <IconBtn title={subscriptionBlocked ? "Subscription not active" : "Invoice"} disabled={isLoading(`inv-dl-${o.id}`) || isLoading(`inv-print-${o.id}`) || subscriptionBlocked}>
                               <FileText size={13} />
                             </IconBtn>
                           </span>
@@ -548,7 +580,7 @@ export default function OrdersPage() {
                               </svg>
                             ),
                             onClick: () => downloadPDF(`/api/pdf/invoice/${o.id}`, `invoice-${o.orderId}.pdf`, `inv-dl-${o.id}`),
-                            disabled: isLoading(`inv-dl-${o.id}`),
+                            disabled: isLoading(`inv-dl-${o.id}`) || subscriptionBlocked,
                           },
                           {
                             label: "Print Invoice",
@@ -560,14 +592,14 @@ export default function OrdersPage() {
                               </svg>
                             ),
                             onClick: () => printPDF(`/api/pdf/invoice/${o.id}`, `inv-print-${o.id}`),
-                            disabled: isLoading(`inv-print-${o.id}`),
+                            disabled: isLoading(`inv-print-${o.id}`) || subscriptionBlocked,
                           },
                         ]}
                       />
                       <FloatingPopover
                         trigger={
                           <span style={{ display: "inline-flex" }}>
-                            <IconBtn title="Delivery Slip" disabled={isLoading(`del-dl-${o.id}`) || isLoading(`del-print-${o.id}`)}>
+                            <IconBtn title={subscriptionBlocked ? "Subscription not active" : "Delivery Slip"} disabled={isLoading(`del-dl-${o.id}`) || isLoading(`del-print-${o.id}`) || subscriptionBlocked}>
                               <Truck size={13} />
                             </IconBtn>
                           </span>
@@ -583,7 +615,7 @@ export default function OrdersPage() {
                               </svg>
                             ),
                             onClick: () => downloadPDF(`/api/pdf/delivery-slip/${o.id}`, `delivery-${o.orderId}.pdf`, `del-dl-${o.id}`),
-                            disabled: isLoading(`del-dl-${o.id}`),
+                            disabled: isLoading(`del-dl-${o.id}`) || subscriptionBlocked,
                           },
                           {
                             label: "Print Slip",
@@ -595,9 +627,9 @@ export default function OrdersPage() {
                               </svg>
                             ),
                             onClick: () => printPDF(`/api/pdf/delivery-slip/${o.id}`, `del-print-${o.id}`),
-                            disabled: isLoading(`del-print-${o.id}`),
+                            disabled: isLoading(`del-print-${o.id}`) || subscriptionBlocked,
                           },
-                        ]}
+]}
                       />
                       <IconBtn
                         onClick={() => {
