@@ -6,6 +6,7 @@ import { SidebarProvider } from "@/contexts/SidebarContext";
 import { CurrencyProvider } from "@/contexts/CurrencyContext";
 import { Toaster } from "@/components/ui/sonner";
 import { DynamicFavicon } from "@/components/layout/DynamicFavicon";
+import SubscriptionStatusBanner from "@/components/subscription/SubscriptionStatusBanner";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <SidebarProvider>
             <div className="acc-dashboard-shell acc-overflow-hidden" style={{ minHeight: "100vh", backgroundColor: "var(--page-bg)" }}>
               <Sidebar />
+              <SubscriptionStatusBanner />
               <Topbar />
               <main
                 className="acc-main-content"
