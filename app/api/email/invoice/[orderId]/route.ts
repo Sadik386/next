@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth } from "@/lib/rbac";
+import { requirePermission } from "@/lib/rbac";
+import { PERMISSIONS } from "@/constants/permissions";
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/services/email.service";
 import { getSettings } from "@/services/setting.service";
@@ -15,7 +16,7 @@ export async function POST(
   req: NextRequest,
   ctx: { params: Promise<{ orderId: string }> }
 ) {
-  const auth = await requireAuth(req);
+  const auth = await requirePermission(req, PERMISSIONS.VIEW_SALES);
   if (auth instanceof NextResponse) return auth;
   if (!auth.businessId) {
     return NextResponse.json({ error: "Business context required" }, { status: 403 });

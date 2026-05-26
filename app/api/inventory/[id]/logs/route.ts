@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth } from "@/lib/rbac";
+import { requirePermission } from "@/lib/rbac";
+import { PERMISSIONS } from "@/constants/permissions";
 import { getStockLogsByProductId } from "@/services/inventory.service";
 import { runWithBusinessContext } from "@/lib/business-context";
 
 export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  const auth = await requireAuth(req);
+  const auth = await requirePermission(req, PERMISSIONS.VIEW_INVENTORY);
   if (auth instanceof NextResponse) return auth;
 
   const { id } = await ctx.params;

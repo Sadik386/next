@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth } from "@/lib/rbac";
+import { requirePermission } from "@/lib/rbac";
+import { PERMISSIONS } from "@/constants/permissions";
 import { getSettings } from "@/services/setting.service";
 import { generateReceiptPDF } from "@/lib/pdf/receipt";
 import { runWithBusinessContext } from "@/lib/business-context";
@@ -18,7 +19,7 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ saleId: string }> }
 ) {
-  const auth = await requireAuth(req);
+  const auth = await requirePermission(req, PERMISSIONS.VIEW_SALES);
   if (auth instanceof NextResponse) return auth;
 
   return runWithBusinessContext({ ...auth.user, businessId: auth.businessId }, async () => {

@@ -373,7 +373,7 @@ export default function UsersSection() {
                 <Label required>Role</Label>
                 <select value={createForm.roleName} onChange={(e) => setCreateForm((f) => ({ ...f, roleName: e.target.value as RoleName }))} style={inputStyle}>
                   <option value="">Select role</option>
-                  {assignableRoles.map((r) => (<option key={r.id} value={r.name}>{r.label}</option>))}
+                  {assignableRoles.map((r) => (<option key={r.id} value={r.name}>{escapeHtml(r.label)}</option>))}
                 </select>
               </div>
               {createError && <div style={errorBox}>{createError}</div>}
@@ -625,4 +625,13 @@ function Label({ children, required }: { children: React.ReactNode; required?: b
       {required && <span style={{ color: "#dc2626" }}> *</span>}
     </label>
   );
+}
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }

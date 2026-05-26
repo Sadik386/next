@@ -598,7 +598,7 @@ export default function UsersPage() {
                   <option value="">Select role</option>
                   {assignableRoles.map((r) => (
                     <option key={r.id} value={r.name}>
-                      {r.label}
+                      {escapeHtml(r.label)}
                     </option>
                   ))}
                 </select>
@@ -687,7 +687,7 @@ export default function UsersPage() {
                   <option value="">Select role</option>
                   {assignableRoles.map((r) => (
                     <option key={r.id} value={r.name}>
-                      {r.label}
+                      {escapeHtml(r.label)}
                     </option>
                   ))}
                 </select>
@@ -974,6 +974,15 @@ function Th({
       {children}
     </th>
   );
+}
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 function Label({ children, required }: { children: React.ReactNode; required?: boolean }) {
