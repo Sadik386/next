@@ -7,6 +7,7 @@ import { hasPermission } from "@/lib/rbac";
 import { RoleName } from "@/constants/roles";
 import { hasFeatureAccess } from "@/lib/subscription-guard";
 import { FEATURE_KEYS } from "@/lib/pricing";
+import { guardReadOnlyWrite, SubscriptionGuardError } from "@/lib/subscription-guard";
 
 const SMTP_FIELDS = [
   "smtpHost", "smtpPort", "smtpUsername", "smtpPassword",
@@ -44,6 +45,14 @@ export async function PATCH(req: NextRequest) {
 
   return runWithBusinessContext(user, async () => {
     try {
+      try {
+        await guardReadOnlyWrite(user.businessId!);
+      } catch (guardErr) {
+        if (guardErr instanceof SubscriptionGuardError) {
+          return NextResponse.json({ error: guardErr.message, code: guardErr.code }, { status: guardErr.status });
+        }
+        throw guardErr;
+      }
       const body = await req.json();
 
       if (hasSmtpFields(body)) {

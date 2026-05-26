@@ -5,11 +5,21 @@ import { generateApiKey, hashKey } from "@/lib/api-key";
 import { prisma } from "@/lib/prisma";
 import { USAGE_KEYS } from "@/lib/pricing";
 import { guardApiKeyCreation } from "@/lib/subscription-guard";
+import { guardReadOnlyWrite, SubscriptionGuardError } from "@/lib/subscription-guard";
 import { incrementUsageSafely } from "@/lib/usage-service";
 
 export async function POST(req: NextRequest) {
   const auth = await requirePermission(req, PERMISSIONS.MANAGE_API_KEYS);
   if (auth instanceof NextResponse) return auth;
+
+  try {
+    await guardReadOnlyWrite(auth.businessId);
+  } catch (guardErr) {
+    if (guardErr instanceof SubscriptionGuardError) {
+      return NextResponse.json({ error: guardErr.message, code: guardErr.code }, { status: guardErr.status });
+    }
+    throw guardErr;
+  }
 
   const { name, permissions } = await req.json();
   if (!name) return NextResponse.json({ error: "Name is required" }, { status: 400 });
@@ -36,7 +46,6 @@ export async function POST(req: NextRequest) {
 
   await incrementUsageSafely(auth.businessId, USAGE_KEYS.API_KEYS_CREATED);
 
-  // Return the RAW key only ONCE
   return NextResponse.json({
     id: apiKey.id,
     name: apiKey.name,

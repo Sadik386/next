@@ -8,6 +8,7 @@ import { generateProductId } from "@/services/product.service";
 import { getCellTrimmed, ImportResult, parseCsv } from "@/lib/csv";
 import { checkRateLimit, getRateLimitResponse } from "@/lib/rate-limit";
 import { runWithBusinessContext, AuthenticatedUser } from "@/lib/business-context";
+import { guardReadOnlyWrite, SubscriptionGuardError } from "@/lib/subscription-guard";
 
 export async function POST(req: NextRequest) {
   const auth = await requirePermission(req, PERMISSIONS.CREATE_PRODUCT);
@@ -25,94 +26,108 @@ export async function POST(req: NextRequest) {
   const businessId = auth.businessId;
 
   return runWithBusinessContext(user, async () => {
-    const form = await req.formData();
-    const file = form.get("file");
-    if (!(file instanceof File)) {
-      return NextResponse.json({ error: "CSV file is required" }, { status: 400 });
-    }
-
-    const text = await file.text();
-    const rows = parseCsv(text);
-
-    const result: ImportResult = { created: 0, skipped: 0, errors: [] };
-
-    const categoryCache = new Map<string, number>();
-    async function getOrCreateCategory(name: string): Promise<number | null> {
-      const key = name.toLowerCase();
-      if (categoryCache.has(key)) return categoryCache.get(key)!;
-      const existing = await prisma.category.findFirst({
-        where: { businessId, name },
-      });
-      if (existing) {
-        categoryCache.set(key, existing.id);
-        return existing.id;
-      }
-      const created = await prisma.category.create({ data: { businessId, name } });
-      categoryCache.set(key, created.id);
-      return created.id;
-    }
-
-    for (let i = 0; i < rows.length; i++) {
-      const row = rows[i];
-      const rowNumber = i + 2;
+    try {
       try {
-        const name = getCellTrimmed(row, "Product Name*");
-        const salePriceRaw = getCellTrimmed(row, "Sale Price*");
-        const costPriceRaw = getCellTrimmed(row, "Cost Price*");
-        const stockQtyRaw = getCellTrimmed(row, "Stock Quantity*");
-        const unit = getCellTrimmed(row, "Unit*");
-        const status = getCellTrimmed(row, "Status*") || "active";
-
-        if (!name || !salePriceRaw || !costPriceRaw || !stockQtyRaw || !unit) {
-          result.skipped++;
-          result.errors.push({ row: rowNumber, message: "Missing required fields" });
-          continue;
+        await guardReadOnlyWrite(businessId);
+      } catch (guardErr) {
+        if (guardErr instanceof SubscriptionGuardError) {
+          return NextResponse.json({ error: guardErr.message, code: guardErr.code }, { status: guardErr.status });
         }
-
-        const salePrice = Number(salePriceRaw);
-        const costPrice = Number(costPriceRaw);
-        const stockQty = Math.max(0, Math.floor(Number(stockQtyRaw)));
-        if (Number.isNaN(salePrice) || Number.isNaN(costPrice) || Number.isNaN(stockQty)) {
-          result.skipped++;
-          result.errors.push({ row: rowNumber, message: "Invalid numeric values" });
-          continue;
-        }
-
-        const description = getCellTrimmed(row, "Description") || null;
-        const sku = getCellTrimmed(row, "SKU") || null;
-        const categoryName = getCellTrimmed(row, "Category");
-        const categoryId = categoryName ? await getOrCreateCategory(categoryName) : null;
-
-        const productId = await generateProductId();
-        const product = await prisma.product.create({
-          data: {
-            businessId,
-            productId,
-            name,
-            sku,
-            categoryId,
-            unit,
-            salePrice: new Prisma.Decimal(salePrice),
-            costPrice: new Prisma.Decimal(costPrice),
-            description,
-            status,
-          },
-        });
-
-        await prisma.stock.create({
-          data: { businessId, productId: product.id, quantity: stockQty, threshold: 10 },
-        });
-
-        result.created++;
-      } catch (err) {
-        result.skipped++;
-        result.errors.push({
-          row: rowNumber,
-          message: err instanceof Error ? err.message : "Failed to import row",
-        });
+        throw guardErr;
       }
-    }
 
-    return NextResponse.json(result);
+      const form = await req.formData();
+      const file = form.get("file");
+      if (!(file instanceof File)) {
+        return NextResponse.json({ error: "CSV file is required" }, { status: 400 });
+      }
+
+      const text = await file.text();
+      const rows = parseCsv(text);
+
+      const result: ImportResult = { created: 0, skipped: 0, errors: [] };
+
+      const categoryCache = new Map<string, number>();
+      async function getOrCreateCategory(name: string): Promise<number | null> {
+        const key = name.toLowerCase();
+        if (categoryCache.has(key)) return categoryCache.get(key)!;
+        const existing = await prisma.category.findFirst({
+          where: { businessId, name },
+        });
+        if (existing) {
+          categoryCache.set(key, existing.id);
+          return existing.id;
+        }
+        const created = await prisma.category.create({ data: { businessId, name } });
+        categoryCache.set(key, created.id);
+        return created.id;
+      }
+
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const rowNumber = i + 2;
+        try {
+          const name = getCellTrimmed(row, "Product Name*");
+          const salePriceRaw = getCellTrimmed(row, "Sale Price*");
+          const costPriceRaw = getCellTrimmed(row, "Cost Price*");
+          const stockQtyRaw = getCellTrimmed(row, "Stock Quantity*");
+          const unit = getCellTrimmed(row, "Unit*");
+          const status = getCellTrimmed(row, "Status*") || "active";
+
+          if (!name || !salePriceRaw || !costPriceRaw || !stockQtyRaw || !unit) {
+            result.skipped++;
+            result.errors.push({ row: rowNumber, message: "Missing required fields" });
+            continue;
+          }
+
+          const salePrice = Number(salePriceRaw);
+          const costPrice = Number(costPriceRaw);
+          const stockQty = Math.max(0, Math.floor(Number(stockQtyRaw)));
+          if (Number.isNaN(salePrice) || Number.isNaN(costPrice) || Number.isNaN(stockQty)) {
+            result.skipped++;
+            result.errors.push({ row: rowNumber, message: "Invalid numeric values" });
+            continue;
+          }
+
+          const description = getCellTrimmed(row, "Description") || null;
+          const sku = getCellTrimmed(row, "SKU") || null;
+          const categoryName = getCellTrimmed(row, "Category");
+          const categoryId = categoryName ? await getOrCreateCategory(categoryName) : null;
+
+          const productId = await generateProductId();
+          const product = await prisma.product.create({
+            data: {
+              businessId,
+              productId,
+              name,
+              sku,
+              categoryId,
+              unit,
+              salePrice: new Prisma.Decimal(salePrice),
+              costPrice: new Prisma.Decimal(costPrice),
+              description,
+              status,
+            },
+          });
+
+          await prisma.stock.create({
+            data: { businessId, productId: product.id, quantity: stockQty, threshold: 10 },
+          });
+
+          result.created++;
+        } catch (err) {
+          result.skipped++;
+          result.errors.push({
+            row: rowNumber,
+            message: err instanceof Error ? err.message : "Failed to import row",
+          });
+        }
+      }
+
+      return NextResponse.json(result);
+    } catch (error) {
+      console.error("Error importing products:", error);
+      return NextResponse.json({ error: "Server error" }, { status: 500 });
+    }
   });
 }

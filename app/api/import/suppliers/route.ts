@@ -6,6 +6,7 @@ import { generateSupplierId } from "@/services/supplier.service";
 import { getCellTrimmed, ImportResult, parseCsv } from "@/lib/csv";
 import { checkRateLimit, getRateLimitResponse } from "@/lib/rate-limit";
 import { runWithBusinessContext, AuthenticatedUser } from "@/lib/business-context";
+import { guardReadOnlyWrite, SubscriptionGuardError } from "@/lib/subscription-guard";
 
 type MfsProvider = "bKash" | "Nagad" | "Rocket" | "Upay";
 
@@ -23,7 +24,6 @@ interface PaymentMethod {
 function parsePaymentMethods(value: string): PaymentMethod[] | null {
   if (!value || !value.trim()) return null;
 
-  // Try JSON format first
   try {
     const parsed = JSON.parse(value);
     if (Array.isArray(parsed)) return parsed as PaymentMethod[];
@@ -31,7 +31,6 @@ function parsePaymentMethods(value: string): PaymentMethod[] | null {
     // Not valid JSON, try pipe format
   }
 
-  // Pipe format: MFS:bKash:017XXXXXXXX | MFS:Nagad:018XXXXXXXX | BANK:Dutch Bangla Bank:ABC Supplier:123456:Chittagong
   const methods: PaymentMethod[] = [];
   const parts = value.split("|").map((p) => p.trim()).filter(Boolean);
 
@@ -66,7 +65,6 @@ function parsePaymentMethods(value: string): PaymentMethod[] | null {
 function mapLegacyToPaymentMethods(row: Record<string, string>): PaymentMethod[] {
   const methods: PaymentMethod[] = [];
 
-  // Bank fields
   const bankName = getCellTrimmed(row, "Bank Name");
   const bankAccount = getCellTrimmed(row, "Bank Account");
   const accountName = getCellTrimmed(row, "Account Name");
@@ -86,7 +84,6 @@ function mapLegacyToPaymentMethods(row: Record<string, string>): PaymentMethod[]
     });
   }
 
-  // MFS fields
   const bkash = getCellTrimmed(row, "Bkash");
   const nagad = getCellTrimmed(row, "Nagad");
   const rocket = getCellTrimmed(row, "Rocket");
@@ -112,110 +109,119 @@ export async function POST(req: NextRequest) {
   const businessId = auth.businessId;
 
   return runWithBusinessContext(user, async () => {
-    const form = await req.formData();
-    const file = form.get("file");
-    if (!(file instanceof File)) {
-      return NextResponse.json({ error: "CSV file is required" }, { status: 400 });
-    }
-
-    const text = await file.text();
-    const rows = parseCsv(text);
-
-    const result: ImportResult = { created: 0, skipped: 0, errors: [] };
-
-    for (let i = 0; i < rows.length; i++) {
-      const row = rows[i];
-      const rowNumber = i + 2;
-
-      // Validate required fields
-      const errors: string[] = [];
-      const companyName = getCellTrimmed(row, "Company Name*");
-      const contactName = getCellTrimmed(row, "Contact Name*");
-      const mobile = getCellTrimmed(row, "Mobile*");
-      const paymentTerms = getCellTrimmed(row, "Payment Terms*");
-      const currency = getCellTrimmed(row, "Currency*");
-      const country = getCellTrimmed(row, "Country*");
-      const status = getCellTrimmed(row, "Status*") || "active";
-
-      if (!companyName) errors.push("Company name is required.");
-      if (!contactName) errors.push("Contact name is required.");
-      if (!mobile) errors.push("Mobile number is required.");
-      if (!paymentTerms) errors.push("Payment terms is required.");
-      if (!currency) errors.push("Currency is required.");
-      if (!country) errors.push("Country is required.");
-
-      if (errors.length > 0) {
-        result.skipped++;
-        result.errors.push({ row: rowNumber, message: errors.join(" ") });
-        continue;
+    try {
+      try {
+        await guardReadOnlyWrite(businessId);
+      } catch (filterError) {
+        if (filterError instanceof SubscriptionGuardError) {
+          return NextResponse.json({ error: filterError.message, code: filterError.code }, { status: filterError.status });
+        }
+        throw filterError;
       }
 
-      try {
-        // Get paymentMethods - prefer new column, fallback to legacy fields
-        const paymentMethodsStr = getCellTrimmed(row, "Payment Methods");
-        let paymentMethods = parsePaymentMethods(paymentMethodsStr);
+      const form = await req.formData();
+      const file = form.get("file");
+      if (!(file instanceof File)) {
+        return NextResponse.json({ error: "CSV file is required" }, { status: 400 });
+      }
 
-        // If no paymentMethods column or empty, try legacy fields
-        if (!paymentMethods) {
-          const legacyHasData =
-            getCellTrimmed(row, "Bank Name") ||
-            getCellTrimmed(row, "Bank Account") ||
-            getCellTrimmed(row, "Bkash") ||
-            getCellTrimmed(row, "Nagad") ||
-            getCellTrimmed(row, "Rocket") ||
-            getCellTrimmed(row, "Upay");
-          if (legacyHasData) {
-            paymentMethods = mapLegacyToPaymentMethods(row);
-          }
+      const text = await file.text();
+      const rows = parseCsv(text);
+
+      const result: ImportResult = { created: 0, skipped: 0, errors: [] };
+
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const rowNumber = i + 2;
+
+        const errors: string[] = [];
+        const companyName = getCellTrimmed(row, "Company Name*");
+        const contactName = getCellTrimmed(row, "Contact Name*");
+        const mobile = getCellTrimmed(row, "Mobile*");
+        const paymentTerms = getCellTrimmed(row, "Payment Terms*");
+        const currency = getCellTrimmed(row, "Currency*");
+        const country = getCellTrimmed(row, "Country*");
+        const status = getCellTrimmed(row, "Status*") || "active";
+
+        if (!companyName) errors.push("Company name is required.");
+        if (!contactName) errors.push("Contact name is required.");
+        if (!mobile) errors.push("Mobile number is required.");
+        if (!paymentTerms) errors.push("Payment terms is required.");
+        if (!currency) errors.push("Currency is required.");
+        if (!country) errors.push("Country is required.");
+        if (errors.length > 0) {
+          result.skipped++;
+          result.errors.push({ row: rowNumber, message: errors.join(" ") });
+          continue;
         }
 
-        const supplierId = await generateSupplierId();
-        await prisma.supplier.create({
-          data: {
-            businessId,
-            supplierId,
-            companyName,
-            contactName,
-            email: getCellTrimmed(row, "Email") || null,
-            mobile,
-            website: getCellTrimmed(row, "Website") || null,
-            taxId: getCellTrimmed(row, "Tax ID") || null,
-            paymentTerms,
-            currency,
-            paymentMethods: paymentMethods ? (paymentMethods as unknown as object) : undefined,
-            // Legacy fields - store for backward compatibility
-            bankName: getCellTrimmed(row, "Bank Name") || null,
-            bankAccount: getCellTrimmed(row, "Bank Account") || null,
-            accountName: getCellTrimmed(row, "Account Name") || null,
-            branchName: getCellTrimmed(row, "Branch Name") || null,
-            routingNumber: getCellTrimmed(row, "Routing Number") || null,
-            swiftCode: getCellTrimmed(row, "SWIFT Code") || null,
-            bkash: getCellTrimmed(row, "Bkash") || null,
-            nagad: getCellTrimmed(row, "Nagad") || null,
-            rocket: getCellTrimmed(row, "Rocket") || null,
-            upay: getCellTrimmed(row, "Upay") || null,
-            category: getCellTrimmed(row, "Category") || null,
-            deliveryMethod: getCellTrimmed(row, "Delivery Method") || null,
-            streetAddress: getCellTrimmed(row, "Street Address") || null,
-            city: getCellTrimmed(row, "City") || null,
-            state: getCellTrimmed(row, "State") || null,
-            zipCode: getCellTrimmed(row, "Zip Code") || null,
-            country,
-            status,
-          },
-        });
+        try {
+          const paymentMethodsStr = getCellTrimmed(row, "Payment Methods");
+          let paymentMethods = parsePaymentMethods(paymentMethodsStr);
 
-        result.created++;
-      } catch (err) {
-        result.skipped++;
-        console.error(`Error processing row ${rowNumber}:`, err);
-        result.errors.push({
-          row: rowNumber,
-          message: err instanceof Error ? err.message : "Failed to import row",
-        });
+          if (!paymentMethods) {
+            const legacyHasData =
+              getCellTrimmed(row, "Bank Name") ||
+              getCellTrimmed(row, "Bank Account") ||
+              getCellTrimmed(row, "Bkash") ||
+              getCellTrimmed(row, "Nagad") ||
+              getCellTrimmed(row, "Rocket") ||
+              getCellTrimmed(row, "Upay");
+            if (legacyHasData) {
+              paymentMethods = mapLegacyToPaymentMethods(row);
+            }
+          }
+
+          const supplierId = await generateSupplierId();
+          await prisma.supplier.create({
+            data: {
+              businessId,
+              supplierId,
+              companyName,
+              contactName,
+              email: getCellTrimmed(row, "Email") || null,
+              mobile,
+              website: getCellTrimmed(row, "Website") || null,
+              taxId: getCellTrimmed(row, "Tax ID") || null,
+              paymentTerms,
+              currency,
+              paymentMethods: paymentMethods ? (paymentMethods as unknown as object) : undefined,
+              bankName: getCellTrimmed(row, "Bank Name") || null,
+              bankAccount: getCellTrimmed(row, "Bank Account") || null,
+              accountName: getCellTrimmed(row, "Account Name") || null,
+              branchName: getCellTrimmed(row, "Branch Name") || null,
+              routingNumber: getCellTrimmed(row, "Routing Number") || null,
+              swiftCode: getCellTrimmed(row, "SWIFT Code") || null,
+              bkash: getCellTrimmed(row, "Bkash") || null,
+              nagad: getCellTrimmed(row, "Nagad") || null,
+              rocket: getCellTrimmed(row, "Rocket") || null,
+              upay: getCellTrimmed(row, "Upay") || null,
+              category: getCellTrimmed(row, "Category") || null,
+              deliveryMethod: getCellTrimmed(row, "Delivery Method") || null,
+              streetAddress: getCellTrimmed(row, "Street Address") || null,
+              city: getCellTrimmed(row, "City") || null,
+              state: getCellTrimmed(row, "State") || null,
+              zipCode: getCellTrimmed(row, "Zip Code") || null,
+              country,
+              status,
+            },
+          });
+
+          result.created++;
+        } catch (err) {
+          result.skipped++;
+          console.error(`Error processing row ${rowNumber}:`, err);
+          result.errors.push({
+            row: rowNumber,
+            message: err instanceof Error ? err.message : "Failed to import row",
+          });
+        }
       }
-    }
 
-    return NextResponse.json(result);
+      return NextResponse.json(result);
+    } catch (error) {
+      console.error("Error importing suppliers:", error);
+      return NextResponse.json({ error: "Server error" }, { status: 500 });
+    }
   });
 }

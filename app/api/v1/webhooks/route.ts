@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { authenticateApiRequest, apiResponse, apiError } from "@/services/api.service";
 import { registerWebhook } from "@/services/webhook.service";
 import { guardWebhookCreation } from "@/lib/subscription-guard";
+import { guardReadOnlyWrite, SubscriptionGuardError } from "@/lib/subscription-guard";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/rbac";
 import { PERMISSIONS } from "@/constants/permissions";
@@ -15,6 +16,15 @@ export async function POST(req: NextRequest) {
     const rbacAuth = await requirePermission(req, PERMISSIONS.MANAGE_WEBHOOKS);
     if (rbacAuth instanceof NextResponse) return apiError("Forbidden", 403);
     businessId = rbacAuth.businessId;
+  }
+
+  try {
+    await guardReadOnlyWrite(businessId);
+  } catch (guardErr) {
+    if (guardErr instanceof SubscriptionGuardError) {
+      return apiError(guardErr.message, guardErr.status);
+    }
+    throw guardErr;
   }
 
   const guardResult = await guardWebhookCreation(businessId);

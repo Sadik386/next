@@ -7,6 +7,7 @@ import { runWithBusinessContext } from "@/lib/business-context";
 import { hasPermission } from "@/lib/rbac";
 import { createInviteToken, sendInviteEmail } from "@/services/invite-email.service";
 import { prisma } from "@/lib/prisma";
+import { guardReadOnlyWrite, SubscriptionGuardError } from "@/lib/subscription-guard";
 
 export async function POST(req: NextRequest) {
   const user = await getAuthUser();
@@ -21,6 +22,14 @@ export async function POST(req: NextRequest) {
 
   return runWithBusinessContext(user, async () => {
     try {
+      try {
+        await guardReadOnlyWrite(user.businessId!);
+      } catch (guardErr) {
+        if (guardErr instanceof SubscriptionGuardError) {
+          return NextResponse.json({ error: guardErr.message, code: guardErr.code }, { status: guardErr.status });
+        }
+        throw guardErr;
+      }
       const body = await req.json();
       const email = (body.email ?? "").trim().toLowerCase();
       const roleName = body.roleName as RoleName;
