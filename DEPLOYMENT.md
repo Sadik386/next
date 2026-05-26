@@ -170,6 +170,40 @@ sudo certbot --nginx -d accoraze.com -d www.accoraze.com
 sudo certbot renew --dry-run
 ```
 
+## Email Architecture
+
+| Address | Provider | Purpose | Usage |
+|---------|----------|---------|-------|
+| `noreply@accoraze.com` | Resend | Platform/System transactional only | Password reset, email verification, resend verification, platform notifications |
+| `support@accoraze.com` | Brevo | Inbox/human email | Customer support, reply-to |
+| `hello@accoraze.com` | Brevo | Inbox/human email | General inquiries, onboarding |
+| `admin@accoraze.com` | Brevo (optional) | Private/internal only | Never list in public docs or email templates |
+
+### noreply@accoraze.com (Resend) — PLATFORM ONLY
+- Used for: password reset, email verification, resend verification, platform/system automated emails, platform notifications
+- **NOT for**: business customer invoice/receipt/order confirmation emails
+- Business customer-facing emails must use each business's own SMTP credentials
+- DNS: add Resend domain verification MX/SPF/DKIM records
+
+### support@accoraze.com & hello@accoraze.com (Brevo)
+- Human-managed inbox emails (not automated)
+- DNS: add Brevo MX/SPF records for inbox routing
+
+### Business SMTP (per-business)
+- Stored per business in DB, encrypted with AES-256-GCM
+- Used for: customer invoices, receipts, order confirmations, business communications
+- Each business configures their own SMTP via business settings
+
+### DNS Setup
+1. **Resend** (for `noreply@` transactional emails): Add Resend-provided MX, SPF, DKIM records
+2. **Brevo** (for `support@`/`hello@` inbox emails): Add Brevo-provided MX, SPF records
+3. **Zoho**: Not used — do not configure
+
+### SMTP Credentials
+- `SMTP_*` in `.env` = Resend credentials for `noreply@accoraze.com`
+- Business SMTP stored in DB per business record
+- Never commit real SMTP credentials to version control
+
 ## Environment Variables Checklist
 - [ ] `DATABASE_URL` — points to production MySQL DB
 - [ ] `JWT_SECRET` — strong random string, 64+ chars (generate with `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`)
@@ -177,7 +211,7 @@ sudo certbot renew --dry-run
 - [ ] `NEXT_PUBLIC_APP_URL=https://app.accoraze.com`
 - [ ] `NODE_ENV=production`
 - [ ] `APP_MODE=cloud`
-- [ ] `SMTP_*` — mail server credentials
+- [ ] `SMTP_*` — Resend credentials for `noreply@accoraze.com` (platform transactional only)
 - [ ] `TURNSTILE_SECRET_KEY` / `NEXT_PUBLIC_TURNSTILE_SITE_KEY` — from Cloudflare
 
 ## Post-Deploy Checklist
