@@ -563,9 +563,11 @@ const planCode = normalizePlanCode(plan?.name ?? "free");
       basic: 'starter',
       pro: 'business',
       growth: 'business',
+      professional: 'business',
+      enterprise: 'custom',
     };
 
-    // New V1 plan names (free, starter, growth, custom)
+    // V1 plan names (free, starter, business, custom)
     const v1PlanNames = ['free', 'starter', 'business', 'custom'];
 
     return plans
