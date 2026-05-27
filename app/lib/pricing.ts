@@ -251,7 +251,7 @@ export const PLAN_BADGES: Record<string, string> = {
 
 // Plan descriptions
 export const PLAN_DESCRIPTIONS: Record<PlanCode, string> = {
-  free: 'Lifetime free starter plan for small businesses',
+  free: 'Lifetime free plan for small businesses',
   starter: 'For small businesses with growing needs and more team access',
   business: 'For growing businesses with advanced features, API, and integrations',
   custom: 'Custom pricing tailored to your business needs',

@@ -579,9 +579,11 @@ const planCode = normalizePlanCode(plan?.name ?? "free");
         const code = p.name.toLowerCase();
         const currentCode = (planNameMap[code] ?? code) as PlanCode;
         const bdtPrices = PLAN_PRICES_BDT[currentCode] ?? { monthly: 0, yearly: 0 };
+        const canonicalDescription = getPlanDescription(currentCode);
 
         return {
           ...p,
+          description: canonicalDescription,
           maxUsers: getPlanUserLimit(currentCode),
           maxProducts: getPlanProductLimit(currentCode),
           emailLimit: getPlanEmailLimit(currentCode),

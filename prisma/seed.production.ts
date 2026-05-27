@@ -212,7 +212,7 @@ const subscriptionPlans = [
   {
     name: "free",
     label: "Free",
-    description: "Lifetime free starter plan for small businesses",
+    description: "Lifetime free plan for small businesses",
     priceMonthly: 0,
     priceYearly: 0,
     maxUsers: 1,

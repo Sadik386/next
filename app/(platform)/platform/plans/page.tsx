@@ -243,7 +243,9 @@ export default function PlatformPlans() {
                     <span style={{ fontSize: "24px", fontWeight: 700, color: "var(--text-primary)" }}>
                       {isCustom ? "Custom" : bdtPrice !== undefined ? `৳${bdtPrice.toLocaleString()}` : `$${Number(plan.priceMonthly).toFixed(0)}`}
                     </span>
-                    <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>/mo</span>
+                    {isCustom ? null : (
+                      <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>/mo</span>
+                    )}
                   </div>
                   {isFree ? (
                     <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>Free forever</div>
@@ -280,11 +282,11 @@ export default function PlatformPlans() {
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
                     <Mail size={11} color="var(--text-muted)" />
-                    <span style={{ fontSize: "11px", color: "var(--text-secondary)" }}>{emailLimit.toLocaleString()}/mo emails</span>
+                    <span style={{ fontSize: "11px", color: "var(--text-secondary)" }}>{emailLimit === -1 ? "Unlimited" : `${emailLimit.toLocaleString()}`}/mo emails</span>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
                     <FileText size={11} color="var(--text-muted)" />
-                    <span style={{ fontSize: "11px", color: "var(--text-secondary)" }}>{pdfPrintLimit === -1 ? "Unlimited" : pdfPrintLimit}/mo PDF</span>
+                    <span style={{ fontSize: "11px", color: "var(--text-secondary)" }}>{pdfPrintLimit === -1 ? "Unlimited" : pdfPrintLimit} PDF/mo</span>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
                     <Globe size={11} color={apiEnabled ? "#16a34a" : "var(--text-muted)"} />
