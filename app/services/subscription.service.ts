@@ -3,6 +3,7 @@ import { activeBusinessMemberStatusWhere } from "@/constants/business-member-sta
 import {
   FEATURE_KEYS,
   PLAN_NAMES,
+  PLAN_API_ENABLED,
   SUBSCRIPTION_STATUS,
   USAGE_KEYS,
   getPlanBadge,
@@ -183,12 +184,8 @@ export async function getSubscriptionDashboardData(
     ? getPlanDescription(assignedPlanCode as PlanCode)
     : plan?.description || "";
 
-  const apiAccessEnabled = effStatus.isActive
-    ? (features[FEATURE_KEYS.API_ACCESS] ?? false)
-    : false;
-  const smtpAccessEnabled = effStatus.isActive
-    ? (features[FEATURE_KEYS.CUSTOM_SMTP] ?? false)
-    : false;
+  const apiAccessEnabled = PLAN_API_ENABLED[assignedPlanCode as PlanCode | LegacyPlanCode] ?? false;
+  const smtpAccessEnabled = features[FEATURE_KEYS.CUSTOM_SMTP] ?? false;
 
   return {
     plan: {

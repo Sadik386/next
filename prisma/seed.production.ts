@@ -113,7 +113,7 @@ const planFeatures = {
   },
   starter: {
     customSmtp: false,
-    apiAccess: true,
+    apiAccess: false,
     webhooks: false,
     whiteLabel: false,
     advancedReports: false,
