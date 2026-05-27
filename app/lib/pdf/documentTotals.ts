@@ -19,6 +19,10 @@ type ReceiptTotalsSource = {
   paymentMethod?: string | null
   paymentStatus?: string | null
   order?: {
+    subtotal: DecimalLike
+    taxAmount: DecimalLike
+    discountAmount: DecimalLike
+    totalAmount: DecimalLike
     paidAmount: DecimalLike
     paymentStatus?: string | null
   } | null
@@ -70,8 +74,25 @@ export function receiptTotals(sale: ReceiptTotalsSource): Pick<
   ReceiptData,
   "subtotal" | "discount" | "tax" | "total" | "paymentMethod" | "paymentStatus" | "paidAmount" | "balanceDue" | "change"
 > {
+  if (sale.order) {
+    const total = toNumber(sale.order.totalAmount ?? sale.totalAmount)
+    const paidAmount = toNumber(sale.order.paidAmount)
+    const balanceDue = Math.max(0, total - paidAmount)
+    return {
+      subtotal: toNumber(sale.order.subtotal),
+      discount: positiveOrUndefined(toNumber(sale.order.discountAmount)),
+      tax: positiveOrUndefined(toNumber(sale.order.taxAmount)),
+      total,
+      paymentMethod: sale.paymentMethod || "Cash",
+      paymentStatus: sale.order.paymentStatus ?? sale.paymentStatus ?? undefined,
+      paidAmount,
+      balanceDue: positiveOrUndefined(balanceDue),
+      change: 0,
+    }
+  }
+
   const total = toNumber(sale.totalAmount)
-  const paidAmount = sale.order ? toNumber(sale.order.paidAmount) : total
+  const paidAmount = total
   const balanceDue = Math.max(0, total - paidAmount)
 
   return {
@@ -80,7 +101,7 @@ export function receiptTotals(sale: ReceiptTotalsSource): Pick<
     tax: positiveOrUndefined(toNumber(sale.taxAmount)),
     total,
     paymentMethod: sale.paymentMethod || "Cash",
-    paymentStatus: sale.order?.paymentStatus ?? sale.paymentStatus ?? undefined,
+    paymentStatus: sale.paymentStatus ?? undefined,
     paidAmount,
     balanceDue: positiveOrUndefined(balanceDue),
     change: 0,
