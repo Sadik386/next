@@ -719,8 +719,8 @@ function EmailSmtpSection({
                 autoComplete="new-password"
                 value={smtp.smtpPassword}
                 onChange={(e) => setSmtpField("smtpPassword", e.target.value)}
-                style={inputStyle}
-                disabled
+                style={{ ...inputStyle, opacity: smtpAccessEnabled ? 1 : 0.5 }}
+                disabled={!smtpAccessEnabled}
               />
             </div>
             <div>
