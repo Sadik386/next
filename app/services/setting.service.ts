@@ -44,6 +44,7 @@ export interface SettingInput {
   emailPasswordResetEnabled?: boolean;
   emailUserRegistrationEnabled?: boolean;
   emailLowStockEnabled?: boolean;
+  emailStaffInvitationEnabled?: boolean;
   emailDailySummaryEnabled?: boolean;
   clearSmtpPassword?: boolean;
 }
@@ -146,6 +147,7 @@ export async function updateSettings(data: SettingInput, userId: number) {
   if (data.emailPasswordResetEnabled !== undefined) update.emailPasswordResetEnabled = data.emailPasswordResetEnabled;
   if (data.emailUserRegistrationEnabled !== undefined) update.emailUserRegistrationEnabled = data.emailUserRegistrationEnabled;
   if (data.emailLowStockEnabled !== undefined) update.emailLowStockEnabled = data.emailLowStockEnabled;
+  if (data.emailStaffInvitationEnabled !== undefined) update.emailStaffInvitationEnabled = data.emailStaffInvitationEnabled;
   if (data.emailDailySummaryEnabled !== undefined) update.emailDailySummaryEnabled = data.emailDailySummaryEnabled;
 
   if (data.clearSmtpPassword === true) {
@@ -194,6 +196,7 @@ export async function updateSettings(data: SettingInput, userId: number) {
       emailPasswordResetEnabled: data.emailPasswordResetEnabled ?? true,
       emailUserRegistrationEnabled: data.emailUserRegistrationEnabled ?? true,
       emailLowStockEnabled: data.emailLowStockEnabled ?? true,
+      emailStaffInvitationEnabled: data.emailStaffInvitationEnabled ?? true,
       emailDailySummaryEnabled: data.emailDailySummaryEnabled ?? false,
     },
   });

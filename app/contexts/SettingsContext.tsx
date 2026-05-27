@@ -40,6 +40,7 @@ export interface Settings {
   emailPasswordResetEnabled: boolean;
   emailUserRegistrationEnabled: boolean;
   emailLowStockEnabled: boolean;
+  emailStaffInvitationEnabled: boolean;
   emailDailySummaryEnabled: boolean;
 }
 
@@ -83,6 +84,7 @@ const DEFAULT_SETTINGS: Settings = {
   emailPasswordResetEnabled: true,
   emailUserRegistrationEnabled: true,
   emailLowStockEnabled: true,
+  emailStaffInvitationEnabled: true,
   emailDailySummaryEnabled: false,
 };
 

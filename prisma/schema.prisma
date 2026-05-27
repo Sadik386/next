@@ -341,8 +341,9 @@ model Setting {
   emailInvoiceEnabled       Boolean  @default(true)
   emailPasswordResetEnabled  Boolean  @default(true)
   emailUserRegistrationEnabled Boolean @default(true)
-  emailLowStockEnabled       Boolean  @default(true)
-  emailDailySummaryEnabled   Boolean  @default(false)
+emailLowStockEnabled       Boolean  @default(true)
+  emailStaffInvitationEnabled Boolean @default(true)
+  emailDailySummaryEnabled   Boolean @default(false)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   @@unique([businessId])

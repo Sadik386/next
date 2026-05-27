@@ -282,11 +282,11 @@ export default function PlatformPlans() {
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
                     <Mail size={11} color="var(--text-muted)" />
-                    <span style={{ fontSize: "11px", color: "var(--text-secondary)" }}>{emailLimit === -1 ? "Unlimited" : `${emailLimit.toLocaleString()}`}/mo emails</span>
+                    <span style={{ fontSize: "11px", color: "var(--text-secondary)" }}>{emailLimit === -1 ? "Unlimited emails" : `${emailLimit.toLocaleString()} emails/mo`}</span>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
                     <FileText size={11} color="var(--text-muted)" />
-                    <span style={{ fontSize: "11px", color: "var(--text-secondary)" }}>{pdfPrintLimit === -1 ? "Unlimited" : pdfPrintLimit} PDF/mo</span>
+                    <span style={{ fontSize: "11px", color: "var(--text-secondary)" }}>{pdfPrintLimit === -1 ? "Unlimited PDF" : `${pdfPrintLimit.toLocaleString()} PDF/mo`}</span>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
                     <Globe size={11} color={apiEnabled ? "#16a34a" : "var(--text-muted)"} />

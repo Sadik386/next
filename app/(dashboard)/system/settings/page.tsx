@@ -120,7 +120,7 @@ function smtpDefaults(s: Settings | null): SmtpState {
     enablePasswordResetEmails: s?.emailPasswordResetEnabled ?? false,
     enableOrderConfirmationEmails: s?.emailOrderConfirmationEnabled ?? false,
     enableInvoiceEmails: s?.emailInvoiceEnabled ?? false,
-    enableStaffInvitationEmails: false,
+    enableStaffInvitationEmails: s?.emailStaffInvitationEnabled ?? false,
     enableLowStockAlerts: s?.emailLowStockEnabled ?? false,
     emailFooterText: s?.emailFooterText ?? s?.invoiceFooter ?? "",
     supportEmail: s?.supportEmail ?? s?.email ?? "",
@@ -395,6 +395,7 @@ export default function SettingsPage() {
               emailUserRegistrationEnabled: smtp.enableEmailVerification,
               emailLowStockEnabled: smtp.enableLowStockAlerts,
               emailDailySummaryEnabled: smtp.emailDailySummaryEnabled,
+              emailStaffInvitationEnabled: smtp.enableStaffInvitationEmails,
             })
           }
         />
@@ -699,7 +700,6 @@ function EmailSmtpSection({
                 value={smtp.mailProvider}
                 onChange={(e) => setSmtpField("mailProvider", e.target.value)}
                 style={inputStyle}
-                disabled
               >
                 {MAIL_PROVIDERS.map((provider) => (
                   <option key={provider} value={provider}>
@@ -729,7 +729,6 @@ function EmailSmtpSection({
                 value={smtp.encryption}
                 onChange={(e) => setSmtpField("encryption", e.target.value)}
                 style={inputStyle}
-                disabled
               >
                 {ENCRYPTION_OPTIONS.map((option) => (
                   <option key={option} value={option}>
