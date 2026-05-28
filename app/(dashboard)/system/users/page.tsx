@@ -929,7 +929,7 @@ export default function UsersPage() {
               Remove {removeTarget.name} from this business?
             </h3>
             <p style={{ fontSize: "13px", color: "var(--text-secondary)", marginBottom: "14px" }}>
-              This will remove this user's access to this business. Their global account will not be deleted. They can be re-invited later if needed.
+              This will remove this user&apos;s access to this business. Their global account will not be deleted. They can be re-invited later if needed.
             </p>
             {removeError && <div style={errorBox}>{removeError}</div>}
             <div
