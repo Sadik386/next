@@ -5,6 +5,7 @@ import {
   BUSINESS_MEMBER_STATUS,
   activeBusinessMemberStatusWhere,
   pendingBusinessMemberStatusWhere,
+  deactivatedBusinessMemberStatusWhere,
 } from "@/constants/business-member-status";
 import {
   PERMISSIONS,
@@ -20,6 +21,7 @@ import {
 import { USAGE_KEYS, PLAN_NAMES } from "@/lib/pricing";
 import { guardUserCreation } from "@/lib/subscription-guard";
 import { incrementUsageSafely } from "@/lib/usage-service";
+import { createLog } from "@/services/activity-log.service";
 
 type UserMutationActor = {
   id: number;
@@ -282,12 +284,17 @@ export async function getUsers({ search, role, status, page = 1, limit = 20 }: {
 
   const membershipWhere: Record<string, unknown> = {
     businessId,
-    status: { in: [BUSINESS_MEMBER_STATUS.ACTIVE, BUSINESS_MEMBER_STATUS.PENDING] },
   };
   if (role) membershipWhere.role = { name: role };
 
   if (status === "active") {
     membershipWhere.status = activeBusinessMemberStatusWhere();
+  } else if (status === "pending") {
+    membershipWhere.status = pendingBusinessMemberStatusWhere();
+  } else if (status === "deactivated") {
+    membershipWhere.status = deactivatedBusinessMemberStatusWhere();
+  } else {
+    membershipWhere.status = { in: [BUSINESS_MEMBER_STATUS.ACTIVE, BUSINESS_MEMBER_STATUS.PENDING] };
   }
 
   const userWhere: Record<string, unknown> = {
@@ -653,6 +660,88 @@ export async function changeStatus(
   });
 
   return { success: true, user: serializeUser(updated) };
+}
+
+export async function deactivateBusinessMember(
+  userId: number,
+  actor?: UserMutationActor
+) {
+  const auth = await authorizeBusinessActor(actor, PERMISSIONS.EDIT_USER);
+  if ("error" in auth) return auth;
+
+  if (userId === auth.actor.id) {
+    return serviceError("Forbidden: You cannot remove yourself from this business.", 403);
+  }
+
+  const membership = await prisma.businessMember.findFirst({
+    where: {
+      userId,
+      businessId: auth.actor.businessId,
+      status: activeBusinessMemberStatusWhere(),
+      business: { isActive: true },
+    },
+    include: { user: { include: { role: true } }, role: true, business: true },
+  });
+  if (!membership) return serviceError("User not found", 404);
+
+  if (!isRoleName(membership.role.name)) {
+    return serviceError("Target user has an unsupported role", 403);
+  }
+
+  if (!canManageBusinessRole(auth.actor.role, membership.role.name)) {
+    return serviceError("Forbidden: You cannot remove this user from this business.", 403);
+  }
+
+  if (membership.role.name === ROLES.SUPER_ADMIN) {
+    const activeSuperAdminCount = await prisma.businessMember.count({
+      where: {
+        businessId: auth.actor.businessId,
+        status: activeBusinessMemberStatusWhere(),
+        role: { name: ROLES.SUPER_ADMIN },
+      },
+    });
+    if (activeSuperAdminCount <= 1) {
+      return serviceError("Cannot remove the last Super Admin from this business.", 400);
+    }
+  }
+
+  const updated = await prisma.businessMember.update({
+    where: { id: membership.id },
+    data: { status: BUSINESS_MEMBER_STATUS.DEACTIVATED },
+    include: { user: { include: { role: true } }, role: true },
+  });
+
+  await createLog({
+    userId: auth.actor.id,
+    businessId: auth.actor.businessId,
+    action: "deactivate_business_member",
+    module: "user",
+    entityId: String(userId),
+    entityName: membership.user.name,
+    description: `Removed ${membership.user.name} (${membership.user.email}) from business "${membership.business.name}" with role ${membership.role.label}`,
+    metadata: {
+      targetUserId: userId,
+      targetUserEmail: membership.user.email,
+      targetRole: membership.role.name,
+      previousStatus: "active",
+      newStatus: BUSINESS_MEMBER_STATUS.DEACTIVATED,
+    },
+  });
+
+  return {
+    success: true,
+    user: {
+      id: updated.user.id,
+      name: updated.user.name,
+      email: updated.user.email,
+      phone: updated.user.phone ?? null,
+      role: serializeRole(updated.role),
+      isActive: updated.user.isActive,
+      isFounder: Boolean(updated.user.isFounder),
+      createdAt: updated.user.createdAt,
+      membershipStatus: updated.status,
+    },
+  };
 }
 
 export async function getAssignableRolesForActor(actor?: UserMutationActor) {

@@ -1,6 +1,7 @@
 export const BUSINESS_MEMBER_STATUS = {
   ACTIVE: "active",
   PENDING: "pending",
+  DEACTIVATED: "deactivated",
 } as const;
 
 export const LEGACY_BUSINESS_MEMBER_STATUS = {
@@ -15,7 +16,12 @@ export const ACTIVE_BUSINESS_MEMBER_STATUSES = [
 export const ALL_BUSINESS_MEMBER_STATUSES = [
   ...ACTIVE_BUSINESS_MEMBER_STATUSES,
   BUSINESS_MEMBER_STATUS.PENDING,
+  BUSINESS_MEMBER_STATUS.DEACTIVATED,
 ];
+
+export function deactivatedBusinessMemberStatusWhere() {
+  return BUSINESS_MEMBER_STATUS.DEACTIVATED;
+}
 
 export function activeBusinessMemberStatusWhere() {
   return { in: ACTIVE_BUSINESS_MEMBER_STATUSES };

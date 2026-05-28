@@ -78,6 +78,10 @@ export default function UsersPage() {
   const [statusSaving, setStatusSaving] = useState(false);
   const [statusError, setStatusError] = useState<string | null>(null);
 
+  const [removeTarget, setRemoveTarget] = useState<User | null>(null);
+  const [removeSaving, setRemoveSaving] = useState(false);
+  const [removeError, setRemoveError] = useState<string | null>(null);
+
   const load = useCallback(async () => {
     setLoading(true);
     const params = new URLSearchParams();
@@ -108,6 +112,20 @@ export default function UsersPage() {
 
   const canCreate = assignableRoles.length > 0;
   const canInvite = assignableRoles.length > 0;
+
+  function canRemoveUser(targetRole: RoleName): boolean {
+    if (!me) return false;
+    if (me.role !== "super_admin" && me.role !== "admin") return false;
+    if (targetRole === "super_admin") return false;
+    if (me.role === "admin" && targetRole === "admin") return false;
+    return true;
+  }
+
+  function canRemoveUserById(userId: number, userRole: RoleName): boolean {
+    if (!me) return false;
+    if (me.id === userId) return false;
+    return canRemoveUser(userRole);
+  }
 
   function openCreate() {
     setCreateForm({
@@ -205,6 +223,24 @@ export default function UsersPage() {
       return;
     }
     setStatusTarget(null);
+    load();
+  }
+
+  async function submitRemoveFromBusiness() {
+    if (!removeTarget) return;
+    setRemoveSaving(true);
+    setRemoveError(null);
+    const res = await fetch(`/api/users/${removeTarget.id}/deactivate`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+    });
+    setRemoveSaving(false);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setRemoveError(data.error ?? "Failed to remove user from business");
+      return;
+    }
+    setRemoveTarget(null);
     load();
   }
 
@@ -315,6 +351,7 @@ export default function UsersPage() {
           <option value="active">Active</option>
           <option value="pending">Pending</option>
           <option value="inactive">Inactive</option>
+          <option value="deactivated">Deactivated</option>
         </select>
       </div>
 
@@ -362,8 +399,10 @@ export default function UsersPage() {
                 const isMe = me?.id === u.id;
                 const isFounder = u.isFounder;
                 const isPending = u.membershipStatus === "pending";
+                const isDeactivated = u.membershipStatus === "deactivated";
                 const canModify = !isFounder || isMe;
-                const showActions = !isMe && canModify && u.role.name !== "super_admin" && !isPending;
+                const showActions = !isMe && canModify && u.role.name !== "super_admin" && !isPending && !isDeactivated;
+                const canRemove = canRemoveUserById(u.id, u.role.name) && !isPending && !isDeactivated;
                 return (
                   <tr key={u.id} style={{ borderTop: "1px solid var(--card-border)" }}>
                     <td style={cellStyle}>
@@ -458,6 +497,19 @@ export default function UsersPage() {
                         >
                           Pending
                         </span>
+                      ) : u.membershipStatus === "deactivated" ? (
+                        <span
+                          style={{
+                            fontSize: "11px",
+                            fontWeight: 600,
+                            padding: "3px 9px",
+                            borderRadius: "999px",
+                            backgroundColor: "#fee2e2",
+                            color: "#991b1b",
+                          }}
+                        >
+                          Deactivated
+                        </span>
                       ) : (
                         <span
                           style={{
@@ -477,29 +529,49 @@ export default function UsersPage() {
                       {new Date(u.createdAt).toLocaleDateString()}
                     </td>
                     <td style={{ ...cellStyle, textAlign: "right" }}>
-                      {showActions ? (
+                      {showActions || canRemove ? (
                         <div style={{ display: "inline-flex", gap: "6px" }}>
-                          <button
-                            onClick={() => openRoleModal(u)}
-                            style={smallBtn}
-                            title="Change role"
-                          >
-                            <Shield size={12} /> Change Role
-                          </button>
-                          <button
-                            onClick={() => {
-                              setStatusTarget(u);
-                              setStatusError(null);
-                            }}
-                            style={{
-                              ...smallBtn,
-                              color: u.isActive ? "#dc2626" : "#16a34a",
-                              borderColor: u.isActive ? "#fecaca" : "#bbf7d0",
-                            }}
-                            title={u.isActive ? "Deactivate" : "Activate"}
-                          >
-                            <Power size={12} /> {u.isActive ? "Deactivate" : "Activate"}
-                          </button>
+                          {showActions && (
+                            <>
+                              <button
+                                onClick={() => openRoleModal(u)}
+                                style={smallBtn}
+                                title="Change role"
+                              >
+                                <Shield size={12} /> Change Role
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setStatusTarget(u);
+                                  setStatusError(null);
+                                }}
+                                style={{
+                                  ...smallBtn,
+                                  color: u.isActive ? "#dc2626" : "#16a34a",
+                                  borderColor: u.isActive ? "#fecaca" : "#bbf7d0",
+                                }}
+                                title={u.isActive ? "Deactivate" : "Activate"}
+                              >
+                                <Power size={12} /> {u.isActive ? "Deactivate" : "Activate"}
+                              </button>
+                            </>
+                          )}
+                          {canRemove && (
+                            <button
+                              onClick={() => {
+                                setRemoveTarget(u);
+                                setRemoveError(null);
+                              }}
+                              style={{
+                                ...smallBtn,
+                                color: "#dc2626",
+                                borderColor: "#fecaca",
+                              }}
+                              title="Remove from business"
+                            >
+                              <X size={12} /> Remove
+                            </button>
+                          )}
                         </div>
                       ) : (
                         <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>—</span>
@@ -836,6 +908,51 @@ export default function UsersPage() {
                   : statusTarget.isActive
                     ? "Deactivate"
                     : "Activate"}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {removeTarget && (
+        <>
+          <div onClick={() => setRemoveTarget(null)} style={modalOverlay} />
+          <div style={modalBox}>
+            <h3
+              style={{
+                fontSize: "15px",
+                fontWeight: 600,
+                color: "var(--text-primary)",
+                marginBottom: "8px",
+              }}
+            >
+              Remove {removeTarget.name} from this business?
+            </h3>
+            <p style={{ fontSize: "13px", color: "var(--text-secondary)", marginBottom: "14px" }}>
+              This will remove this user's access to this business. Their global account will not be deleted. They can be re-invited later if needed.
+            </p>
+            {removeError && <div style={errorBox}>{removeError}</div>}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "8px",
+                marginTop: "12px",
+              }}
+            >
+              <button onClick={() => setRemoveTarget(null)} style={btnSecondary}>
+                Cancel
+              </button>
+              <button
+                onClick={submitRemoveFromBusiness}
+                disabled={removeSaving}
+                style={{
+                  ...btnPrimary,
+                  backgroundColor: "#dc2626",
+                  opacity: removeSaving ? 0.6 : 1,
+                }}
+              >
+                {removeSaving ? "Removing..." : "Remove from Business"}
               </button>
             </div>
           </div>
