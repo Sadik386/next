@@ -12,6 +12,7 @@ import {
   RefreshCw,
   RotateCcw,
   Save,
+  StickyNote,
   Users,
   XCircle,
   Zap,
@@ -92,9 +93,23 @@ type OverrideDraft = {
   emailLimitOverride: string;
 };
 
+type BusinessNote = {
+  id: number;
+  note: string;
+  createdAt: string;
+  updatedAt: string;
+  user: {
+    id: number;
+    name: string;
+    email: string;
+  };
+};
+
 type BusinessDetailResponse = {
   success?: boolean;
   business?: unknown;
+  notes?: BusinessNote[];
+  note?: BusinessNote;
   error?: string;
   message?: string;
 };
@@ -128,9 +143,12 @@ export default function PlatformBusinessDetailPage() {
   const router = useRouter();
   const businessId = params.id;
   const [detail, setDetail] = useState<BusinessDetail | null>(null);
+  const [notes, setNotes] = useState<BusinessNote[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
+  const [noteText, setNoteText] = useState("");
+  const [addingNote, setAddingNote] = useState(false);
   const [planDraft, setPlanDraft] = useState("");
   const [overrideDraft, setOverrideDraft] = useState<OverrideDraft>({
     userLimitOverride: "",
@@ -256,6 +274,47 @@ export default function PlatformBusinessDetailPage() {
     );
   };
 
+  const loadNotes = useCallback(() => {
+    if (!businessId) return;
+    fetch(`/api/platform/businesses/${businessId}?action=notes`, { cache: "no-store" })
+      .then((res) => res.json())
+      .then((payload: BusinessDetailResponse) => {
+        if (payload.success && payload.notes) {
+          setNotes(payload.notes);
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to load notes:", error);
+      });
+  }, [businessId]);
+
+  useEffect(() => {
+    loadNotes();
+  }, [loadNotes]);
+
+  const addNote = async () => {
+    if (!noteText.trim() || addingNote) return;
+    setAddingNote(true);
+    try {
+      const res = await fetch(`/api/platform/businesses/${businessId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "add-internal-note", note: noteText }),
+      });
+      const payload = (await res.json()) as BusinessDetailResponse;
+      if (!payload.success) {
+        throw new Error(payload.error || "Failed to add note");
+      }
+      setNoteText("");
+      await loadNotes();
+      toast.success("Internal note added");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to add note");
+    } finally {
+      setAddingNote(false);
+    }
+  };
+
   if (loading) {
     return (
       <div style={loadingStyle}>
@@ -319,7 +378,28 @@ export default function PlatformBusinessDetailPage() {
             Subscription / Plan Control
           </div>
           <div style={{ display: "grid", gap: "14px" }}>
-            <InfoItem label="Current Plan" value={`${detail.plan.label} (${detail.subscription.status})`} />
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+              <InfoItem label="Plan" value={detail.plan.label} />
+              <div>
+                <div style={{ fontSize: "11px", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 600 }}>
+                  Subscription Status
+                </div>
+                <div style={{ marginTop: "4px" }}>
+                  <span style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    padding: "4px 10px",
+                    borderRadius: "999px",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    backgroundColor: getSubscriptionStatusColor(detail.subscription.status).bg,
+                    color: getSubscriptionStatusColor(detail.subscription.status).color,
+                  }}>
+                    {getSubscriptionStatusLabel(detail.subscription.status)}
+                  </span>
+                </div>
+              </div>
+            </div>
             <label style={labelStyle}>
               Change Plan
               <select value={planDraft} onChange={(e) => setPlanDraft(e.target.value)} style={inputStyle}>
@@ -351,8 +431,10 @@ export default function PlatformBusinessDetailPage() {
             Renew / Extend Subscription
           </div>
           <div style={{ display: "grid", gap: "14px" }}>
-            <InfoItem label="Status" value={detail.subscription.status} />
-            <InfoItem label="Period End" value={detail.subscription.currentPeriodEnd ? formatDate(detail.subscription.currentPeriodEnd) : "N/A"} />
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+              <InfoItem label="Status" value={getSubscriptionStatusLabel(detail.subscription.status)} />
+              <InfoItem label="Period End" value={detail.subscription.currentPeriodEnd ? formatDate(detail.subscription.currentPeriodEnd) : "N/A"} />
+            </div>
             <label style={labelStyle}>
               Plan
               <select value={renewPlanDraft} onChange={(e) => setRenewPlanDraft(e.target.value)} style={inputStyle}>
@@ -403,18 +485,65 @@ export default function PlatformBusinessDetailPage() {
           >
             {detail.business.isActive ? "Suspend Business" : "Reactivate Business"}
           </button>
-          <label style={labelStyle}>
-            Internal Note
-            <textarea
-              disabled
-              placeholder="Internal note storage is not available in the current schema."
-              style={{ ...inputStyle, minHeight: "78px", resize: "vertical" }}
-            />
-          </label>
-          <button type="button" style={secondaryButtonStyle} disabled>
-            Save Internal Note
-          </button>
         </div>
+      </section>
+
+      <section style={cardStyle}>
+        <div style={sectionTitleStyle}>
+          <StickyNote size={16} />
+          Internal Notes
+        </div>
+        <div style={{ marginBottom: "16px" }}>
+          <textarea
+            value={noteText}
+            onChange={(e) => setNoteText(e.target.value)}
+            placeholder="Add an internal note..."
+            maxLength={2000}
+            style={{ ...inputStyle, minHeight: "80px", resize: "vertical" }}
+          />
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "8px" }}>
+            <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+              {noteText.length}/2000 characters
+            </span>
+            <button
+              type="button"
+              style={primaryButtonStyle}
+              disabled={!noteText.trim() || addingNote}
+              onClick={addNote}
+            >
+              <StickyNote size={14} />
+              {addingNote ? "Adding..." : "Add Note"}
+            </button>
+          </div>
+        </div>
+        {notes.length > 0 ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            {notes.map((note) => (
+              <div key={note.id} style={{
+                padding: "12px",
+                backgroundColor: "rgba(254, 243, 199, 0.5)",
+                border: "1px solid rgba(252, 211, 77, 0.5)",
+                borderRadius: "8px",
+              }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "8px" }}>
+                  <div style={{ fontSize: "12px", fontWeight: 600, color: "#92400e" }}>
+                    {note.user.name || "Platform Admin"}
+                  </div>
+                  <div style={{ fontSize: "11px", color: "#b45309" }}>
+                    {formatDateTime(note.createdAt)}
+                  </div>
+                </div>
+                <div style={{ fontSize: "13px", color: "#78350f", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
+                  {note.note}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{ textAlign: "center", padding: "20px", color: "var(--text-muted)", fontSize: "13px" }}>
+            No internal notes yet
+          </div>
+        )}
       </section>
 
       <section style={cardStyle}>
@@ -602,12 +731,46 @@ function formatDate(value: string) {
   return new Date(value).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
 }
 
+function formatDateTime(value: string) {
+  return new Date(value).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 function formatCount(value: number) {
   return value.toLocaleString("en-US");
 }
 
 function formatLimit(value: number) {
   return value === -1 ? "Unlimited" : formatCount(value);
+}
+
+function getSubscriptionStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    trialing: "Trial",
+    active: "Active",
+    paused: "Paused",
+    canceled: "Canceled",
+    expired: "Expired",
+    none: "No Subscription",
+  };
+  return labels[status] || status;
+}
+
+function getSubscriptionStatusColor(status: string): { color: string; bg: string } {
+  const styles: Record<string, { color: string; bg: string }> = {
+    trialing: { color: "#f59e0b", bg: "#fef3c7" },
+    active: { color: "#16a34a", bg: "#dcfce7" },
+    paused: { color: "#6b7280", bg: "#f3f4f6" },
+    canceled: { color: "#dc2626", bg: "#fee2e2" },
+    expired: { color: "#dc2626", bg: "#fee2e2" },
+    none: { color: "#6b7280", bg: "#f3f4f6" },
+  };
+  return styles[status] || { color: "#6b7280", bg: "#f3f4f6" };
 }
 
 const loadingStyle: React.CSSProperties = {

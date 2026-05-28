@@ -21,7 +21,15 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     return NextResponse.json({ success: false, error: "Invalid business id" }, { status: 400 });
   }
 
+  const { searchParams } = new URL(req.url);
+  const action = searchParams.get("action");
+
   try {
+    if (action === "notes") {
+      const notes = await platformAdminService.getBusinessNotesForAdmin(businessId);
+      return NextResponse.json({ success: true, notes });
+    }
+
     const business = await platformAdminService.getBusinessDetailForAdmin(businessId);
     if (!business) {
       return NextResponse.json({ success: false, error: "Business not found" }, { status: 404 });
@@ -48,7 +56,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     const action = body?.action;
 
     if (action === "plan") {
-      const business = await platformAdminService.updateBusinessPlanForAdmin(businessId, body.planName);
+      const business = await platformAdminService.updateBusinessPlanForAdmin(businessId, body.planName, auth.user.id);
       return NextResponse.json({ success: true, business });
     }
 
@@ -62,12 +70,12 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     }
 
     if (action === "reset-overrides") {
-      const business = await platformAdminService.resetBusinessOverridesForAdmin(businessId);
+      const business = await platformAdminService.resetBusinessOverridesForAdmin(businessId, auth.user.id);
       return NextResponse.json({ success: true, business });
     }
 
     if (action === "status") {
-      const business = await platformAdminService.updateBusinessStatusForAdmin(businessId, Boolean(body.isActive));
+      const business = await platformAdminService.updateBusinessStatusForAdmin(businessId, Boolean(body.isActive), auth.user.id);
       return NextResponse.json({ success: true, business });
     }
 
@@ -89,6 +97,20 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
         adminId: auth.user.id,
       });
       return NextResponse.json({ success: true, business });
+    }
+
+    if (action === "add-internal-note") {
+      const note = body.note as string;
+      if (!note || typeof note !== "string" || note.trim().length === 0) {
+        return NextResponse.json({ success: false, error: "Note cannot be empty" }, { status: 400 });
+      }
+
+      const newNote = await platformAdminService.addBusinessNoteForAdmin({
+        businessId,
+        adminId: auth.user.id,
+        note: note.trim(),
+      });
+      return NextResponse.json({ success: true, note: newNote });
     }
 
     return NextResponse.json({ success: false, error: "Unsupported action" }, { status: 400 });

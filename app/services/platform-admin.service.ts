@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { activeBusinessMemberStatusWhere } from "@/constants/business-member-status";
+import { createLog } from "@/services/activity-log.service";
 import {
   FEATURE_KEYS,
   SUBSCRIPTION_STATUS,
@@ -28,6 +29,7 @@ import { calculateRenewalDates } from "@/lib/usage-service";
 import type {
   Business,
   BusinessMember,
+  BusinessNote,
   Prisma,
   Subscription,
   SubscriptionPlan,
@@ -175,13 +177,35 @@ export class PlatformAdminService {
   }
 
   /**
-   * Update business status for admin
+   * Update business status for admin (suspend/reactivate)
    */
-  async updateBusinessStatusForAdmin(businessId: number, isActive: boolean) {
+  async updateBusinessStatusForAdmin(businessId: number, isActive: boolean, adminId: number) {
+    const business = await prisma.business.findUnique({
+      where: { id: businessId },
+      select: { name: true, isActive: true },
+    });
+    if (!business) throw new Error("Business not found");
+
     await prisma.business.update({
       where: { id: businessId },
       data: {
         isActive,
+      },
+    });
+
+    await createLog({
+      userId: adminId,
+      action: isActive ? "reactivate_business" : "suspend_business",
+      module: "platform_business",
+      entityId: String(businessId),
+      entityName: business.name,
+      description: isActive
+        ? `Business reactivated by platform admin`
+        : `Business suspended by platform admin`,
+      businessId,
+      metadata: {
+        previousStatus: business.isActive ? "active" : "suspended",
+        newStatus: isActive ? "active" : "suspended",
       },
     });
 
@@ -191,12 +215,29 @@ export class PlatformAdminService {
   /**
    * Reset business overrides for admin
    */
-  async resetBusinessOverridesForAdmin(businessId: number) {
-    await this.ensureBusinessExists(businessId);
+  async resetBusinessOverridesForAdmin(businessId: number, adminId: number) {
+    const business = await this.ensureBusinessExistsWithName(businessId);
+    const previousOverrides = await prisma.usageOverride.findMany({
+      where: { businessId, key: { in: LIMIT_OVERRIDE_FIELDS.map(([, key]) => key) } },
+    });
+
     await prisma.usageOverride.deleteMany({
       where: {
         businessId,
         key: { in: LIMIT_OVERRIDE_FIELDS.map(([, key]) => key) },
+      },
+    });
+
+    await createLog({
+      userId: adminId,
+      action: "reset_overrides",
+      module: "platform_business",
+      entityId: String(businessId),
+      entityName: business.name,
+      description: `Platform admin reset usage overrides`,
+      businessId,
+      metadata: {
+        previousOverrides: previousOverrides.map(o => ({ key: o.key, value: o.value })),
       },
     });
 
@@ -211,12 +252,22 @@ export class PlatformAdminService {
     overrides: Record<string, unknown>,
     adminId: number
   ) {
-    await this.ensureBusinessExists(businessId);
+    const business = await this.ensureBusinessExistsWithName(businessId);
+
+    const previousOverrides = await prisma.usageOverride.findMany({
+      where: { businessId, key: { in: LIMIT_OVERRIDE_FIELDS.map(([, key]) => key) } },
+    });
+    const previousOverrideMap: Record<string, number | null> = {};
+    for (const o of previousOverrides) {
+      previousOverrideMap[o.key] = o.value;
+    }
 
     const operations: Prisma.PrismaPromise<unknown>[] = [];
+    const newOverrideValues: Record<string, number | null> = {};
 
     for (const [field, key] of LIMIT_OVERRIDE_FIELDS) {
       const value = parseOverrideValue(overrides[field]);
+      newOverrideValues[key] = value;
 
       if (value === null) {
         operations.push(
@@ -254,16 +305,36 @@ export class PlatformAdminService {
       await prisma.$transaction(operations);
     }
 
+    await createLog({
+      userId: adminId,
+      action: "update_overrides",
+      module: "platform_business",
+      entityId: String(businessId),
+      entityName: business.name,
+      description: `Platform admin updated usage overrides`,
+      businessId,
+      metadata: {
+        previousOverrides: previousOverrideMap,
+        newOverrides: newOverrideValues,
+      },
+    });
+
     return this.getRequiredBusinessDetailForAdmin(businessId);
   }
 
   /**
    * Update business plan for admin
    */
-  async updateBusinessPlanForAdmin(businessId: number, planName: string) {
+  async updateBusinessPlanForAdmin(businessId: number, planName: string, adminId: number) {
+    const business = await this.ensureBusinessExistsWithName(businessId);
     const plan = await prisma.subscriptionPlan.findFirst({ where: { name: planName } });
     if (!plan) throw new Error("Plan not found");
-    
+
+    const currentSubscription = await prisma.subscription.findUnique({
+      where: { businessId },
+      include: { plan: true },
+    });
+
     await prisma.business.update({
       where: { id: businessId },
       data: {
@@ -273,6 +344,22 @@ export class PlatformAdminService {
           }
         }
       }
+    });
+
+    await createLog({
+      userId: adminId,
+      action: "change_plan",
+      module: "subscription",
+      entityId: String(businessId),
+      entityName: business.name,
+      description: `Plan changed by platform admin: ${currentSubscription?.plan?.label || 'unknown'} → ${plan.label}`,
+      businessId,
+      metadata: {
+        previousPlanId: currentSubscription?.planId,
+        previousPlanName: currentSubscription?.plan?.name,
+        newPlanId: plan.id,
+        newPlanName: plan.name,
+      },
     });
 
     return this.getRequiredBusinessDetailForAdmin(businessId);
@@ -287,22 +374,25 @@ export class PlatformAdminService {
     businessId: number;
     planName: string;
     durationMonths: number;
-    adminId?: number;
+    adminId: number;
   }) {
-    const { businessId, planName, durationMonths } = params;
+    const { businessId, planName, durationMonths, adminId } = params;
 
     if (durationMonths < 1 || durationMonths > 12) {
       throw new Error("Duration must be between 1 and 12 months");
     }
 
+    const business = await this.ensureBusinessExistsWithName(businessId);
     const plan = await prisma.subscriptionPlan.findFirst({ where: { name: planName } });
     if (!plan) throw new Error("Plan not found");
 
     const subscription = await prisma.subscription.findUnique({
       where: { businessId },
+      include: { plan: true },
     });
     if (!subscription) throw new Error("No subscription found for this business");
 
+    const previousPeriodEnd = subscription.currentPeriodEnd;
     const { newPeriodStart, newPeriodEnd } = calculateRenewalDates({
       currentPeriodEnd: subscription.currentPeriodEnd,
       approvedAt: new Date(),
@@ -320,6 +410,27 @@ export class PlatformAdminService {
         cancelAtPeriodEnd: false,
         canceledAt: null,
         pausedAt: null,
+      },
+    });
+
+    await createLog({
+      userId: adminId,
+      action: "renew_subscription",
+      module: "subscription",
+      entityId: String(businessId),
+      entityName: business.name,
+      description: `Subscription renewed by platform admin: ${plan.label} for ${durationMonths} month(s)`,
+      businessId,
+      metadata: {
+        planName: plan.name,
+        planLabel: plan.label,
+        durationMonths,
+        billingCycle: durationMonths >= 12 ? "yearly" : "monthly",
+        previousPeriodEnd: previousPeriodEnd?.toISOString(),
+        newPeriodStart: newPeriodStart.toISOString(),
+        newPeriodEnd: newPeriodEnd.toISOString(),
+        previousStatus: subscription.status,
+        previousPlanId: subscription.planId,
       },
     });
 
@@ -383,6 +494,16 @@ export class PlatformAdminService {
     });
 
     if (!business) throw new Error("Business not found");
+  }
+
+  private async ensureBusinessExistsWithName(businessId: number) {
+    const business = await prisma.business.findUnique({
+      where: { id: businessId },
+      select: { id: true, name: true },
+    });
+
+    if (!business) throw new Error("Business not found");
+    return business;
   }
 
   private async getCurrentUsageValue(businessId: number, key: string): Promise<number> {
@@ -620,6 +741,96 @@ const planCode = normalizePlanCode(plan?.name ?? "free");
       periodEnd: u.periodEnd,
       updatedAt: u.updatedAt,
     }));
+  }
+
+  /**
+   * Get internal notes for a business (platform admin only)
+   */
+  async getBusinessNotesForAdmin(businessId: number) {
+    await this.ensureBusinessExists(businessId);
+
+    const notes = await prisma.businessNote.findMany({
+      where: { businessId },
+      include: {
+        user: {
+          select: { id: true, name: true, email: true },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return notes.map(note => ({
+      id: note.id,
+      note: note.note,
+      createdAt: note.createdAt.toISOString(),
+      updatedAt: note.updatedAt.toISOString(),
+      user: {
+        id: note.user.id,
+        name: note.user.name,
+        email: note.user.email,
+      },
+    }));
+  }
+
+  /**
+   * Add internal note for a business (platform admin only)
+   */
+  async addBusinessNoteForAdmin(params: {
+    businessId: number;
+    adminId: number;
+    note: string;
+  }) {
+    const { businessId, adminId, note } = params;
+
+    if (!note || note.trim().length === 0) {
+      throw new Error("Note cannot be empty");
+    }
+
+    const trimmedNote = note.trim();
+    if (trimmedNote.length > 2000) {
+      throw new Error("Note must be 2000 characters or less");
+    }
+
+    const business = await this.ensureBusinessExistsWithName(businessId);
+
+    const createdNote = await prisma.businessNote.create({
+      data: {
+        businessId,
+        userId: adminId,
+        note: trimmedNote,
+      },
+      include: {
+        user: {
+          select: { id: true, name: true, email: true },
+        },
+      },
+    });
+
+    await createLog({
+      userId: adminId,
+      action: "add_business_note",
+      module: "business_note",
+      entityId: String(businessId),
+      entityName: business.name,
+      description: `Platform admin added internal note`,
+      businessId,
+      metadata: {
+        noteId: createdNote.id,
+        noteLength: trimmedNote.length,
+      },
+    });
+
+    return {
+      id: createdNote.id,
+      note: createdNote.note,
+      createdAt: createdNote.createdAt.toISOString(),
+      updatedAt: createdNote.updatedAt.toISOString(),
+      user: {
+        id: createdNote.user.id,
+        name: createdNote.user.name,
+        email: createdNote.user.email,
+      },
+    };
   }
 }
 

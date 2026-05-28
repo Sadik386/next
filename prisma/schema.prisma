@@ -58,6 +58,7 @@ model User {
   subscriptionRequests  SubscriptionRequest[]
   requestNotes          RequestNote[]
   emailVerificationTokens EmailVerificationToken[]
+  businessNotes         BusinessNote[]
 }
 
 model Notification {
@@ -474,6 +475,7 @@ model Business {
   usages    Usage[]
   usageOverrides UsageOverride[]
   subscriptionRequests SubscriptionRequest[]
+  notes     BusinessNote[]
 }
 
 model BusinessMember {
@@ -707,5 +709,18 @@ model RequestNote {
   createdAt   DateTime  @default(now())
   request     SubscriptionRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
   user        User      @relation(fields: [userId], references: [id])
+}
+
+model BusinessNote {
+  id          Int       @id @default(autoincrement())
+  businessId  Int
+  userId      Int
+  note        String    @db.Text
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  business    Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id])
+
+  @@index([businessId])
 }
 
