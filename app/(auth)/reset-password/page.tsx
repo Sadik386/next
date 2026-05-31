@@ -1,329 +1,282 @@
 "use client";
-import { useState, useEffect, Suspense } from "react";
+
+import { Suspense, useEffect, useRef, useState } from "react";
+import type { CSSProperties, FormEvent } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import LegalFooter from "@/lib/LegalFooter";
+import { ArrowLeft, CheckCircle2, Eye, EyeOff, KeyRound, LoaderCircle, XCircle } from "lucide-react";
 import TurnstileWidget from "@/components/TurnstileWidget";
+import type { TurnstileWidgetHandle } from "@/components/TurnstileWidget";
+import AuthShell, {
+  AuthAlert,
+  AuthButton,
+  AuthInput,
+  AuthPageIntro,
+} from "../_components/AuthShell";
+
+type PasswordStrength = {
+  level: number;
+  label: string;
+  color: string;
+};
+
+function getPasswordStrength(password: string): PasswordStrength {
+  if (!password) return { level: 0, label: "Not started", color: "#98a2b3" };
+
+  let score = 0;
+  if (password.length >= 8) score += 1;
+  if (password.length >= 12) score += 1;
+  if (/[a-z]/.test(password) && /[A-Z]/.test(password)) score += 1;
+  if (/\d/.test(password)) score += 1;
+  if (/[^a-zA-Z0-9]/.test(password)) score += 1;
+
+  if (score <= 1) return { level: 1, label: "Weak", color: "#b42318" };
+  if (score <= 2) return { level: 2, label: "Fair", color: "#b7791f" };
+  if (score <= 3) return { level: 3, label: "Good", color: "#0f1c3f" };
+  return { level: 4, label: "Strong", color: "#067647" };
+}
 
 function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
+  const turnstileRef = useRef<TurnstileWidgetHandle>(null);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
   const [shaking, setShaking] = useState(false);
   const [tokenError, setTokenError] = useState(false);
-  const [turnstileToken, setTurnstileToken] = useState<string>("");
-
-  const getPasswordStrength = (pwd: string): { level: number; label: string; color: string } => {
-    if (!pwd) return { level: 0, label: "", color: "" };
-    let score = 0;
-    if (pwd.length >= 8) score++;
-    if (pwd.length >= 12) score++;
-    if (/[a-z]/.test(pwd) && /[A-Z]/.test(pwd)) score++;
-    if (/\d/.test(pwd)) score++;
-    if (/[^a-zA-Z0-9]/.test(pwd)) score++;
-    if (score <= 1) return { level: 1, label: "Weak", color: "#dc2626" };
-    if (score <= 2) return { level: 2, label: "Fair", color: "#f59e0b" };
-    if (score <= 3) return { level: 3, label: "Good", color: "#3b82f6" };
-    return { level: 4, label: "Strong", color: "#16a34a" };
-  };
-
+  const [turnstileToken, setTurnstileToken] = useState("");
   const strength = getPasswordStrength(password);
 
   useEffect(() => {
-    if (!token) {
-      setTokenError(true);
-    }
+    setTokenError(!token);
   }, [token]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const triggerError = (message: string) => {
+    setError(message);
+    setShaking(true);
+    setTimeout(() => setShaking(false), 500);
+  };
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
     setError("");
+
     if (!token) {
-      setError("Invalid reset token");
-      setShaking(true);
-      setTimeout(() => setShaking(false), 500);
+      triggerError("This reset link is missing a valid token.");
       return;
     }
+
     if (!password) {
-      setError("Password is required");
-      setShaking(true);
-      setTimeout(() => setShaking(false), 500);
+      triggerError("Enter a new password.");
       return;
     }
+
     if (password.length < 6) {
-      setError("Password must be at least 6 characters");
-      setShaking(true);
-      setTimeout(() => setShaking(false), 500);
+      triggerError("Use at least 6 characters for your new password.");
       return;
     }
+
     if (password !== confirmPassword) {
-      setError("Passwords do not match");
-      setShaking(true);
-      setTimeout(() => setShaking(false), 500);
+      triggerError("Passwords do not match.");
       return;
     }
+
     setLoading(true);
+
     try {
-      const res = await fetch("/api/auth/reset-password", {
+      const response = await fetch("/api/auth/reset-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token, password, turnstileToken }),
       });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || "Failed to reset password");
-        setShaking(true);
-        setTimeout(() => setShaking(false), 500);
+      const data = await response.json();
+
+      if (!response.ok) {
+        triggerError(data.error || "Failed to reset password.");
+        turnstileRef.current?.reset();
+        setTurnstileToken("");
         return;
       }
+
       setSuccess(true);
-      setTimeout(() => router.push("/login"), 3000);
+      window.setTimeout(() => router.push("/login"), 2400);
     } catch {
-      setError("Something went wrong.");
-      setShaking(true);
-      setTimeout(() => setShaking(false), 500);
+      triggerError("Something went wrong. Please try again.");
+      turnstileRef.current?.reset();
+      setTurnstileToken("");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        width: "100%",
-        position: "relative",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        overflow: "hidden",
-        background: "linear-gradient(135deg,#f0e0c8 0%,#ede8e0 25%,#e8e8f0 60%,#d4d8e8 100%)",
-      }}
+    <AuthShell
+      visualMode="forgot"
+      visualKicker="Protected recovery"
+      visualTitle="Set a new password with confidence."
+      visualDescription="Accoraze reset links are time-limited, bot-protected, and designed to keep your workspace secure."
     >
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          backgroundImage: "radial-gradient(circle,#00000012 1px,transparent 1px)",
-          backgroundSize: "24px 24px",
-        }}
-      />
-      <div
-        style={{
-          position: "relative",
-          zIndex: 10,
-          width: "100%",
-          maxWidth: "340px",
-          backgroundColor: "rgba(255,255,255,0.92)",
-          backdropFilter: "blur(20px)",
-          borderRadius: "18px",
-          padding: "32px 28px 24px",
-          boxShadow: "0 8px 40px rgba(0,0,0,0.10)",
-          border: "1px solid rgba(255,255,255,0.6)",
-        }}
-      >
-        <h2 style={{ fontSize: "19px", fontWeight: 700, color: "#111318", marginBottom: "4px" }}>
-          New Password
-        </h2>
-        <p style={{ fontSize: "13px", color: "#6b7280", marginBottom: "22px" }}>
-          Enter your new password below.
-        </p>
-        <form onSubmit={handleSubmit}>
-        {tokenError ? (
-          <div
-            style={{
-              background: "#fef2f2",
-              border: "1px solid #fecaca",
-              borderRadius: "8px",
-              padding: "9px 12px",
-              marginBottom: "14px",
-              fontSize: "13px",
-              color: "#dc2626",
-            }}
-          >
-            Invalid reset token. Please request a new password reset.
+      <div className="auth-flow">
+        {success ? (
+          <div className="auth-status-panel auth-status-panel--center" aria-live="polite">
+            <span className="auth-status-icon auth-status-icon--success" aria-hidden="true">
+              <CheckCircle2 size={30} />
+            </span>
+            <h2>Password updated</h2>
+            <p>Your new password is active. We are taking you back to sign in.</p>
+            <Link href="/login" className="auth-button auth-button--primary">
+              <span>Continue to sign in</span>
+            </Link>
           </div>
-        ) : (
-        <>
-        {error && (
-          <div
-            style={{
-              background: "#fef2f2",
-              border: "1px solid #fecaca",
-              borderRadius: "8px",
-              padding: "9px 12px",
-              marginBottom: "14px",
-              fontSize: "13px",
-              color: "#dc2626",
-              animation: shaking ? "shake 0.5s ease-in-out" : "none",
-            }}
-          >
-            {error}
-          </div>
-        )}
-        {success && (
-          <div
-            style={{
-              background: "#f0fdf4",
-              border: "1px solid #bbf7d0",
-              borderRadius: "8px",
-              padding: "9px 12px",
-              marginBottom: "14px",
-              fontSize: "13px",
-              color: "#16a34a",
-            }}
-          >
-            Password reset successfully! Redirecting to login...
-          </div>
-        )}
-        {!success && (
+        ) : tokenError ? (
           <>
-            <div style={{ marginBottom: "12px" }}>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: "13px",
-                  fontWeight: 500,
-                  color: "#374151",
-                  marginBottom: "5px",
-                }}
-              >
-                New Password
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={loading}
-                placeholder="Min 8 characters"
-                style={{
-                  width: "100%",
-                  padding: "9px 13px",
-                  borderRadius: "8px",
-                  border: "1px solid #e5e7eb",
-                  backgroundColor: "white",
-                  color: "#111318",
-                  fontSize: "13px",
-                  outline: "none",
-                  boxSizing: "border-box",
-                  opacity: loading ? 0.6 : 1,
-                }}
-              />
-              {password && (
-                <div style={{ marginTop: "8px" }}>
-                  <div style={{ display: "flex", gap: "4px", marginBottom: "4px" }}>
-                    {[1, 2, 3, 4].map((level) => (
-                      <div
-                        key={level}
-                        style={{
-                          flex: 1,
-                          height: "4px",
-                          borderRadius: "2px",
-                          background: level <= strength.level ? strength.color : "#e5e7eb",
-                          transition: "background 0.2s",
-                        }}
-                      />
-                    ))}
-                  </div>
-                  <span style={{ fontSize: "11px", color: strength.color, fontWeight: 500 }}>
-                    {strength.label}
-                  </span>
-                </div>
-              )}
-            </div>
-            <div style={{ marginBottom: "18px" }}>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: "13px",
-                  fontWeight: 500,
-                  color: "#374151",
-                  marginBottom: "5px",
-                }}
-              >
-                Confirm Password
-              </label>
-              <input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                disabled={loading}
-                style={{
-                  width: "100%",
-                  padding: "9px 13px",
-                  borderRadius: "8px",
-                  border: "1px solid #e5e7eb",
-                  backgroundColor: "white",
-                  color: "#111318",
-                  fontSize: "13px",
-                  outline: "none",
-                  boxSizing: "border-box",
-                  opacity: loading ? 0.6 : 1,
-                }}
-              />
-            </div>
-            <TurnstileWidget
-              onVerify={(token) => setTurnstileToken(token)}
-              onError={() => setTurnstileToken("")}
-              onExpired={() => setTurnstileToken("")}
-              theme="light"
-              size="compact"
+            <AuthPageIntro
+              eyebrow="Password recovery"
+              title="Reset link unavailable"
+              description="This reset link is missing or incomplete. Request a fresh link to continue securely."
             />
-            <button
-              type="submit"
-              disabled={loading}
-              style={{
-                width: "100%",
-                padding: "10px",
-                backgroundColor: "#C4973A",
-                color: "white",
-                borderRadius: "8px",
-                border: "none",
-                fontSize: "13px",
-                fontWeight: 600,
-                cursor: loading ? "not-allowed" : "pointer",
-                opacity: loading ? 0.8 : 1,
-                marginBottom: "16px",
-              }}
-            >
-              {loading ? "Resetting..." : "Reset Password"}
-            </button>
+
+            <div className="auth-status-panel" aria-live="polite">
+              <span className="auth-status-icon auth-status-icon--error" aria-hidden="true">
+                <XCircle size={28} />
+              </span>
+              <h2>Invalid reset link</h2>
+              <p>For your protection, Accoraze can only update a password from a valid reset link.</p>
+            </div>
+
+            <Link href="/forgot-password" className="auth-button auth-button--primary">
+              <KeyRound size={16} aria-hidden="true" />
+              <span>Request a new reset link</span>
+            </Link>
+
+            <div className="auth-link-row">
+              <ArrowLeft size={14} aria-hidden="true" />
+              <Link href="/login" className="auth-link">
+                Back to sign in
+              </Link>
+            </div>
+          </>
+        ) : (
+          <>
+            <AuthPageIntro
+              eyebrow="Password recovery"
+              title="Create a new password"
+              description="Choose a strong password for your Accoraze workspace."
+            />
+
+            {error && (
+              <div style={{ animation: shaking ? "authShake 0.5s ease-in-out" : "none" }}>
+                <AuthAlert type="error">{error}</AuthAlert>
+              </div>
+            )}
+
+            <form className="auth-form" onSubmit={handleSubmit}>
+              <div className="auth-password-field">
+                <AuthInput
+                  label="New password"
+                  required
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  disabled={loading}
+                  placeholder="Minimum 6 characters"
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((current) => !current)}
+                  className="auth-icon-button"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+
+              <div className="auth-password-strength" style={{ "--strength-color": strength.color } as CSSProperties}>
+                <div className="auth-password-strength__bars" aria-hidden="true">
+                  {[1, 2, 3, 4].map((level) => (
+                    <span key={level} className={level <= strength.level ? "is-active" : ""} />
+                  ))}
+                </div>
+                <span className="auth-password-strength__label">Password strength: {strength.label}</span>
+              </div>
+
+              <div className="auth-password-field">
+                <AuthInput
+                  label="Confirm password"
+                  required
+                  type={showConfirmPassword ? "text" : "password"}
+                  value={confirmPassword}
+                  onChange={(event) => setConfirmPassword(event.target.value)}
+                  disabled={loading}
+                  placeholder="Re-enter password"
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword((current) => !current)}
+                  className="auth-icon-button"
+                  aria-label={showConfirmPassword ? "Hide confirmation password" : "Show confirmation password"}
+                >
+                  {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+
+              <TurnstileWidget
+                ref={turnstileRef}
+                onVerify={(value) => setTurnstileToken(value)}
+                onError={() => setTurnstileToken("")}
+                onExpired={() => setTurnstileToken("")}
+                theme="light"
+                size="normal"
+              />
+
+              <AuthButton type="submit" loading={loading}>
+                {loading ? "Updating password" : "Update password"}
+              </AuthButton>
+            </form>
+
+            <div className="auth-link-row">
+              <ArrowLeft size={14} aria-hidden="true" />
+              <Link href="/login" className="auth-link">
+                Back to sign in
+              </Link>
+            </div>
           </>
         )}
-        </>
-        )}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <Link
-            href="/login"
-            style={{
-              fontSize: "12px",
-              fontWeight: 500,
-              color: "#374151",
-              textDecoration: "none",
-            }}
-          >
-            Back to Sign In
-          </Link>
-        </div>
-        </form>
-</div>
-        <LegalFooter />
       </div>
+    </AuthShell>
+  );
+}
+
+function ResetPasswordFallback() {
+  return (
+    <AuthShell
+      visualMode="forgot"
+      visualKicker="Protected recovery"
+      visualTitle="Set a new password with confidence."
+      visualDescription="Accoraze reset links are time-limited, bot-protected, and designed to keep your workspace secure."
+    >
+      <div className="auth-status-panel" aria-live="polite">
+        <span className="auth-status-icon auth-status-icon--loading" aria-hidden="true">
+          <LoaderCircle size={28} />
+        </span>
+        <h2>Preparing reset</h2>
+        <p>Checking your password reset link.</p>
+      </div>
+    </AuthShell>
   );
 }
 
 export default function ResetPasswordPage() {
   return (
-    <Suspense fallback={
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        Loading...
-      </div>
-    }>
+    <Suspense fallback={<ResetPasswordFallback />}>
       <ResetPasswordForm />
     </Suspense>
   );

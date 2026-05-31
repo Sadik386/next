@@ -1,21 +1,45 @@
 "use client";
-import { useSearchParams, useRouter } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+
+import { Suspense, useEffect, useRef, useState } from "react";
+import type { FormEvent } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { ArrowLeft, CheckCircle2, LoaderCircle, MailCheck, RefreshCcw, XCircle } from "lucide-react";
+import TurnstileWidget from "@/components/TurnstileWidget";
+import type { TurnstileWidgetHandle } from "@/components/TurnstileWidget";
+import AuthShell, {
+  AuthAlert,
+  AuthButton,
+  AuthInput,
+  AuthPageIntro,
+} from "../_components/AuthShell";
+
+type VerifyStatus = "loading" | "success" | "error";
+type ResendStatus = "idle" | "sending" | "sent";
 
 function VerifyEmailContent() {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const token = searchParams.get("token");
-  const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
-  const [message, setMessage] = useState("");
+  const turnstileRef = useRef<TurnstileWidgetHandle>(null);
+  const [status, setStatus] = useState<VerifyStatus>("loading");
+  const [message, setMessage] = useState("Verifying your email address.");
+  const [email, setEmail] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [resendStatus, setResendStatus] = useState<ResendStatus>("idle");
+  const [resendMessage, setResendMessage] = useState("");
+  const [resendError, setResendError] = useState("");
 
   useEffect(() => {
+    let cancelled = false;
+
     if (!token) {
       setStatus("error");
       setMessage("Verification token is missing.");
       return;
     }
+
+    setStatus("loading");
+    setMessage("Verifying your email address.");
 
     fetch("/api/auth/verify-email", {
       method: "POST",
@@ -24,207 +48,189 @@ function VerifyEmailContent() {
     })
       .then((res) => res.json())
       .then((data) => {
+        if (cancelled) return;
+
         if (data.success) {
           setStatus("success");
-          setMessage(data.message || "Your email has been verified.");
-        } else {
-          setStatus("error");
-          setMessage(data.error || "Verification failed.");
+          setMessage(data.message || "Your email has been verified. You can now sign in.");
+          return;
         }
+
+        setStatus("error");
+        setMessage(data.error || "Verification failed. The link may have expired or already been used.");
       })
       .catch(() => {
+        if (cancelled) return;
         setStatus("error");
-        setMessage("Something went wrong. Please try again.");
+        setMessage("Something went wrong while verifying your email. Please try again.");
       });
+
+    return () => {
+      cancelled = true;
+    };
   }, [token]);
 
-  return (
-    <>
-      <style jsx global>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(12px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.5; }
-        }
-      `}</style>
-      <div
-        style={{
-          minHeight: "100vh",
-          width: "100%",
-          position: "relative",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          overflow: "hidden",
-          background: "linear-gradient(135deg,#f0e0c8 0%,#ede8e0 25%,#e8e8f0 60%,#d4d8e8 100%)",
-        }}
-      >
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            backgroundImage: "radial-gradient(circle,#00000012 1px,transparent 1px)",
-            backgroundSize: "24px 24px",
-          }}
-        />
-        <div
-          style={{
-            position: "relative",
-            zIndex: 10,
-            width: "100%",
-            maxWidth: "420px",
-            backgroundColor: "rgba(255,255,255,0.92)",
-            backdropFilter: "blur(20px)",
-            borderRadius: "18px",
-            padding: "32px 28px",
-            boxShadow: "0 8px 40px rgba(0,0,0,0.10)",
-            border: "1px solid rgba(255,255,255,0.6)",
-            animation: "fadeIn 0.4s ease-out",
-          }}
-        >
-          {status === "loading" && (
-            <div style={{ textAlign: "center" }}>
-              <div
-                style={{
-                  width: "56px",
-                  height: "56px",
-                  borderRadius: "50%",
-                  background: "#fef3c7",
-                  border: "3px solid #fcd34d",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  margin: "0 auto 20px",
-                  animation: "pulse 1.5s ease-in-out infinite",
-                }}
-              >
-                <span style={{ fontSize: "26px", display: "inline-block", animation: "spin 1s linear infinite" }}>⟳</span>
-              </div>
-              <h3 style={{ fontSize: "18px", fontWeight: 600, color: "#111318", marginBottom: "10px" }}>
-                Verifying your email...
-              </h3>
-              <p style={{ fontSize: "13px", color: "#6b7280", lineHeight: 1.5 }}>
-                Please wait while we verify your email address.
-              </p>
-            </div>
-          )}
+  const handleResend = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setResendError("");
+    setResendMessage("");
 
-          {status === "success" && (
-            <div style={{ textAlign: "center" }}>
-              <div
-                style={{
-                  width: "56px",
-                  height: "56px",
-                  borderRadius: "50%",
-                  background: "#dcfce7",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  margin: "0 auto 20px",
-                }}
-              >
-                <span style={{ fontSize: "28px" }}>✓</span>
-              </div>
-              <h3 style={{ fontSize: "18px", fontWeight: 600, color: "#111318", marginBottom: "10px" }}>
-                Email Verified!
-              </h3>
-              <p style={{ fontSize: "13px", color: "#6b7280", lineHeight: 1.5, marginBottom: "20px" }}>
-                {message}
-              </p>
-              <Link
-                href="/login"
-                style={{
-                  display: "inline-block",
-                  padding: "10px 20px",
-                  backgroundColor: "var(--brand, #C4973A)",
-                  color: "white",
-                  borderRadius: "8px",
-                  textDecoration: "none",
-                  fontSize: "13px",
-                  fontWeight: 600,
-                }}
-              >
-                Sign In
+    if (!email.trim()) {
+      setResendError("Enter the email address you used to create your account.");
+      return;
+    }
+
+    setResendStatus("sending");
+
+    try {
+      const response = await fetch("/api/auth/resend-verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), turnstileToken }),
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        setResendError(data.message || "Could not send a new verification email. Please try again.");
+        turnstileRef.current?.reset();
+        setTurnstileToken("");
+        setResendStatus("idle");
+        return;
+      }
+
+      setResendStatus("sent");
+      setResendMessage(data.message || "A new verification email has been sent. Check your inbox.");
+    } catch {
+      setResendError("Could not send a new verification email. Please try again.");
+      turnstileRef.current?.reset();
+      setTurnstileToken("");
+      setResendStatus("idle");
+    }
+  };
+
+  return (
+    <AuthShell
+      visualMode="forgot"
+      visualKicker="Email security"
+      visualTitle="Verify once. Work with confidence."
+      visualDescription="Accoraze keeps new workspaces protected with secure, time-limited email verification."
+    >
+      <div className="auth-flow">
+        {status === "loading" && (
+          <>
+            <AuthPageIntro
+              eyebrow="Email verification"
+              title="Checking your link"
+              description="Please wait while Accoraze verifies this email address."
+            />
+
+            <div className="auth-status-panel" aria-live="polite">
+              <span className="auth-status-icon auth-status-icon--loading" aria-hidden="true">
+                <LoaderCircle size={28} />
+              </span>
+              <h2>Verifying email</h2>
+              <p>{message}</p>
+            </div>
+          </>
+        )}
+
+        {status === "success" && (
+          <div className="auth-status-panel auth-status-panel--center" aria-live="polite">
+            <span className="auth-status-icon auth-status-icon--success" aria-hidden="true">
+              <CheckCircle2 size={30} />
+            </span>
+            <h2>Email verified</h2>
+            <p>{message}</p>
+            <Link href="/login" className="auth-button auth-button--primary">
+              <MailCheck size={16} aria-hidden="true" />
+              <span>Continue to sign in</span>
+            </Link>
+          </div>
+        )}
+
+        {status === "error" && (
+          <>
+            <AuthPageIntro
+              eyebrow="Verification issue"
+              title="This link did not work"
+              description="The verification link may be expired, already used, or incomplete."
+            />
+
+            <div className="auth-status-panel" aria-live="polite">
+              <span className="auth-status-icon auth-status-icon--error" aria-hidden="true">
+                <XCircle size={28} />
+              </span>
+              <h2>Verification failed</h2>
+              <p>{message}</p>
+            </div>
+
+            {resendError && <AuthAlert type="error">{resendError}</AuthAlert>}
+            {resendMessage && <AuthAlert type="success">{resendMessage}</AuthAlert>}
+
+            {resendStatus !== "sent" && (
+              <form className="auth-form" onSubmit={handleResend}>
+                <AuthInput
+                  label="Account email"
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  required
+                  placeholder="you@company.com"
+                  autoComplete="email"
+                  disabled={resendStatus === "sending"}
+                />
+
+                <TurnstileWidget
+                  ref={turnstileRef}
+                  onVerify={(value) => setTurnstileToken(value)}
+                  onError={() => setTurnstileToken("")}
+                  onExpired={() => setTurnstileToken("")}
+                  theme="light"
+                  size="normal"
+                />
+
+                <AuthButton type="submit" loading={resendStatus === "sending"}>
+                  {resendStatus !== "sending" && <RefreshCcw size={16} aria-hidden="true" />}
+                  {resendStatus === "sending" ? "Sending new link" : "Send new verification link"}
+                </AuthButton>
+              </form>
+            )}
+
+            <div className="auth-link-row">
+              <ArrowLeft size={14} aria-hidden="true" />
+              <Link href="/login" className="auth-link">
+                Back to sign in
               </Link>
             </div>
-          )}
-
-          {status === "error" && (
-            <div style={{ textAlign: "center" }}>
-              <div
-                style={{
-                  width: "56px",
-                  height: "56px",
-                  borderRadius: "50%",
-                  background: "#fee2e2",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  margin: "0 auto 20px",
-                }}
-              >
-                <span style={{ fontSize: "28px" }}>✕</span>
-              </div>
-              <h3 style={{ fontSize: "18px", fontWeight: 600, color: "#111318", marginBottom: "10px" }}>
-                Verification Failed
-              </h3>
-              <p style={{ fontSize: "13px", color: "#6b7280", lineHeight: 1.5, marginBottom: "8px" }}>
-                {message}
-              </p>
-              <p style={{ fontSize: "13px", color: "#6b7280", lineHeight: 1.5, marginBottom: "20px" }}>
-                The link may have expired or already been used.
-              </p>
-              <div style={{ display: "flex", gap: "10px", justifyContent: "center" }}>
-                <Link
-                  href="/register"
-                  style={{
-                    padding: "10px 20px",
-                    backgroundColor: "#6b7280",
-                    color: "white",
-                    borderRadius: "8px",
-                    textDecoration: "none",
-                    fontSize: "13px",
-                    fontWeight: 600,
-                  }}
-                >
-                  Register Again
-                </Link>
-                <Link
-                  href="/login"
-                  style={{
-                    padding: "10px 20px",
-                    backgroundColor: "var(--brand, #C4973A)",
-                    color: "white",
-                    borderRadius: "8px",
-                    textDecoration: "none",
-                    fontSize: "13px",
-                    fontWeight: 600,
-                  }}
-                >
-                  Sign In
-                </Link>
-              </div>
-            </div>
-          )}
-        </div>
+          </>
+        )}
       </div>
-    </>
+    </AuthShell>
+  );
+}
+
+function VerifyEmailFallback() {
+  return (
+    <AuthShell
+      visualMode="forgot"
+      visualKicker="Email security"
+      visualTitle="Verify once. Work with confidence."
+      visualDescription="Accoraze keeps new workspaces protected with secure, time-limited email verification."
+    >
+      <div className="auth-status-panel" aria-live="polite">
+        <span className="auth-status-icon auth-status-icon--loading" aria-hidden="true">
+          <LoaderCircle size={28} />
+        </span>
+        <h2>Loading verification</h2>
+        <p>Preparing your email verification check.</p>
+      </div>
+    </AuthShell>
   );
 }
 
 export default function VerifyEmailPage() {
   return (
-    <Suspense fallback={
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <span style={{ animation: "spin 1s linear infinite", display: "inline-block", fontSize: "24px" }}>⟳</span>
-      </div>
-    }>
+    <Suspense fallback={<VerifyEmailFallback />}>
       <VerifyEmailContent />
     </Suspense>
   );

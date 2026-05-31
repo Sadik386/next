@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { PUBLIC_LINKS, LEGAL_LABELS, getCurrentYear } from "./public-links";
 
-const footerStyle: React.CSSProperties = {
+const fixedFooterStyle: React.CSSProperties = {
   position: "fixed",
   bottom: "20px",
   left: "50%",
@@ -13,6 +13,14 @@ const footerStyle: React.CSSProperties = {
   flexDirection: "column",
   alignItems: "center",
   gap: "8px",
+};
+
+const inlineFooterStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "flex-start",
+  gap: "8px",
+  width: "100%",
 };
 
 const badgeStyle: React.CSSProperties = {
@@ -46,8 +54,17 @@ const separatorStyle: React.CSSProperties = {
   fontSize: "10px",
 };
 
-export default function LegalFooter({ showBadge = true }: { showBadge?: boolean }) {
+export default function LegalFooter({
+  showBadge = true,
+  variant = "fixed",
+  showMainLink = false,
+}: {
+  showBadge?: boolean;
+  variant?: "fixed" | "inline";
+  showMainLink?: boolean;
+}) {
   const year = getCurrentYear();
+  const footerStyle = variant === "inline" ? inlineFooterStyle : fixedFooterStyle;
 
   return (
     <div style={footerStyle}>
@@ -70,6 +87,14 @@ export default function LegalFooter({ showBadge = true }: { showBadge?: boolean 
         <Link href={PUBLIC_LINKS.docs} target="_blank" rel="noopener noreferrer" style={linkStyle}>
           {LEGAL_LABELS.docs}
         </Link>
+        {showMainLink && (
+          <>
+            <span style={separatorStyle}>·</span>
+            <Link href={PUBLIC_LINKS.main} target="_blank" rel="noopener noreferrer" style={linkStyle}>
+              accoraze.com
+            </Link>
+          </>
+        )}
       </div>
     </div>
   );

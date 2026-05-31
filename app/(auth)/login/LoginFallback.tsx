@@ -1,10 +1,16 @@
-import React from 'react';
+import AuthShell, { AuthPageIntro } from "../_components/AuthShell";
 
 const LoginFallback = () => {
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', fontSize: '1.5rem', color: '#6b7280' }}>
-      Loading Login...
-    </div>
+    <AuthShell visualMode="login" visualKicker="Secure access">
+      <div className="auth-success-panel">
+        <AuthPageIntro
+          eyebrow="Loading"
+          title="Opening Accoraze"
+          description="Preparing your secure sign-in experience."
+        />
+      </div>
+    </AuthShell>
   );
 };
 
