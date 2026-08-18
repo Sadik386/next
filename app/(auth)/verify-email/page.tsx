@@ -113,7 +113,7 @@ function VerifyEmailContent() {
       visualMode="forgot"
       visualKicker="Email security"
       visualTitle="Verify once. Work with confidence."
-      visualDescription="Accoraze keeps new workspaces protected with secure, time-limited email verification."
+      visualDescription="Acuity Commerce keeps new workspaces protected with secure, time-limited email verification."
     >
       <div className="auth-flow">
         {status === "loading" && (
@@ -121,7 +121,7 @@ function VerifyEmailContent() {
             <AuthPageIntro
               eyebrow="Email verification"
               title="Checking your link"
-              description="Please wait while Accoraze verifies this email address."
+              description="Please wait while Acuity Commerce verifies this email address."
             />
 
             <div className="auth-status-panel" aria-live="polite">
@@ -215,7 +215,7 @@ function VerifyEmailFallback() {
       visualMode="forgot"
       visualKicker="Email security"
       visualTitle="Verify once. Work with confidence."
-      visualDescription="Accoraze keeps new workspaces protected with secure, time-limited email verification."
+      visualDescription="Acuity Commerce keeps new workspaces protected with secure, time-limited email verification."
     >
       <div className="auth-status-panel" aria-live="polite">
         <span className="auth-status-icon auth-status-icon--loading" aria-hidden="true">

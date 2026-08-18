@@ -68,7 +68,7 @@ export default function LegalFooter({
 
   return (
     <div style={footerStyle}>
-      {showBadge && <div style={badgeStyle}>Accoraze Business Operating System</div>}
+      {showBadge && <div style={badgeStyle}>Acuity Commerce Operating System</div>}
       <div style={legalStyle}>
         <span style={{ fontSize: "11px", color: "#9ca3af" }}>© {year}</span>
         <span style={separatorStyle}>·</span>
@@ -91,7 +91,7 @@ export default function LegalFooter({
           <>
             <span style={separatorStyle}>·</span>
             <Link href={PUBLIC_LINKS.main} target="_blank" rel="noopener noreferrer" style={linkStyle}>
-              accoraze.com
+              acuitycommerce.com
             </Link>
           </>
         )}

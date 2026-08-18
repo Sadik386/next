@@ -16,7 +16,7 @@ export function getAppBaseUrl(req?: Request | { nextUrl?: { protocol?: string; h
     }
   }
 
-  return "https://app.accoraze.com";
+  return "https://app.acuitycommerce.com";
 }
 
 export function buildScannerUrl(

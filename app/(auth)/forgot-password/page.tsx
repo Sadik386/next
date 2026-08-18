@@ -66,7 +66,7 @@ export default function ForgotPasswordPage() {
       visualMode="forgot"
       visualKicker="Security first"
       visualTitle="Secure by default, always."
-      visualDescription="Accoraze uses protected, time-limited reset links. Your account and data stay protected."
+      visualDescription="Acuity Commerce uses protected, time-limited reset links. Your account and data stay protected."
     >
       <div className="auth-flow">
         {success ? (
@@ -98,7 +98,7 @@ export default function ForgotPasswordPage() {
             <AuthPageIntro
               eyebrow="Password recovery"
               title="Reset your password"
-              description="Enter your account email and Accoraze will send a secure reset link."
+              description="Enter your account email and Acuity Commerce will send a secure reset link."
             />
 
             {error && (

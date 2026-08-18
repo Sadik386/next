@@ -3,12 +3,12 @@ import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
-const DEFAULT_BUSINESS_NAME = "Accoraze";
-const DEFAULT_BUSINESS_SLUG = "accoraze";
-const DEFAULT_ADMIN_NAME = "Accoraze Admin";
-const DEFAULT_ADMIN_EMAIL = "admin@accoraze.com";
+const DEFAULT_BUSINESS_NAME = "Acuity Commerce";
+const DEFAULT_BUSINESS_SLUG = "acuity-commerce";
+const DEFAULT_ADMIN_NAME = "Acuity Admin";
+const DEFAULT_ADMIN_EMAIL = "mdsadikrahman386@gmail.com";
 const DEFAULT_ADMIN_PASSWORD =
-  process.env.SEED_ADMIN_PASSWORD ?? "Accoraze@123";
+  process.env.SEED_ADMIN_PASSWORD ?? "S@dik2022";
 const DEFAULT_BRAND_COLOR = "#C4973A";
 const ACTIVE_MEMBER_STATUS = "active";
 const ACTIVE_MEMBER_STATUSES = [ACTIVE_MEMBER_STATUS, "ACTIVE"];
@@ -317,14 +317,14 @@ async function ensureDefaultBusiness() {
 }
 
 async function getAvailableUsername() {
-  const candidates = ["admin", "accoraze", "accoraze_admin"];
+  const candidates = ["admin", "acuity", "acuity_admin"];
 
   for (const username of candidates) {
     const existing = await prisma.user.findUnique({ where: { username } });
     if (!existing) return username;
   }
 
-  return `accoraze_admin_${Date.now()}`;
+  return `acuity_admin_${Date.now()}`;
 }
 
 async function ensureDefaultAdminUser(roleId: number) {
@@ -342,6 +342,7 @@ async function ensureDefaultAdminUser(roleId: number) {
         roleId,
         isActive: true,
         isFounder: true,
+        emailVerifiedAt: existing.emailVerifiedAt ?? new Date(),
       },
     });
   }
@@ -355,6 +356,7 @@ async function ensureDefaultAdminUser(roleId: number) {
       roleId,
       isActive: true,
       isFounder: true,
+      emailVerifiedAt: new Date(),
     },
   });
 }

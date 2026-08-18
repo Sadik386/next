@@ -87,6 +87,7 @@ sudo apt install -y mysql-server
 
 # Start and enable MySQL
 sudo systemctl start mysql
+
 sudo systemctl enable mysql
 
 # Secure MySQL (interactive - follow prompts)

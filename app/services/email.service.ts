@@ -289,13 +289,13 @@ const guard = await guardEmailSend(businessId);
         <div style="background-color: #f8f9fa; padding: 20px 20px 16px; text-align: center; font-size: 11px; color: #9ca3af; border-radius: 0 0 8px 8px; border: 1px solid #e5e7eb; border-top: none;">
           ${settings.emailFooterText ? `<p style="margin: 0 0 8px; color: #6b7280; line-height: 1.5;">${settings.emailFooterText}</p>` : ""}
           ${settings.companyAddressFooter ? `<p style="margin: 0 0 8px; color: #6b7280; line-height: 1.5;">${settings.companyAddressFooter}</p>` : ""}
-          <p style="margin: 0; color: #d1d5db; font-size: 10px;">Powered by Accoraze</p>
+          <p style="margin: 0; color: #d1d5db; font-size: 10px;">Powered by Acuity Commerce</p>
         </div>
       </div>
     `;
 
     const textBody = params.text || params.html.replace(/<[^>]*>/g, "");
-    const textFooter = `${settings.emailFooterText ? settings.emailFooterText + "\n" : ""}${settings.companyAddressFooter ? settings.companyAddressFooter + "\n" : ""}Powered by Accoraze`;
+    const textFooter = `${settings.emailFooterText ? settings.emailFooterText + "\n" : ""}${settings.companyAddressFooter ? settings.companyAddressFooter + "\n" : ""}Powered by Acuity Commerce`;
     const fullTextBody = textBody.trim().endsWith(textFooter.trim()) ? textBody : textBody + "\n\n" + textFooter;
 
     const mailOptions: nodemailer.SendMailOptions = {

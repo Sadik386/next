@@ -146,7 +146,7 @@ export default function LoginAuthLogic() {
         <div className="auth-success-panel">
           <AuthPageIntro
             eyebrow="Loading"
-            title="Preparing Accoraze"
+            title="Preparing Acuity Commerce"
             description="Checking your workspace setup before sign in."
           />
         </div>
@@ -173,7 +173,7 @@ export default function LoginAuthLogic() {
   return (
     <AuthShell
       visualMode="login"
-      visualKicker="Accoraze platform"
+      visualKicker="Acuity Commerce platform"
       visualTitle="Run your business, smarter."
       visualDescription="POS, inventory, orders, customers, and reports - all connected in one platform."
     >
@@ -243,7 +243,7 @@ export default function LoginAuthLogic() {
         </form>
 
         <div className="auth-link-row">
-          <span>New to Accoraze?</span>
+          <span>New to Acuity Commerce?</span>
           <Link href="/register" className="auth-link">
             Create account
           </Link>

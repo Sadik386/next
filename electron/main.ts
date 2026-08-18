@@ -48,10 +48,10 @@ function createTray() {
   // TODO: Replace with real tray icon asset path.
   const icon = nativeImage.createEmpty();
   tray = new Tray(icon);
-  tray.setToolTip('Accoraze');
+  tray.setToolTip('Acuity Commerce');
 
   const menu = Menu.buildFromTemplate([
-    { label: 'Open Accoraze', click: () => mainWindow?.show() },
+    { label: 'Open Acuity Commerce', click: () => mainWindow?.show() },
     { label: 'Sync Now', click: () => mainWindow?.webContents.send('tray:sync') },
     { type: 'separator' },
     { label: 'Quit', click: () => app.quit() },

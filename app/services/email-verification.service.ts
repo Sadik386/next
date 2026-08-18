@@ -39,7 +39,7 @@ export function buildVerificationEmailHtml(params: {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Verify Your Accoraze Account</title>
+  <title>Verify Your Acuity Commerce Account</title>
 </head>
 <body style="margin: 0; padding: 0; background-color: #f4f4f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #f4f4f5;">
@@ -52,7 +52,7 @@ export function buildVerificationEmailHtml(params: {
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                 <tr>
                   <td style="text-align: center;">
-                    <span style="display: inline-block; font-size: 22px; font-weight: 700; color: #ffffff; letter-spacing: 0.5px;">ACCORAZE</span>
+                    <span style="display: inline-block; font-size: 22px; font-weight: 700; color: #ffffff; letter-spacing: 0.5px;">ACUITY COMMERCE</span>
                   </td>
                 </tr>
               </table>
@@ -64,7 +64,7 @@ export function buildVerificationEmailHtml(params: {
             <td style="padding: 36px 32px 24px;">
               <p style="margin: 0 0 8px; font-size: 15px; color: #1a1a1a; font-weight: 600;">Hi ${recipientName},</p>
               <p style="margin: 0 0 20px; font-size: 14px; color: #4b5563; line-height: 1.6;">
-                Welcome to <strong style="color: #C4973A;">Accoraze</strong>! Your business workspace <strong>${businessName}</strong> is ready to use.
+                Welcome to <strong style="color: #C4973A;">Acuity Commerce</strong>! Your business workspace <strong>${businessName}</strong> is ready to use.
               </p>
               <p style="margin: 0 0 28px; font-size: 14px; color: #4b5563; line-height: 1.6;">
                 Please verify your email address to activate your account and access your workspace.
@@ -89,7 +89,7 @@ export function buildVerificationEmailHtml(params: {
                 <strong>Important:</strong> This link expires in <strong>${expiryHours} hours</strong> for security reasons.
               </p>
               <p style="margin: 0; font-size: 13px; color: #9ca3af;">
-                If you did not create an Accoraze account, you can safely ignore this email. No action is required.
+                If you did not create an Acuity Commerce account, you can safely ignore this email. No action is required.
               </p>
             </td>
           </tr>
@@ -97,7 +97,7 @@ export function buildVerificationEmailHtml(params: {
           <tr>
             <td style="background-color: #f9fafb; padding: 20px 32px; border-top: 1px solid #f3f4f6;">
               <p style="margin: 0; font-size: 12px; color: #9ca3af; text-align: center; line-height: 1.6;">
-                This is an automated message from <strong style="color: #C4973A;">Accoraze</strong>.<br>
+                This is an automated message from <strong style="color: #C4973A;">Acuity Commerce</strong>.<br>
                 Please do not reply to this email.
               </p>
               <p style="margin: 8px 0 0; font-size: 11px; color: #d1d5db; text-align: center;">

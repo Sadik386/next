@@ -1,16 +1,16 @@
 export const PUBLIC_LINKS = {
-  main: "https://accoraze.com",
-  www: "https://www.accoraze.com",
-  app: "https://app.accoraze.com",
-  docs: "https://docs.accoraze.com",
-  support: "https://support.accoraze.com",
-  status: "https://status.accoraze.com",
+  main: "https://acuitycommerce.com",
+  www: "https://www.acuitycommerce.com",
+  app: "https://app.acuitycommerce.com",
+  docs: "https://docs.acuitycommerce.com",
+  support: "https://support.acuitycommerce.com",
+  status: "https://status.acuitycommerce.com",
   legal: {
-    terms: "https://accoraze.com/terms",
-    privacy: "https://accoraze.com/privacy",
-    dataPolicy: "https://accoraze.com/data-policy",
-    refundPolicy: "https://accoraze.com/refund-policy",
-    security: "https://accoraze.com/security",
+    terms: "https://acuitycommerce.com/terms",
+    privacy: "https://acuitycommerce.com/privacy",
+    dataPolicy: "https://acuitycommerce.com/data-policy",
+    refundPolicy: "https://acuitycommerce.com/refund-policy",
+    security: "https://acuitycommerce.com/security",
   },
 } as const;
 

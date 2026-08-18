@@ -1,10 +1,10 @@
 [package]
-name = "accoraze"
+name = "acuity-commerce"
 version = "0.1.0"
-description = "Accoraze Desktop App"
-authors = ["Accoraze Team"]
+description = "Acuity Commerce Desktop App"
+authors = ["Acuity Commerce Team"]
 license = "MIT"
-repository = "https://github.com/accoraze/accoraze"
+repository = "https://github.com/acuitycommerce/acuitycommerce"
 edition = "2021"
 rust-version = "1.57"
 

@@ -51,7 +51,7 @@ export function buildInviteEmailHtml(params: {
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 560px; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);">
           <tr>
             <td style="background-color: #C4973A; padding: 32px 32px 28px; text-align: center;">
-              <span style="display: inline-block; font-size: 22px; font-weight: 700; color: #ffffff; letter-spacing: 0.5px;">ACCORAZE</span>
+              <span style="display: inline-block; font-size: 22px; font-weight: 700; color: #ffffff; letter-spacing: 0.5px;">ACUITY COMMERCE</span>
               <h1 style="margin: 16px 0 0; font-size: 22px; font-weight: 700; color: #ffffff; text-align: center;">You've Been Invited!</h1>
             </td>
           </tr>
@@ -59,7 +59,7 @@ export function buildInviteEmailHtml(params: {
             <td style="padding: 36px 32px 24px;">
               <p style="margin: 0 0 8px; font-size: 15px; color: #1a1a1a; font-weight: 600;">Hi ${recipientName},</p>
               <p style="margin: 0 0 20px; font-size: 14px; color: #4b5563; line-height: 1.6;">
-                <strong>${inviterName}</strong> has invited you to join <strong style="color: #C4973A;">${businessName}</strong> on <strong style="color: #C4973A;">Accoraze</strong>.
+                <strong>${inviterName}</strong> has invited you to join <strong style="color: #C4973A;">${businessName}</strong> on <strong style="color: #C4973A;">Acuity Commerce</strong>.
               </p>
               <p style="margin: 0 0 20px; font-size: 14px; color: #4b5563; line-height: 1.6;">
                 You will be added as: <strong>${roleLabel}</strong>

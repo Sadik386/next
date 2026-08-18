@@ -61,7 +61,7 @@ export default function PlatformShell({
             <ShieldCheck size={24} />
             <span style={{ fontWeight: 700, fontSize: "18px" }}>Platform Admin</span>
           </div>
-          <div style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "4px" }}>Accoraze Owner Control</div>
+          <div style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "4px" }}>Acuity Commerce Owner Control</div>
         </div>
 
         <nav style={{ flex: 1, padding: "20px 10px", display: "flex", flexDirection: "column", gap: "4px" }}>

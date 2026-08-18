@@ -90,7 +90,7 @@ function getEnvEmailConfig(): PlatformEmailConfig | null {
     smtpUser: user,
     smtpPass: pass,
     smtpFromEmail: fromEmail,
-    smtpFromName: process.env.SMTP_FROM_NAME || "Accoraze Platform",
+    smtpFromName: process.env.SMTP_FROM_NAME || "Acuity Commerce Platform",
     smtpReplyTo: process.env.SMTP_REPLY_TO,
   };
 }

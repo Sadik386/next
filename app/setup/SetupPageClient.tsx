@@ -99,10 +99,10 @@ export default function SetupPageClient() {
               <div style={cardStyle}>
                 <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "20px" }}>
                   <div style={logoCircle}>A</div>
-                  <span style={{ fontSize: "18px", fontWeight: 700, color: "#111318" }}>Accoraze</span>
+                  <span style={{ fontSize: "18px", fontWeight: 700, color: "#111318" }}>Acuity Commerce</span>
                 </div>
                 <h2 style={{ fontSize: "22px", fontWeight: 700, color: "#111318", marginBottom: "8px" }}>
-                  Welcome to Accoraze
+                  Welcome to Acuity Commerce
                 </h2>
                 <p style={{ fontSize: "14px", color: "#6b7280", marginBottom: "6px" }}>
                   Let&apos;s set up your business system

@@ -6,7 +6,7 @@ const LoginFallback = () => {
       <div className="auth-success-panel">
         <AuthPageIntro
           eyebrow="Loading"
-          title="Opening Accoraze"
+          title="Opening Acuity Commerce"
           description="Preparing your secure sign-in experience."
         />
       </div>

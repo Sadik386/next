@@ -120,7 +120,7 @@ function ResetPasswordForm() {
       visualMode="forgot"
       visualKicker="Protected recovery"
       visualTitle="Set a new password with confidence."
-      visualDescription="Accoraze reset links are time-limited, bot-protected, and designed to keep your workspace secure."
+      visualDescription="Acuity Commerce reset links are time-limited, bot-protected, and designed to keep your workspace secure."
     >
       <div className="auth-flow">
         {success ? (
@@ -147,7 +147,7 @@ function ResetPasswordForm() {
                 <XCircle size={28} />
               </span>
               <h2>Invalid reset link</h2>
-              <p>For your protection, Accoraze can only update a password from a valid reset link.</p>
+              <p>For your protection, Acuity Commerce can only update a password from a valid reset link.</p>
             </div>
 
             <Link href="/forgot-password" className="auth-button auth-button--primary">
@@ -167,7 +167,7 @@ function ResetPasswordForm() {
             <AuthPageIntro
               eyebrow="Password recovery"
               title="Create a new password"
-              description="Choose a strong password for your Accoraze workspace."
+              description="Choose a strong password for your Acuity Commerce workspace."
             />
 
             {error && (
@@ -261,7 +261,7 @@ function ResetPasswordFallback() {
       visualMode="forgot"
       visualKicker="Protected recovery"
       visualTitle="Set a new password with confidence."
-      visualDescription="Accoraze reset links are time-limited, bot-protected, and designed to keep your workspace secure."
+      visualDescription="Acuity Commerce reset links are time-limited, bot-protected, and designed to keep your workspace secure."
     >
       <div className="auth-status-panel" aria-live="polite">
         <span className="auth-status-icon auth-status-icon--loading" aria-hidden="true">

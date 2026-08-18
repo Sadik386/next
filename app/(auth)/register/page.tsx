@@ -441,11 +441,11 @@ export default function RegisterPage() {
                   </div>
 
                   <p className="auth-sr-only">
-                    Your workspace is created immediately after registration. Accoraze may review, limit, or suspend accounts that violate platform terms.
+                    Your workspace is created immediately after registration. Acuity Commerce may review, limit, or suspend accounts that violate platform terms.
                   </p>
 
                   <div className="auth-security-note auth-security-note--mobile">
-                    Your workspace is created immediately after registration. Accoraze may review, limit, or suspend accounts that violate platform terms.
+                    Your workspace is created immediately after registration. Acuity Commerce may review, limit, or suspend accounts that violate platform terms.
                   </div>
 
                   <TurnstileWidget

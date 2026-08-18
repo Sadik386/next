@@ -2,14 +2,14 @@ import { OfflineAction } from "./types";
 
 // IndexedDB wrapper — STRUCTURE ONLY.
 // TODO: Replace localStorage placeholders with `idb` (Jake Archibald) wrapper:
-//   - DB:    "accoraze-offline" (v1)
+//   - DB:    "acuity-offline" (v1)
 //   - Stores:
 //       "products"         (read cache, keyPath: "id")
 //       "customers"        (read cache, keyPath: "id")
 //       "orders"           (read cache, keyPath: "id")
 //       "pending_actions"  (write queue, keyPath: "id", index "by-timestamp")
 
-const DB_NAME = "accoraze-offline";
+const DB_NAME = "acuity-offline";
 const DB_VERSION = 1;
 const ACTIONS_STORE = "pending_actions";
 

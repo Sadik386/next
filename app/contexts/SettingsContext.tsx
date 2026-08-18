@@ -97,7 +97,7 @@ interface SettingsContextValue {
 }
 
 const DEFAULT_BRAND = "#C4973A";
-const LOCAL_STORAGE_KEY = "accoraze_brandColor";
+const LOCAL_STORAGE_KEY = "acuity_brandColor";
 
 // Provide a default value that matches the structure of SettingsContextValue
 const SettingsContext = createContext<SettingsContextValue>({

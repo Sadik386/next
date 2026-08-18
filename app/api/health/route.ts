@@ -5,7 +5,7 @@ export async function GET() {
   const health = {
     status: "ok",
     timestamp: new Date().toISOString(),
-    service: "accoraze",
+    service: "acuity-commerce",
   };
 
   try {

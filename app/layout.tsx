@@ -5,8 +5,8 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"], weight: ["300", "400", "500", "600", "700"] });
 
 export const metadata: Metadata = {
-  title: "Accoraze",
-  description: "Business Operating System",
+  title: "Acuity Commerce | POS & Business Management",
+  description: "All-in-one POS, inventory, sales, and business operating system",
   icons: {
     icon: "/favicon.ico",
     shortcut: "/favicon.ico",
@@ -19,7 +19,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{const t=localStorage.getItem('theme');if(t==='dark')document.documentElement.classList.add('dark');const b=localStorage.getItem('accoraze_brandColor');if(b)document.documentElement.style.setProperty('--brand',b)}catch(e){}`,
+            __html: `try{const t=localStorage.getItem('theme');if(t==='dark')document.documentElement.classList.add('dark');const b=localStorage.getItem('acuity_brandColor')||localStorage.getItem('accoraze_brandColor');if(b)document.documentElement.style.setProperty('--brand',b)}catch(e){}`,
           }}
         />
       </head>

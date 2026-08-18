@@ -29,7 +29,7 @@ export default function AuthShell({
   maxWidth = "430px",
   visualMode = "login",
   visualStage = 1,
-  visualKicker = "Accoraze workspace",
+  visualKicker = "Acuity Commerce workspace",
   visualTitle = "Run every counter, team, and workflow from one calm operating layer.",
   visualDescription = "A secure business command center for sales, inventory, customers, and daily decisions.",
 }: AuthShellProps) {
@@ -89,7 +89,7 @@ function AuthVisual({
           <span aria-hidden="true">!</span>
           <div>
             <strong>Workspace policy</strong>
-            <p>Workspace access starts immediately after registration. Accoraze may review accounts that violate platform terms.</p>
+            <p>Workspace access starts immediately after registration. Acuity Commerce may review accounts that violate platform terms.</p>
           </div>
         </div>
       )}
@@ -216,7 +216,7 @@ function AuthLogo({
           <rect x="24" y="24" width="17" height="17" rx="5" />
         </svg>
       </span>
-      <span className="auth-logo__word">Accoraze</span>
+      <span className="auth-logo__word">Acuity Commerce</span>
     </>
   );
 
@@ -230,7 +230,7 @@ function AuthLogo({
       target="_blank"
       rel="noopener noreferrer"
       className={logoClassName}
-      aria-label="Accoraze main site"
+      aria-label="Acuity Commerce main site"
     >
       {logoContent}
     </Link>

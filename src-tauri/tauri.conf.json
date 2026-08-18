@@ -6,7 +6,7 @@
     "distDir": "../out"
   },
   "package": {
-    "productName": "Accoraze",
+    "productName": "Acuity Commerce",
     "version": "1.0.0"
   },
   "tauri": {
@@ -15,11 +15,11 @@
     },
     "bundle": {
       "active": true,
-      "identifier": "com.accoraze.app"
+      "identifier": "com.acuitycommerce.app"
     },
     "window": [
       {
-        "title": "Accoraze",
+        "title": "Acuity Commerce",
         "width": 1200,
         "height": 800
       }

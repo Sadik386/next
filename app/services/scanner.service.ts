@@ -65,12 +65,12 @@ export interface ProductScanSession {
 }
 
 const scannerSessionStore = globalThis as typeof globalThis & {
-  __accorazeProductScanSessions?: Map<string, ProductScanSession>;
+  __acuityProductScanSessions?: Map<string, ProductScanSession>;
 };
 
 const sessions =
-  scannerSessionStore.__accorazeProductScanSessions ??
-  (scannerSessionStore.__accorazeProductScanSessions = new Map<string, ProductScanSession>());
+  scannerSessionStore.__acuityProductScanSessions ??
+  (scannerSessionStore.__acuityProductScanSessions = new Map<string, ProductScanSession>());
 
 export function createProductScanSession(businessId: number): ProductScanSession {
   let id = generateShortId("PRD-SCN-");

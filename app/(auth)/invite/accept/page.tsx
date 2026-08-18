@@ -61,7 +61,7 @@ function AcceptInviteContent() {
       visualStage={2}
       visualKicker="Team access"
       visualTitle="Join the workspace with a secure invite."
-      visualDescription="Accoraze keeps business access controlled with verified, time-limited invitations."
+      visualDescription="Acuity Commerce keeps business access controlled with verified, time-limited invitations."
     >
       <div className="auth-flow">
         {status === "loading" && (
@@ -69,7 +69,7 @@ function AcceptInviteContent() {
             <AuthPageIntro
               eyebrow="Invitation"
               title="Accepting your invite"
-              description="Please wait while Accoraze validates your workspace invitation."
+              description="Please wait while Acuity Commerce validates your workspace invitation."
             />
 
             <div className="auth-status-panel" aria-live="polite">
@@ -132,7 +132,7 @@ function AcceptInviteFallback() {
       visualStage={2}
       visualKicker="Team access"
       visualTitle="Join the workspace with a secure invite."
-      visualDescription="Accoraze keeps business access controlled with verified, time-limited invitations."
+      visualDescription="Acuity Commerce keeps business access controlled with verified, time-limited invitations."
     >
       <div className="auth-status-panel" aria-live="polite">
         <span className="auth-status-icon auth-status-icon--loading" aria-hidden="true">
