@@ -1,39 +1,166 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Acuity Commerce — ইনভেন্টরি এবং পয়েন্ট অফ   সেল (POS) প্ল্যাটফর্ম
 
-## Getting Started
+**Next.js 15**, **TypeScript**, **Prisma ORM**, **MySQL** এবং প্রিমিয়াম **Indigo/Violet ডিজাইন সিস্টেম** দিয়ে তৈরি একটি আধুনিক, দ্রুতগতির ও ফুল-স্ট্যাক ইনভেন্টরি ম্যানেজমেন্ট এবং পয়েন্ট অফ সেল (POS) কমান্ড সেন্টার।
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## ✨ ফিচার ও মডিউলসমূহ
+
+### 🛒 পয়েন্ট অফ সেল (POS) টার্মিনাল
+- **দ্রুত চেকআউট ইন্টারফেস**: ক্যাটাগরি ফিল্টার এবং তাৎক্ষণিক সার্চ সুবিধা সহ টাচ-ফ্রেন্ডলি প্রোডাক্ট গ্রিড।
+- **মাল্টি-মোড বারকোড স্ক্যানিং**: হার্ডওয়্যার বারকোড স্ক্যানার, ওয়েবক্যাম স্ক্যানার এবং পেয়ার করা মোবাইল ফোনের মাধ্যমে স্ক্যানিং সুবিধা।
+- **কার্ট এবং অর্ডার কন্ট্রোল**: আইটেম কোয়ান্টিটি পরিবর্তন, ডিসকাউন্ট যুক্ত করা, নোট যোগ করা এবং অর্ডার হোল্ড/হোল্ড রিসিভ করার সুবিধা।
+- **প্রিন্ট ও ডিজিটাল রসিদ**: ওয়ান-ক্লিক থার্মাল রসিদ প্রিন্টিং এবং অটোমেটেড PDF জেনারেশন (`jsPDF`)।
+- **নমনীয় পেমেন্ট পদ্ধতি**: ক্যাশ, মোবাইল ব্যাংকিং (বিকাশ, নগদ, রকেট, উপায়), ব্যাংক ট্রান্সফার এবং কার্ড পেমেন্ট।
+
+### 📦 ইনভেন্টরি এবং প্রোডাক্ট ক্যাটালগ
+- **প্রোডাক্ট এবং ভ্যারিয়েন্ট ট্র্যাকিং**: একক প্রোডাক্ট এবং মাল্টি-ভ্যারিয়েন্ট SKU (সাইজ, কালার, ওজন ইত্যাদি) ট্র্যাকিং।
+- **স্টক ম্যানেজমেন্ট**: লো-স্টক এলার্ট, রিয়েল-টাইম স্টক আপডেট এবং ওয়ারহাউজ লোকেশন ট্র্যাকিং।
+- **বারকোড ও QR কোড**: প্রোডাক্ট SKU এবং অর্ডারের জন্য স্বয়ংক্রিয় বারকোড এবং QR কোড জেনারেশন (`jsbarcode`, `qrcode`)।
+- **বাল্ক ইমপোর্ট ও এক্সপোর্ট**: CSV ফাইলের মাধ্যমে প্রোডাক্ট ইমপোর্ট এবং ডেটাসেট এক্সপোর্ট সুবিধা (`papaparse`)।
+
+### 📊 অর্ডার এবং সেলস ম্যানেজমেন্ট
+- **অর্ডার পাইপলাইন**: লাইফসাইকেল ট্র্যাকিং (`Pending`, `Confirmed`, `Delivered`, `Cancelled`)।
+- **পেমেন্ট স্ট্যাটাস**: বকেয়া পেমেন্ট (Unpaid), আংশিক পেমেন্ট (Partial) এবং পরিশোধিত পেমেন্ট (Paid) ট্র্যাকিং।
+- **কাস্টমার ডিরেক্টরি**: কাস্টমার হিস্ট্রি, অ্যাড্রেস ম্যানেজমেন্ট এবং কন্টাক্ট রেকর্ড সমৃদ্ধ CRM ডেটাবেস।
+
+### 💸 ফাইন্যান্সিয়াল ও খরচ ট্র্যাকিং
+- **খরচের হিসাব (Expenses)**: নির্ভুল নিট প্রফিট গণনার জন্য ক্যাটাগরি-ভিত্তিক খরচের এন্ট্রি ও ট্র্যাকিং।
+- **ফাইন্যান্সিয়াল রিপোর্ট**: রেভিনিউ, গ্রস প্রফিট, নিট মার্জিন এবং ইন্টারেক্টিভ চার্ট সমৃদ্ধ খরচ বিশ্লেষণ (`recharts`)।
+
+### 🧠 ইন্টেলিজেন্স ও অ্যানালিটিক্স
+- **AI ইনভেন্টরি ইনসাইট**: শীর্ষ বিক্রিত পণ্য, পিক সেলস টাইম এবং স্টক রি-অর্ডারের জন্য স্বয়ংক্রিয় ইনসাইট।
+- **অ্যাক্টিভিটি ফিড**: ইনভেন্টরি পরিবর্তন, অর্ডার তৈরি এবং ইউজার অ্যাকশন ট্র্যাকিংয়ের বিস্তৃত লগ।
+
+### 🏢 মাল্টি-টেন্যান্ট ওয়ার্কস্পেস ও ইউজার রোল (RBAC)
+- **বিজনেস সুইচার**: একটি অ্যাকাউন্ট থেকেই একাধিক ব্যবসার স্থান পরিবর্তন ও পরিচালনার সুবিধা।
+- **ইউজার রোল কন্ট্রোল (RBAC)**: নির্দিষ্ট অ্যাক্সেস লেভেলসহ বিভিন্ন রোল (`Super Admin`, `Admin`, `Manager`, `Staff`, `Viewer`)।
+- **ডার্ক ও লাইট মোড**: আধুনিক গ্লাসফিজম ও কাস্টম ডিজাইন টোকেন সমৃদ্ধ থিম সুইচার।
+
+---
+
+## 🛠️ টেকনোলজি স্ট্যাক
+
+| লেয়ার | টেকনোলজি |
+| :--- | :--- |
+| **ফ্রেমওয়ার্ক** | Next.js 15.5 (App Router, Server Actions, Dynamic API Routes) |
+| **ল্যাঙ্গুয়েজ** | TypeScript 5 |
+| **ডেটাবেস** | MySQL 8 সাথে Prisma ORM 5 |
+| **ইউআই ও স্টাইলিং** | Vanilla CSS Tokens + Tailwind CSS v4, Lucide React Icons |
+| **স্টেট ও কনটেক্সট** | React Context (`AuthContext`, `SidebarContext`, `SettingsContext`, `CurrencyProvider`) |
+| **PDF ও প্রিন্টিং** | `jsPDF`, `jspdf-autotable` |
+| **স্ক্যানিং ও কোড** | `@zxing/library`, `jsbarcode`, `qrcode` |
+| **অথেন্টিকেশন** | Custom JWT Auth (`jose`), `bcryptjs` পাসওয়ার্ড হ্যাশিং |
+| **সিকিউরিটি** | Cloudflare Turnstile CAPTCHA ভেরিফিকেশন |
+
+---
+
+## 🚀 সেটআপ ও ইনস্টলেশন নির্দেশিকা
+
+### পূর্বশর্তসমূহ
+
+- **Node.js**: v20.x বা তার পরবর্তী সংস্করণ
+- **প্যাকেজ ম্যানেজার**: `npm` (v10+)
+- **ডেটাবেস**: MySQL Server 8.0+
+
+### ইনস্টলেশন ধাপসমূহ
+
+১. **রেপোজিটরি ক্লোন করুন**:
+   ```bash
+   git clone https://github.com/Sadik386/inverntory-management.git
+   cd inverntory-management
+   ```
+
+২. **ডিপেনডেন্সি ইনস্টল করুন**:
+   ```bash
+   npm install
+   ```
+
+৩. **এনভায়রনমেন্ট ভেরিয়েবল কনফিগার করুন**:
+   প্রজেক্টের রুট ডিরেক্টরিতে একটি `.env` ফাইল তৈরি করুন (অথবা `.env.production.example` অনুসরণ করুন):
+   ```env
+   # Database Connection
+   DATABASE_URL="mysql://root:password@localhost:3306/acuity_commerce"
+
+   # Application Configuration
+   NEXT_PUBLIC_APP_NAME="Acuity Commerce"
+   NEXT_PUBLIC_APP_URL="http://localhost:3001"
+   APP_MODE="cloud"
+   NODE_ENV="development"
+
+   # Auth & Security Keys
+   JWT_SECRET="your-64-character-super-secret-jwt-key-here"
+   ENCRYPTION_KEY="your-32-byte-hex-encryption-key-here"
+
+   # Turnstile CAPTCHA (ঐচ্ছিক)
+   NEXT_PUBLIC_TURNSTILE_SITE_KEY=""
+   TURNSTILE_SECRET_KEY=""
+   ```
+
+৪. **ডেটাবেস স্কিমা সেটআপ করুন**:
+   ```bash
+   # MySQL ডেটাবেসে স্কিমা সিঙ্ক করুন
+   npm run db:push
+
+   # Prisma Client জেনারেট করুন
+   npm run db:generate
+
+   # ইনিশিয়াল ডেটাবেস সিড করুন
+   npm run seed
+   ```
+
+৫. **ডেভেলপমেন্ট সার্ভার চালু করুন**:
+   ```bash
+   npm run dev
+   ```
+   আপনার ব্রাউজারে `http://localhost:3001` ঠিকানায় ওপেন করুন।
+
+---
+
+## 📜 প্রজেক্ট স্ক্রিপ্টসমূহ
+
+| কমান্ড | বিবরণ |
+| :--- | :--- |
+| `npm run dev` | `http://localhost:3001` এ ডেভেলপমেন্ট সার্ভার চালু করে |
+| `npm run build` | প্রোডাকশন বান্ডেল বিল্ড করে |
+| `npm run start` | প্রোডাকশন সার্ভার চালু করে |
+| `npm run db:push` | Prisma স্কিমা সরাসরি ডেটাবেসে সিঙ্ক করে |
+| `npm run db:migrate` | ডেটাবেস মাইগ্রেশন অ্যাপ্লাই করে |
+| `npm run db:generate` | Prisma Client টাইপস আপডেট করে |
+| `npm run seed` | ডেভেলপমেন্ট ডেটাবেস সিড করে |
+| `npm run seed:prod` | প্রোডাকশন এনভায়রনমেন্টের জন্য প্রাথমিক ডেটা সিড করে |
+
+---
+
+## 📂 ফাইল ও ডিরেক্টরি স্ট্রাকচার
+
+```
+├── app/
+│   ├── (auth)/             # লগইন, রেজিস্টার এবং অথ প্ল্যাটফর্ম
+│   ├── (dashboard)/        # ড্যাশবোর্ড পেজসমূহ (POS, Products, Orders, Reports ইত্যাদি)
+│   ├── api/                # ব্যাকএন্ড REST API এন্ডপয়েন্টসমূহ
+│   ├── components/         # পুনঃব্যবহারযোগ্য UI ও লেআউট কম্পোনেন্ট
+│   │   ├── layout/         # Sidebar, Topbar, BusinessSwitcher
+│   │   ├── ui/             # StatusBadge, PageHeader, Popovers
+│   │   └── filters/        # DateFilter, SearchBars
+│   ├── contexts/           # Auth, Settings, Currency, Sidebar কনটেক্সট
+│   ├── globals.css         # ডিজাইন সিস্টেম টোকেন, অ্যানিমেশন এবং থিম
+│   └── styles/             # রেসপন্সিভ স্টাইলিং রুলস
+├── docs/                   # ডিপ্লয়মেন্ট এবং প্রজেক্ট ডকুমেন্টেশন
+├── prisma/                 # ডেটাবেস স্কিমা (`schema.prisma`) এবং সিড ফাইল
+├── public/                 # লোগো, ইমেজ এবং স্ট্যাটিক এসেট
+└── package.json
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 🔒 সিকিউরিটি ও ডিপ্লয়মেন্ট
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **VPS ডিপ্লয়মেন্ট নির্দেশিকা**: Nginx, PM2 এবং MySQL এর মাধ্যমে ভিপিএস-এ রান করতে [`docs/deployment/STAGING_VPS_DEPLOYMENT_CHECKLIST.md`](file:///home/sadik/sadik/inv/dokandar/docs/deployment/STAGING_VPS_DEPLOYMENT_CHECKLIST.md) দেখুন।
+- **ডেটা সুরক্ষা**: সংবেদনশীল তথ্য ও পাসওয়ার্ড AES-256-GCM এবং Salted `bcrypt` হ্যাশিংয়ের মাধ্যমে সুরক্ষিত।
 
-## Learn More
+---
 
-To learn more about Next.js, take a look at the following resources:
+## 📄 লাইসেন্স
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-# inverntory-management
-# inverntory-management
-# inverntory-management
+প্রাইভেট রেপোজিটরি। সর্বস্বত্ব সংরক্ষিত।
