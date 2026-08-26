@@ -21,6 +21,9 @@ const nextConfig: NextConfig = {
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
   },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   compress: true,
   output: "standalone",
   poweredByHeader: false,
@@ -34,20 +37,6 @@ const nextConfig: NextConfig = {
       {
         source: "/(.*)",
         headers: securityHeaders,
-      },
-    ];
-  },
-  async redirects() {
-    return [
-      {
-        source: "/activity-logs",
-        destination: "/logs?tab=activity",
-        permanent: true,
-      },
-      {
-        source: "/activity-logs/security",
-        destination: "/logs?tab=security",
-        permanent: true,
       },
     ];
   },

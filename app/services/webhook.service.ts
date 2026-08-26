@@ -76,8 +76,8 @@ async function sendWebhook(webhook: any, event: string, payload: any) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-Accoraze-Event": event,
-        "X-Accoraze-Signature": signature,
+        "X-DokanDar-Event": event,
+        "X-DokanDar-Signature": signature,
       },
       body: payloadString,
     });

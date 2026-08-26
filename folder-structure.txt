@@ -156,8 +156,8 @@
 ./app/types
 ./electron
 ./electron/ipc
-./g:Accorazeappcomponentsui
-./g:Accorazeapphooks
+./g:DokanDarappcomponentsui
+./g:DokanDarapphooks
 ./prisma
 ./prisma/migrations
 ./prisma/migrations/0_init

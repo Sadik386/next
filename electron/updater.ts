@@ -16,7 +16,7 @@ export function setupUpdater() {
       type: 'info',
       buttons: ['Restart Now', 'Later'],
       defaultId: 0,
-      message: 'A new version of Accoraze is ready to install.',
+      message: 'A new version of DokanDar is ready to install.',
     });
     if (response === 0) autoUpdater.quitAndInstall();
   });

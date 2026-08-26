@@ -1,4 +1,4 @@
-# Accoraze Deployment Guide
+# DokanDar Deployment Guide
 
 ## Prerequisites
 - Node.js 20+
@@ -10,7 +10,7 @@
 ### Step 1: Clone & Install
 ```
 git clone <your-repo>
-cd accoraze
+cd dokandar
 npm install
 ```
 
@@ -32,7 +32,7 @@ Edit `.env` with:
 - `DATABASE_URL` — MySQL connection string
 - `JWT_SECRET` — the 64+ char generated string
 - `ENCRYPTION_KEY` — the 64 hex char generated key
-- `NEXT_PUBLIC_APP_URL=https://app.accoraze.com`
+- `NEXT_PUBLIC_APP_URL=https://app.dokandar.com`
 - `SMTP_*` — your mail server credentials
 - `TURNSTILE_SECRET_KEY` / `NEXT_PUBLIC_TURNSTILE_SITE_KEY` — from Cloudflare Turnstile dashboard
 
@@ -41,9 +41,9 @@ Edit `.env` with:
 ### Step 3: Database
 ```sql
 -- Create database and user in MySQL
-CREATE DATABASE accoraze_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER 'accoraze_user'@'localhost' IDENTIFIED BY 'your-strong-password';
-GRANT ALL PRIVILEGES ON accoraze_db.* TO 'accoraze_user'@'localhost';
+CREATE DATABASE dokandar_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'dokandar_user'@'localhost' IDENTIFIED BY 'your-strong-password';
+GRANT ALL PRIVILEGES ON dokandar_db.* TO 'dokandar_user'@'localhost';
 FLUSH PRIVILEGES;
 ```
 
@@ -63,22 +63,22 @@ npm run build
 
 ### Step 5: Start (Port 3001)
 
-**Note:** Accoraze runs on port **3001** by default (to avoid conflict with other services on port 3000). Existing ecommerce may use port 3000 — ensure no conflict.
+**Note:** DokanDar runs on port **3001** by default (to avoid conflict with other services on port 3000). Existing ecommerce may use port 3000 — ensure no conflict.
 
 ```bash
 # Direct start:
 npm start
 
 # Or use PM2 (recommended for production):
-pm2 start npm --name "accoraze" -- start
+pm2 start npm --name "dokandar" -- start
 pm2 save
 pm2 startup  # for auto-start on reboot
 ```
 
-PM2 process name: `accoraze` (single instance — do NOT use cluster mode; in-memory rate limiting and AsyncLocalStorage do not support clustering).
+PM2 process name: `dokandar` (single instance — do NOT use cluster mode; in-memory rate limiting and AsyncLocalStorage do not support clustering).
 
 ### Step 6: First Run
-Visit https://app.accoraze.com/setup
+Visit https://app.dokandar.com/setup
 Create your Super Admin account through the setup wizard.
 
 ## Option 2: Docker (Future)
@@ -90,20 +90,20 @@ Use PlanetScale or Railway for DB.
 
 ## Nginx Config (Reverse Proxy)
 
-### app.accoraze.com (Main SaaS — port 3001)
+### app.dokandar.com (Main SaaS — port 3001)
 ```nginx
 server {
     listen 80;
-    server_name app.accoraze.com;
+    server_name app.dokandar.com;
     return 301 https://$host$request_uri;
 }
 
 server {
     listen 443 ssl http2;
-    server_name app.accoraze.com;
+    server_name app.dokandar.com;
 
-    ssl_certificate /etc/letsencrypt/live/app.accoraze.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/app.accoraze.com/privkey.pem;
+    ssl_certificate /etc/letsencrypt/live/app.dokandar.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/app.dokandar.com/privkey.pem;
     include /etc/letsencrypt/options-ssl-nginx.conf;
     ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
 
@@ -119,26 +119,26 @@ server {
         proxy_cache_bypass $http_upgrade;
     }
 
-    access_log /var/log/nginx/accoraze-access.log;
-    error_log /var/log/nginx/accoraze-error.log;
+    access_log /var/log/nginx/dokandar-access.log;
+    error_log /var/log/nginx/dokandar-error.log;
 }
 ```
 
-### accoraze.com (Landing / Coming Soon)
+### dokandar.com (Landing / Coming Soon)
 If the same Next.js app serves both domains, add a second server block:
 ```nginx
 server {
     listen 80;
-    server_name accoraze.com www.accoraze.com;
+    server_name dokandar.com www.dokandar.com;
     return 301 https://$host$request_uri;
 }
 
 server {
     listen 443 ssl http2;
-    server_name accoraze.com www.accoraze.com;
+    server_name dokandar.com www.dokandar.com;
 
-    ssl_certificate /etc/letsencrypt/live/accoraze.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/accoraze.com/privkey.pem;
+    ssl_certificate /etc/letsencrypt/live/dokandar.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/dokandar.com/privkey.pem;
     include /etc/letsencrypt/options-ssl-nginx.conf;
     ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
 
@@ -156,15 +156,15 @@ server {
 }
 ```
 
-If a separate landing page app exists on port 3000, ensure it does not conflict with Accoraze on 3001.
+If a separate landing page app exists on port 3000, ensure it does not conflict with DokanDar on 3001.
 
 ## SSL (Let's Encrypt)
 ```bash
 # App domain:
-sudo certbot --nginx -d app.accoraze.com
+sudo certbot --nginx -d app.dokandar.com
 
 # Landing domain:
-sudo certbot --nginx -d accoraze.com -d www.accoraze.com
+sudo certbot --nginx -d dokandar.com -d www.dokandar.com
 
 # Auto-renew (test):
 sudo certbot renew --dry-run
@@ -174,18 +174,18 @@ sudo certbot renew --dry-run
 
 | Address | Provider | Purpose | Usage |
 |---------|----------|---------|-------|
-| `noreply@accoraze.com` | Resend | Platform/System transactional only | Password reset, email verification, resend verification, platform notifications |
-| `support@accoraze.com` | Brevo | Inbox/human email | Customer support, reply-to |
-| `hello@accoraze.com` | Brevo | Inbox/human email | General inquiries, onboarding |
-| `admin@accoraze.com` | Brevo (optional) | Private/internal only | Never list in public docs or email templates |
+| `noreply@dokandar.com` | Resend | Platform/System transactional only | Password reset, email verification, resend verification, platform notifications |
+| `support@dokandar.com` | Brevo | Inbox/human email | Customer support, reply-to |
+| `hello@dokandar.com` | Brevo | Inbox/human email | General inquiries, onboarding |
+| `admin@dokandar.com` | Brevo (optional) | Private/internal only | Never list in public docs or email templates |
 
-### noreply@accoraze.com (Resend) — PLATFORM ONLY
+### noreply@dokandar.com (Resend) — PLATFORM ONLY
 - Used for: password reset, email verification, resend verification, platform/system automated emails, platform notifications
 - **NOT for**: business customer invoice/receipt/order confirmation emails
 - Business customer-facing emails must use each business's own SMTP credentials
 - DNS: add Resend domain verification MX/SPF/DKIM records
 
-### support@accoraze.com & hello@accoraze.com (Brevo)
+### support@dokandar.com & hello@dokandar.com (Brevo)
 - Human-managed inbox emails (not automated)
 - DNS: add Brevo MX/SPF records for inbox routing
 
@@ -200,7 +200,7 @@ sudo certbot renew --dry-run
 3. **Zoho**: Not used — do not configure
 
 ### SMTP Credentials
-- `SMTP_*` in `.env` = Resend credentials for `noreply@accoraze.com`
+- `SMTP_*` in `.env` = Resend credentials for `noreply@dokandar.com`
 - Business SMTP stored in DB per business record
 - Never commit real SMTP credentials to version control
 
@@ -208,10 +208,10 @@ sudo certbot renew --dry-run
 - [ ] `DATABASE_URL` — points to production MySQL DB
 - [ ] `JWT_SECRET` — strong random string, 64+ chars (generate with `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`)
 - [ ] `ENCRYPTION_KEY` — 64 hex chars (32 bytes) for AES-256-GCM (generate with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`)
-- [ ] `NEXT_PUBLIC_APP_URL=https://app.accoraze.com`
+- [ ] `NEXT_PUBLIC_APP_URL=https://app.dokandar.com`
 - [ ] `NODE_ENV=production`
 - [ ] `APP_MODE=cloud`
-- [ ] `SMTP_*` — Resend credentials for `noreply@accoraze.com` (platform transactional only)
+- [ ] `SMTP_*` — Resend credentials for `noreply@dokandar.com` (platform transactional only)
 - [ ] `TURNSTILE_SECRET_KEY` / `NEXT_PUBLIC_TURNSTILE_SITE_KEY` — from Cloudflare
 
 ## Post-Deploy Checklist
@@ -228,17 +228,17 @@ sudo certbot renew --dry-run
 
 ## Database Backup
 ```bash
-mysqldump -u accoraze_user -p accoraze_db > backup_$(date +%Y%m%d).sql
+mysqldump -u dokandar_user -p dokandar_db > backup_$(date +%Y%m%d).sql
 ```
 
 ## Restore Backup
 ```bash
-mysql -u accoraze_user -p accoraze_db < backup_file.sql
+mysql -u dokandar_user -p dokandar_db < backup_file.sql
 ```
 
 ## APP_MODE Configuration
 
-Accoraze supports three deployment modes:
+DokanDar supports three deployment modes:
 
 | Mode | Description | Use Case |
 |------|-------------|----------|
@@ -290,40 +290,40 @@ Uploaded files are stored in `public/uploads/`:
 **Recommended: Bind mount for persistent storage**
 ```bash
 # Create persistent data directory:
-sudo mkdir -p /var/www/accoraze-data/uploads
+sudo mkdir -p /var/www/dokandar-data/uploads
 
 # Symlink uploads to persistent storage:
-sudo ln -sfn /var/www/accoraze-data/uploads /var/www/accoraze/public/uploads
+sudo ln -sfn /var/www/dokandar-data/uploads /var/www/dokandar/public/uploads
 
 # Add to /etc/fstab for persistence across reboots:
-/var/www/accoraze-data/uploads  /var/www/accoraze/public/uploads  none  bind  0  0
+/var/www/dokandar-data/uploads  /var/www/dokandar/public/uploads  none  bind  0  0
 ```
 
 **Backup include:**
 ```bash
 # Add to backup cron:
-tar -czf accoraze-uploads-$(date +%Y%m%d).tar.gz /var/www/accoraze-data/uploads
+tar -czf dokandar-uploads-$(date +%Y%m%d).tar.gz /var/www/dokandar-data/uploads
 ```
 
 ## Troubleshooting
 
 ### Windows Path Casing
-Always use lowercase path: `g:\accoraze`
-Never: `G:\Accoraze`
+Always use lowercase path: `g:\dokandar`
+Never: `G:\DokanDar`
 
 ### Setup Already Complete
 If `/setup` returns "Setup already complete":
 - Check `Setting` table has `isSetupComplete = true`
 - Do NOT delete settings record to reset — contact support instead
 
-### Accoraze Not Starting on Port 3001
+### DokanDar Not Starting on Port 3001
 - Verify no other service is using port 3001: `sudo lsof -i :3001`
-- Check PM2 logs: `pm2 logs accoraze`
+- Check PM2 logs: `pm2 logs dokandar`
 - Ensure `.env` has `NODE_ENV=production`
 
 ### Nginx 502 Bad Gateway
-- Check Accoraze is running: `pm2 list`
-- Check Accoraze port: `pm2 show accoraze` (look for `env: { NODE_ENV: "production" }` and verify PORT)
+- Check DokanDar is running: `pm2 list`
+- Check DokanDar port: `pm2 show dokandar` (look for `env: { NODE_ENV: "production" }` and verify PORT)
 - Verify Nginx proxy_pass: `proxy_pass http://127.0.0.1:3001`
 
 ## Production Database Commands

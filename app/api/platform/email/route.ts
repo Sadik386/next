@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
         user,
         password: password || "",
         fromEmail,
-        fromName: fromName || "Accoraze Platform",
+        fromName: fromName || "DokanDar Platform",
         replyTo,
       });
 

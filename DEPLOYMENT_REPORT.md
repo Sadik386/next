@@ -1,4 +1,4 @@
-# ACCORAZE V1 — Email Verification Implementation Report
+# DOKANDAR V1 — Email Verification Implementation Report
 
 **Date:** May 25, 2026
 **Feature:** Email Verification for User Registration
@@ -7,7 +7,7 @@
 
 ## 1. Summary
 
-Email verification has been fully implemented for Accoraze V1. New users must verify their email address before signing in. The system generates secure tokens, sends styled HTML emails, and provides a polished verification UI.
+Email verification has been fully implemented for DokanDar V1. New users must verify their email address before signing in. The system generates secure tokens, sends styled HTML emails, and provides a polished verification UI.
 
 ---
 
@@ -53,10 +53,10 @@ Functions:
 | `/verify-email` | Beautiful loading/success/error states with animations |
 
 ### Database Backups Created
-- `accoraze_db_backup_20260525_170949.sql` — Full backup (162KB)
-- `accoraze_db_backup_20260525_170949_SAFE_COPY.sql` — Safe copy
-- `accoraze_db_data_only_backup_20260525.sql` — Data only (159KB)
-- `accoraze_db_pre_variant_baseline.sql` — Pre-variant baseline (264KB)
+- `dokandar_db_backup_20260525_170949.sql` — Full backup (162KB)
+- `dokandar_db_backup_20260525_170949_SAFE_COPY.sql` — Safe copy
+- `dokandar_db_data_only_backup_20260525.sql` — Data only (159KB)
+- `dokandar_db_pre_variant_baseline.sql` — Pre-variant baseline (264KB)
 
 ---
 
@@ -101,7 +101,7 @@ Before deploying to production:
 ## 6. Rollback Plan
 
 If issues arise:
-1. Restore database from `accoraze_db_backup_20260525_170949_SAFE_COPY.sql`
+1. Restore database from `dokandar_db_backup_20260525_170949_SAFE_COPY.sql`
 2. Revert git changes to pre-email-verification commit
 3. `npm run build` and redeploy
 

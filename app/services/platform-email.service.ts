@@ -182,7 +182,7 @@ export async function getPlatformEmailSafeConfig(): Promise<PlatformEmailSafeCon
     secure: envConfigured ? envSecurity.secure : null,
     user: envConfigured ? envUser : null,
     fromEmail: envConfigured ? envFromEmail : null,
-    fromName: process.env.SMTP_FROM_NAME || "Accoraze Platform",
+    fromName: process.env.SMTP_FROM_NAME || "DokanDar Platform",
     replyTo: process.env.SMTP_REPLY_TO || null,
     source: envConfigured ? "environment" : null,
   };
@@ -315,7 +315,7 @@ export async function sendTestPlatformEmail(toEmail: string): Promise<PlatformEm
   const htmlContent = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <div style="background-color: #f8f9fa; padding: 20px; text-align: center; border-radius: 8px;">
-        <h2 style="color: #333; margin-top: 15px;">Accoraze Platform</h2>
+        <h2 style="color: #333; margin-top: 15px;">DokanDar Platform</h2>
       </div>
       <div style="padding: 20px;">
         <h3 style="color: #333;">Test Email</h3>
@@ -327,14 +327,14 @@ export async function sendTestPlatformEmail(toEmail: string): Promise<PlatformEm
         </p>
       </div>
       <div style="background-color: #f8f9fa; padding: 15px; text-align: center; font-size: 12px; color: #999; border-radius: 0 0 8px 8px;">
-        <p>© ${new Date().getFullYear()} Accoraze Platform</p>
+        <p>© ${new Date().getFullYear()} DokanDar Platform</p>
       </div>
     </div>
   `;
 
   return sendPlatformEmail({
     to: toEmail,
-    subject: "Test Email from Accoraze Platform",
+    subject: "Test Email from DokanDar Platform",
     html: htmlContent,
   });
 }
@@ -348,7 +348,7 @@ export async function sendSupportReplyEmail(
   const htmlContent = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <div style="background-color: #f8f9fa; padding: 20px; text-align: center; border-radius: 8px;">
-        <h2 style="color: #333; margin-top: 15px;">Accoraze Support</h2>
+        <h2 style="color: #333; margin-top: 15px;">DokanDar Support</h2>
       </div>
       <div style="padding: 20px;">
         <h3 style="color: #333;">Reply to Your Support Request</h3>
@@ -360,11 +360,11 @@ export async function sendSupportReplyEmail(
           <p style="color: #333; line-height: 1.6; margin: 0;">${replyContent}</p>
         </div>
         <p style="color: #666; font-size: 13px; line-height: 1.6;">
-          You can reply to this email or log in to your Accoraze account to continue the conversation.
+          You can reply to this email or log in to your DokanDar account to continue the conversation.
         </p>
       </div>
       <div style="background-color: #f8f9fa; padding: 15px; text-align: center; font-size: 12px; color: #999; border-radius: 0 0 8px 8px;">
-        <p>© ${new Date().getFullYear()} Accoraze Platform</p>
+        <p>© ${new Date().getFullYear()} DokanDar Platform</p>
       </div>
     </div>
   `;
@@ -396,11 +396,11 @@ export async function sendSystemNotificationEmail(
       <div style="padding: 20px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
         <p style="color: #333; line-height: 1.6;">${message}</p>
         <p style="color: #666; font-size: 12px; margin-top: 20px;">
-          This is an automated notification from Accoraze Platform.
+          This is an automated notification from DokanDar Platform.
         </p>
       </div>
       <div style="background-color: #f8f9fa; padding: 15px; text-align: center; font-size: 12px; color: #999;">
-        <p>© ${new Date().getFullYear()} Accoraze Platform</p>
+        <p>© ${new Date().getFullYear()} DokanDar Platform</p>
       </div>
     </div>
   `;
@@ -424,28 +424,28 @@ export async function sendSubscriptionEmail(
 ): Promise<PlatformEmailResult> {
   const templates = {
     welcome: {
-      subject: "Welcome to Accoraze!",
+      subject: "Welcome to DokanDar!",
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <div style="background-color: #f8f9fa; padding: 20px; text-align: center; border-radius: 8px;">
-            <h2 style="color: #333; margin-top: 15px;">Welcome to Accoraze!</h2>
+            <h2 style="color: #333; margin-top: 15px;">Welcome to DokanDar!</h2>
           </div>
           <div style="padding: 20px;">
             <p style="color: #333; line-height: 1.6;">
-              Thank you for joining Accoraze! Your business <strong>${data.businessName || "account"}</strong> has been set up successfully.
+              Thank you for joining DokanDar! Your business <strong>${data.businessName || "account"}</strong> has been set up successfully.
             </p>
             <p style="color: #666; line-height: 1.6;">
               You can now start managing your inventory, customers, and sales with our platform.
             </p>
           </div>
           <div style="background-color: #f8f9fa; padding: 15px; text-align: center; font-size: 12px; color: #999; border-radius: 0 0 8px 8px;">
-            <p>© ${new Date().getFullYear()} Accoraze Platform</p>
+            <p>© ${new Date().getFullYear()} DokanDar Platform</p>
           </div>
         </div>
       `,
     },
     cancellation: {
-      subject: "Your Accoraze Subscription Has Been Cancelled",
+      subject: "Your DokanDar Subscription Has Been Cancelled",
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <div style="background-color: #f8f9fa; padding: 20px; text-align: center; border-radius: 8px;">
@@ -460,7 +460,7 @@ export async function sendSubscriptionEmail(
             </p>
           </div>
           <div style="background-color: #f8f9fa; padding: 15px; text-align: center; font-size: 12px; color: #999; border-radius: 0 0 8px 8px;">
-            <p>© ${new Date().getFullYear()} Accoraze Platform</p>
+            <p>© ${new Date().getFullYear()} DokanDar Platform</p>
           </div>
         </div>
       `,
@@ -481,7 +481,7 @@ export async function sendSubscriptionEmail(
             </p>
           </div>
           <div style="background-color: #f8f9fa; padding: 15px; text-align: center; font-size: 12px; color: #999; border-radius: 0 0 8px 8px;">
-            <p>© ${new Date().getFullYear()} Accoraze Platform</p>
+            <p>© ${new Date().getFullYear()} DokanDar Platform</p>
           </div>
         </div>
       `,
@@ -502,7 +502,7 @@ export async function sendSubscriptionEmail(
             </p>
           </div>
           <div style="background-color: #f8f9fa; padding: 15px; text-align: center; font-size: 12px; color: #999; border-radius: 0 0 8px 8px;">
-            <p>© ${new Date().getFullYear()} Accoraze Platform</p>
+            <p>© ${new Date().getFullYear()} DokanDar Platform</p>
           </div>
         </div>
       `,
@@ -523,7 +523,7 @@ export async function sendSubscriptionEmail(
             </p>
           </div>
           <div style="background-color: #f8f9fa; padding: 15px; text-align: center; font-size: 12px; color: #999; border-radius: 0 0 8px 8px;">
-            <p>© ${new Date().getFullYear()} Accoraze Platform</p>
+            <p>© ${new Date().getFullYear()} DokanDar Platform</p>
           </div>
         </div>
       `,

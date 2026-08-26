@@ -1,4 +1,4 @@
-# Accoraze Desktop & Offline Architecture
+# DokanDar Desktop & Offline Architecture
 
 This project is structured to ship as a native desktop application with first-class
 offline support. **All desktop/offline code in Phase 20 is structure only** — handlers
@@ -67,7 +67,7 @@ plugin (e.g. niche thermal printer driver) that lacks a Rust binding.
 
 ### Storage — `app/lib/offline/storage.ts`
 
-IndexedDB wrapper (currently `localStorage` placeholder). Database `accoraze-offline`
+IndexedDB wrapper (currently `localStorage` placeholder). Database `dokandar-offline`
 with stores:
 
 - `products`, `customers`, `orders` — read caches (keyPath `id`)

@@ -1,25 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyTokenEdge as verifyToken } from "@/lib/jwt-edge";
-import { currentAppMode } from "@/lib/config/app-mode";
-
-const PUBLIC_PAGE_ROUTES = new Set([
-  "/",
-  "/login",
-  "/register",
-  "/forgot-password",
-  "/reset-password",
-  "/verify-email",
-]);
-
-const PUBLIC_AUTH_PAGE_ROUTES = new Set([
-  "/login",
-  "/register",
-  "/forgot-password",
-  "/reset-password",
-  "/verify-email",
-]);
-
-const PUBLIC_PAGE_PREFIXES = ["/pos/mobile", "/scan/pos", "/scan/products"];
 
 const PUBLIC_API_ROUTES = [
   "/api/auth/login",
@@ -31,6 +11,7 @@ const PUBLIC_API_ROUTES = [
   "/api/auth/resend-verification",
   "/api/health",
   "/api/v1/docs",
+  "/api/setup",
 ];
 
 const API_KEY_PROTECTED_ROUTES = [
@@ -47,47 +28,18 @@ const SECURITY_HEADERS = [
   ["Referrer-Policy", "strict-origin-when-cross-origin"],
 ] as const;
 
-const DEFAULT_PERMISSIONS_POLICY = "camera=(), microphone=(), geolocation=()";
-const CAMERA_PERMISSIONS_POLICY = "camera=(self), microphone=(), geolocation=()";
-
-function addSecurityHeaders(response: NextResponse, allowCamera = false) {
+function addSecurityHeaders(response: NextResponse) {
   for (const [key, value] of SECURITY_HEADERS) {
     response.headers.set(key, value);
   }
-  response.headers.set(
-    "Permissions-Policy",
-    allowCamera ? CAMERA_PERMISSIONS_POLICY : DEFAULT_PERMISSIONS_POLICY
-  );
   return response;
 }
 
-function nextResponse(allowCamera = false) {
-  return addSecurityHeaders(NextResponse.next(), allowCamera);
-}
-
-function jsonUnauthorized(clearCookie = false) {
+function jsonUnauthorized(message = "Unauthorized") {
   const response = NextResponse.json(
-    { success: false, message: "Unauthorized" },
+    { success: false, message },
     { status: 401 }
   );
-  if (clearCookie) {
-    response.cookies.set("auth_token", "", { maxAge: 0, path: "/" });
-  }
-  return addSecurityHeaders(response);
-}
-
-function loginRedirect(req: NextRequest, clearCookie = false) {
-  const loginUrl = new URL("/login", req.url);
-  const redirectPath = `${req.nextUrl.pathname}${req.nextUrl.search}`;
-
-  if (redirectPath !== "/") {
-    loginUrl.searchParams.set("redirect", redirectPath);
-  }
-
-  const response = NextResponse.redirect(loginUrl);
-  if (clearCookie) {
-    response.cookies.set("auth_token", "", { maxAge: 0, path: "/" });
-  }
   return addSecurityHeaders(response);
 }
 
@@ -95,62 +47,12 @@ function isRouteMatch(pathname: string, route: string) {
   return pathname === route || pathname.startsWith(`${route}/`);
 }
 
-function isPublicAssetPath(pathname: string) {
-  return (
-    pathname.startsWith("/_next/") ||
-    pathname === "/favicon.ico" ||
-    pathname.startsWith("/images/") ||
-    pathname.startsWith("/assets/") ||
-    pathname.startsWith("/uploads/") ||
-    /\.(?:avif|css|gif|ico|jpg|jpeg|js|map|png|svg|txt|webmanifest|webp|xml)$/.test(pathname)
-  );
-}
-
-function isCameraRoute(pathname: string) {
-  return (
-    isRouteMatch(pathname, "/scan/pos") ||
-    isRouteMatch(pathname, "/scan/products") ||
-    pathname === "/pos/mobile" ||
-    pathname === "/pos"
-  );
-}
-
-function isPublicPage(pathname: string) {
-  return (
-    PUBLIC_PAGE_ROUTES.has(pathname) ||
-    isSetupPage(pathname) ||
-    PUBLIC_PAGE_PREFIXES.some((route) => isRouteMatch(pathname, route))
-  );
-}
-
-function isSetupPage(pathname: string) {
-  if (pathname !== "/setup") return false;
-
-  // Completion is enforced by the /setup server page, where Prisma is safe.
-  return (
-    currentAppMode === "cloud" ||
-    currentAppMode === "self_hosted" ||
-    currentAppMode === "desktop"
-  );
-}
-
-function isSetupApi(pathname: string) {
-  if (!isRouteMatch(pathname, "/api/setup")) return false;
-
-  // Setup APIs stay public for first-run installation in every supported mode.
-  return (
-    currentAppMode === "cloud" ||
-    currentAppMode === "self_hosted" ||
-    currentAppMode === "desktop"
-  );
-}
-
 function isPublicApi(pathname: string, method: string) {
-  if (PUBLIC_API_ROUTES.some((route) => isRouteMatch(pathname, route))) {
+  if (pathname === "/" || pathname === "/api") {
     return true;
   }
 
-  if (isSetupApi(pathname)) {
+  if (PUBLIC_API_ROUTES.some((route) => isRouteMatch(pathname, route))) {
     return true;
   }
 
@@ -181,59 +83,37 @@ function isApiKeyProtectedRoute(pathname: string) {
   return API_KEY_PROTECTED_ROUTES.some((route) => pathname === route);
 }
 
+function extractToken(req: NextRequest): string | null {
+  const authHeader = req.headers.get("authorization");
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    return authHeader.slice(7).trim();
+  }
+  return req.cookies.get("auth_token")?.value ?? null;
+}
+
 export default async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  if (isPublicAssetPath(pathname)) {
-    return nextResponse();
+  // Root or health / docs routes
+  if (isPublicApi(pathname, req.method) || isApiKeyProtectedRoute(pathname)) {
+    return addSecurityHeaders(NextResponse.next());
   }
 
   if (pathname.startsWith("/api/")) {
-    if (isPublicApi(pathname, req.method) || isApiKeyProtectedRoute(pathname)) {
-      return nextResponse();
-    }
-
-    const token = req.cookies.get("auth_token")?.value;
+    const token = extractToken(req);
     if (!token) {
-      return jsonUnauthorized();
+      return jsonUnauthorized("Authentication required");
     }
 
     const payload = await verifyToken(token);
     if (!payload) {
-      return jsonUnauthorized(true);
+      return jsonUnauthorized("Invalid or expired token");
     }
 
-    // TODO: Use payload.businessId for edge-level tenant-aware routing once
-    // middleware needs business scoping beyond authentication.
-    return nextResponse();
+    return addSecurityHeaders(NextResponse.next());
   }
 
-  if (isPublicPage(pathname)) {
-    if (PUBLIC_AUTH_PAGE_ROUTES.has(pathname)) {
-      const token = req.cookies.get("auth_token")?.value;
-      if (token) {
-        const payload = await verifyToken(token);
-        if (payload) {
-          return addSecurityHeaders(NextResponse.redirect(new URL("/dashboard", req.url)));
-        }
-      }
-    }
-    return nextResponse(isCameraRoute(pathname));
-  }
-
-  const token = req.cookies.get("auth_token")?.value;
-  if (!token) {
-    return loginRedirect(req);
-  }
-
-  const payload = await verifyToken(token);
-  if (!payload) {
-    return loginRedirect(req, true);
-  }
-
-  // TODO: Use payload.businessId for edge-level tenant-aware routing once
-  // middleware needs business scoping beyond authentication.
-  return nextResponse(isCameraRoute(pathname));
+  return addSecurityHeaders(NextResponse.next());
 }
 
 export const config = {

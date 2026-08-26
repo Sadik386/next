@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Financial Reports &amp; Profit Analytics | DokanDar</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-surface": "#191c1e",
+                      "on-secondary-fixed": "#001e2f",
+                      "on-tertiary": "#ffffff",
+                      "secondary-fixed-dim": "#89ceff",
+                      "on-primary": "#ffffff",
+                      "inverse-surface": "#2d3133",
+                      "primary": "#3525cd",
+                      "surface-variant": "#e0e3e5",
+                      "primary-fixed-dim": "#c3c0ff",
+                      "on-tertiary-fixed": "#002113",
+                      "on-background": "#191c1e",
+                      "on-surface-variant": "#464555",
+                      "surface-container-highest": "#e0e3e5",
+                      "tertiary-fixed-dim": "#4edea3",
+                      "on-primary-fixed-variant": "#3323cc",
+                      "tertiary": "#005338",
+                      "on-error-container": "#93000a",
+                      "secondary": "#006591",
+                      "on-primary-fixed": "#0f0069",
+                      "surface-tint": "#4d44e3",
+                      "surface-container": "#eceef0",
+                      "outline-variant": "#c7c4d8",
+                      "on-tertiary-container": "#67f4b7",
+                      "tertiary-container": "#006e4b",
+                      "surface-container-low": "#f2f4f6",
+                      "secondary-container": "#39b8fd",
+                      "on-secondary": "#ffffff",
+                      "surface-bright": "#f7f9fb",
+                      "on-tertiary-fixed-variant": "#005236",
+                      "on-secondary-container": "#004666",
+                      "secondary-fixed": "#c9e6ff",
+                      "inverse-primary": "#c3c0ff",
+                      "surface-container-lowest": "#ffffff",
+                      "on-secondary-fixed-variant": "#004c6e",
+                      "primary-container": "#4f46e5",
+                      "background": "#f7f9fb",
+                      "surface-dim": "#d8dadc",
+                      "outline": "#777587",
+                      "tertiary-fixed": "#6ffbbe",
+                      "on-primary-container": "#dad7ff",
+                      "error": "#ba1a1a",
+                      "surface-container-high": "#e6e8ea",
+                      "primary-fixed": "#e2dfff",
+                      "on-error": "#ffffff",
+                      "surface": "#f7f9fb",
+                      "inverse-on-surface": "#eff1f3",
+                      "error-container": "#ffdad6",
+                      "emerald-500": "#10b981",
+                      "emerald-50": "#ecfdf5",
+                      "red-500": "#ef4444",
+                      "red-50": "#fef2f2",
+                      "cyan-500": "#0ea5e9",
+                      "slate-50": "#f8fafc",
+                      "slate-200": "#e2e8f0"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "12px",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "gutter": "20px",
+                      "xl": "2rem",
+                      "base": "4px",
+                      "md": "1rem",
+                      "lg": "1.5rem",
+                      "container-margin": "24px",
+                      "sm": "0.5rem",
+                      "xs": "0.25rem",
+                      "2xl": "3rem"
+              },
+              "fontFamily": {
+                      "label-md": [
+                              "Inter"
+                      ],
+                      "body-lg": [
+                              "Inter"
+                      ],
+                      "label-sm": [
+                              "Inter"
+                      ],
+                      "headline-lg-mobile": [
+                              "Outfit"
+                      ],
+                      "kpi-value": [
+                              "Outfit"
+                      ],
+                      "body-md": [
+                              "Inter"
+                      ],
+                      "headline-sm": [
+                              "Outfit"
+                      ],
+                      "headline-md": [
+                              "Outfit"
+                      ],
+                      "display-lg": [
+                              "Outfit"
+                      ],
+                      "headline-lg": [
+                              "Outfit"
+                      ],
+                      "body-sm": [
+                              "Inter"
+                      ]
+              },
+              "fontSize": {
+                      "label-md": [
+                              "14px",
+                              {
+                                      "lineHeight": "16px",
+                                      "letterSpacing": "0.05em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body-lg": [
+                              "18px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "label-sm": [
+                              "12px",
+                              {
+                                      "lineHeight": "16px",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "headline-lg-mobile": [
+                              "28px",
+                              {
+                                      "lineHeight": "36px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "kpi-value": [
+                              "36px",
+                              {
+                                      "lineHeight": "44px",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "body-md": [
+                              "16px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "headline-sm": [
+                              "20px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "headline-md": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "display-lg": [
+                              "48px",
+                              {
+                                      "lineHeight": "56px",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "headline-lg": [
+                              "32px",
+                              {
+                                      "lineHeight": "40px",
+                                      "letterSpacing": "-0.01em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body-sm": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "fontWeight": "400"
+                              }
+                      ]
+              }
+            }
+          }
+        }
+    </script>
+<style>
+        body { background-color: #f8fafc; }
+        .glass-panel { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.3); }
+        .soft-shadow { box-shadow: 0px 4px 20px -2px rgba(0, 0, 0, 0.05); }
+    </style>
+</head>
+<body class="text-on-surface font-body-md bg-slate-50 min-h-screen flex antialiased">
+<!-- SideNavBar -->
+<aside class="bg-background border-r border-outline-variant w-64 h-screen fixed left-0 top-0 hidden md:flex flex-col h-full py-lg overflow-y-auto z-50">
+<div class="px-6 pb-6">
+<h1 class="font-headline-md text-headline-md font-bold text-primary flex items-center gap-2">
+<img class="h-8 w-8 object-contain" data-alt="A minimalist, modern geometric logo representing the DokanDar enterprise POS system, rendered in primary indigo against a clean white background, high contrast corporate identity." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAAs31_c1uvHwsVls-AVSY-t3KWMSMDudb5lpOgvlHp3PjXs-WyORbQhAKZQxzlYhq7WSWxzfXYj5_0LKzPMjG30KRGW6aHrA8J3BGqw9o9bedY00LLaLfdGCJxJ0dFd795rARjnu5hNyAxIxz6gChwkcMwSnA7zxy9jsaXHKUIF24QQctHcw_fne_h2UNOagzO6VXMHYxCZ8EkQAujexJaeKAkF62bvKbOBedEDgGejFiuOfcW2PZ50qBrDYod3YHW1x8a5d544qQ"/>
+                DokanDar POS
+            </h1>
+<p class="text-on-surface-variant font-label-sm text-label-sm mt-1">Enterprise Plan</p>
+</div>
+<nav class="flex-1 flex flex-col gap-1 px-3">
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">dashboard</span>
+<span class="font-label-md text-label-md">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">point_of_sale</span>
+<span class="font-label-md text-label-md">POS Register</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">inventory_2</span>
+<span class="font-label-md text-label-md">Inventory</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">inventory</span>
+<span class="font-label-md text-label-md">Products</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">shopping_cart</span>
+<span class="font-label-md text-label-md">Orders</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">bar_chart</span>
+<span class="font-label-md text-label-md">Sales</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">groups</span>
+<span class="font-label-md text-label-md">Customers</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">local_shipping</span>
+<span class="font-label-md text-label-md">Suppliers</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">payments</span>
+<span class="font-label-md text-label-md">Expenses</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 bg-primary-fixed text-on-primary-fixed-variant border-l-4 border-primary rounded-r-lg" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">analytics</span>
+<span class="font-label-md text-label-md">Reports</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">psychology</span>
+<span class="font-label-md text-label-md">AI Intelligence</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">settings</span>
+<span class="font-label-md text-label-md">Settings</span>
+</a>
+</nav>
+<div class="px-6 pt-6 mt-auto border-t border-outline-variant">
+<button class="w-full bg-primary-container text-on-primary-container font-label-md py-2 rounded-lg hover:bg-surface-tint hover:text-white transition-colors mb-4">Upgrade Storage</button>
+<div class="flex flex-col gap-1">
+<a class="flex items-center gap-3 px-2 py-2 text-on-surface-variant hover:bg-surface-container-high transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">help</span>
+<span class="font-label-sm text-label-sm">Help Center</span>
+</a>
+<a class="flex items-center gap-3 px-2 py-2 text-on-surface-variant hover:bg-surface-container-high transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">logout</span>
+<span class="font-label-sm text-label-sm">Log Out</span>
+</a>
+</div>
+</div>
+</aside>
+<div class="flex-1 md:ml-64 flex flex-col min-h-screen">
+<!-- TopNavBar -->
+<header class="bg-surface-container-lowest h-16 w-full sticky top-0 z-40 border-b border-outline-variant shadow-sm flex justify-between items-center px-lg">
+<div class="flex items-center gap-6">
+<span class="font-headline-sm text-headline-sm font-black text-primary hidden lg:block">DokanDar</span>
+<nav class="hidden md:flex gap-4">
+<a class="text-on-surface-variant font-label-md text-label-md py-5 hover:text-primary transition-colors" href="#">Global View</a>
+<a class="text-primary font-label-md text-label-md font-bold border-b-2 border-primary py-5" href="#">Terminal 1</a>
+<a class="text-on-surface-variant font-label-md text-label-md py-5 hover:text-primary transition-colors" href="#">Warehouse A</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="hidden lg:flex items-center gap-2 bg-surface-container-lowest border border-outline-variant text-primary font-label-md px-4 py-2 rounded-lg hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined text-[18px]">filter_list</span>
+                    Quick Filter
+                </button>
+<button class="bg-primary text-white font-label-md px-5 py-2 rounded-lg hover:bg-surface-tint transition-colors shadow-sm">New Sale</button>
+<div class="flex items-center gap-2 border-l border-outline-variant pl-4 ml-2">
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-low rounded-lg transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-low rounded-lg transition-colors">
+<span class="material-symbols-outlined">apps</span>
+</button>
+<button class="p-1 rounded-full overflow-hidden border-2 border-transparent hover:border-primary transition-colors">
+<img class="w-8 h-8 object-cover rounded-full" data-alt="A close up, professional headshot of a business user acting as an avatar. The photo is well lit with a neutral studio background, conveying modern enterprise professionalism in a subtle color palette." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDD3JQo5JJtvrBlrE4iqOCASAZrSC2_XTnmUzWoz8vI81CQwD-FL1jNng2hKjBs3rSC4pKMBuUhtcWazsRZl4XNe0DQ5OUVAVywFOgmf94MrfFWmY7GxGG_ImGOPxoOLwBd3QCc7NlMuwkY9sSwtO1Tdl8nbK75mppA-gKfqUv2BOLdJECeOZUHI7is501qClxI5KcviPX3hD_EGjJSovqj9KAPfADx-SkYSU-4YBfiYz6esZR2by3vYjkP0X7E0PQHLMuXuJxNryo"/>
+</button>
+</div>
+</div>
+</header>
+<!-- Main Content -->
+<main class="flex-1 p-container-margin max-w-[1440px] mx-auto w-full">
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-xl">
+<div>
+<h2 class="font-headline-lg text-headline-lg text-on-surface">Financial Reports &amp; Profit Analytics</h2>
+<p class="text-on-surface-variant font-body-sm mt-1">Terminal 1 performance overview and detailed P&amp;L.</p>
+</div>
+<div class="flex flex-wrap items-center gap-3">
+<div class="flex bg-white border border-slate-200 rounded-lg p-1 soft-shadow">
+<button class="px-4 py-1.5 rounded-md font-label-sm text-label-sm bg-surface-container-high text-on-surface">This Month</button>
+<button class="px-4 py-1.5 rounded-md font-label-sm text-label-sm text-on-surface-variant hover:bg-surface-container-low transition-colors">Last Quarter</button>
+<button class="px-4 py-1.5 rounded-md font-label-sm text-label-sm text-on-surface-variant hover:bg-surface-container-low transition-colors">YTD</button>
+</div>
+<button class="flex items-center gap-2 bg-white border border-slate-200 text-on-surface-variant font-label-md text-label-md px-3 py-2 rounded-lg hover:bg-surface-container-low transition-colors soft-shadow">
+<span class="material-symbols-outlined text-[18px]">picture_as_pdf</span>
+                        Export PDF
+                    </button>
+<button class="flex items-center gap-2 bg-white border border-slate-200 text-on-surface-variant font-label-md text-label-md px-3 py-2 rounded-lg hover:bg-surface-container-low transition-colors soft-shadow">
+<span class="material-symbols-outlined text-[18px]">csv</span>
+                        Export CSV
+                    </button>
+<button class="flex items-center gap-2 bg-primary text-white font-label-md text-label-md px-4 py-2 rounded-lg hover:bg-surface-tint transition-colors soft-shadow">
+<span class="material-symbols-outlined text-[18px]">add</span>
+                        Log New Expense
+                    </button>
+</div>
+</div>
+<!-- KPI Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-gutter mb-xl">
+<!-- Card 1 -->
+<div class="bg-white rounded-xl border border-slate-200 p-lg soft-shadow flex flex-col justify-between">
+<div class="flex justify-between items-start mb-4">
+<span class="text-on-surface-variant font-label-md text-label-md">Gross Revenue</span>
+<div class="bg-primary/10 p-2 rounded-lg">
+<span class="material-symbols-outlined text-primary">account_balance_wallet</span>
+</div>
+</div>
+<div>
+<div class="font-kpi-value text-kpi-value text-on-surface mb-1">$148,920.00</div>
+<div class="flex items-center gap-1 text-emerald-500 font-label-sm text-label-sm bg-emerald-50 w-fit px-2 py-0.5 rounded-full">
+<span class="material-symbols-outlined text-[14px]">trending_up</span>
+                            +14.2% YoY
+                        </div>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="bg-white rounded-xl border border-slate-200 p-lg soft-shadow flex flex-col justify-between">
+<div class="flex justify-between items-start mb-4">
+<span class="text-on-surface-variant font-label-md text-label-md">COGS</span>
+<div class="bg-surface-container p-2 rounded-lg">
+<span class="material-symbols-outlined text-on-surface-variant">inventory_2</span>
+</div>
+</div>
+<div>
+<div class="font-kpi-value text-kpi-value text-on-surface mb-1">$84,300.00</div>
+<div class="text-on-surface-variant font-label-sm text-label-sm mt-1">Cost of Goods Sold</div>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="bg-white rounded-xl border border-slate-200 p-lg soft-shadow flex flex-col justify-between">
+<div class="flex justify-between items-start mb-4">
+<span class="text-on-surface-variant font-label-md text-label-md">Operating Expenses</span>
+<div class="bg-red-50 p-2 rounded-lg">
+<span class="material-symbols-outlined text-red-500">receipt_long</span>
+</div>
+</div>
+<div>
+<div class="font-kpi-value text-kpi-value text-on-surface mb-1">$18,450.00</div>
+<div class="text-on-surface-variant font-label-sm text-label-sm mt-1">Total OPEX</div>
+</div>
+</div>
+<!-- Card 4 (Highlight) -->
+<div class="bg-emerald-50 rounded-xl border border-emerald-500/30 p-lg soft-shadow flex flex-col justify-between relative overflow-hidden">
+<div class="absolute -right-4 -bottom-4 opacity-10">
+<span class="material-symbols-outlined text-[120px] text-emerald-500">account_balance</span>
+</div>
+<div class="flex justify-between items-start mb-4 relative z-10">
+<span class="text-emerald-500 font-label-md text-label-md font-bold uppercase tracking-wider">Net Profit</span>
+<div class="bg-white p-2 rounded-lg shadow-sm">
+<span class="material-symbols-outlined text-emerald-500">monitoring</span>
+</div>
+</div>
+<div class="relative z-10">
+<div class="font-kpi-value text-[42px] font-bold text-emerald-500 leading-tight">$46,170.00</div>
+<div class="inline-block mt-2 bg-white text-emerald-500 border border-emerald-500/20 font-label-sm text-label-sm px-3 py-1 rounded-full shadow-sm">
+                            31.0% Margin
+                        </div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

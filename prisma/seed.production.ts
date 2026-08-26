@@ -57,7 +57,7 @@ const featureFlags = [
   {
     key: "whiteLabel",
     name: "White Label",
-    description: "Custom branding without Accoraze attribution",
+    description: "Custom branding without DokanDar attribution",
     defaultValue: false,
   },
   {

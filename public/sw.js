@@ -1,11 +1,11 @@
-// Accoraze Service Worker — STRUCTURE ONLY.
+// DokanDar Service Worker — STRUCTURE ONLY.
 // Strategy:
 //   - Static assets (JS/CSS/images): cache-first, fall back to network.
 //   - GET /api/*:                    network-first, fall back to cached response.
 //   - POST/PUT/DELETE /api/*:        forward; on failure, queue via Background Sync.
 //   - Navigation requests offline:   serve /offline.html fallback.
 
-const CACHE_NAME = 'accoraze-v1';
+const CACHE_NAME = 'dokandar-v1';
 const OFFLINE_URL = '/offline.html'; // TODO: ship this static page from /app/offline/page.tsx
 const STATIC_ASSETS = [
   '/',

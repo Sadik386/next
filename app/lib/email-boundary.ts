@@ -22,7 +22,7 @@ type SmtpErrorLike = {
   responseCode?: unknown;
 };
 
-const DEV_INSECURE_TLS_ENV = "ACCORAZE_ALLOW_INSECURE_SMTP_TLS";
+const DEV_INSECURE_TLS_ENV = "DOKANDAR_ALLOW_INSECURE_SMTP_TLS";
 
 export function getSmtpTransportSecurity(
   portValue: number | null | undefined,

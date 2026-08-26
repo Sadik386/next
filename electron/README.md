@@ -1,4 +1,4 @@
-# Accoraze Desktop (Electron)
+# DokanDar Desktop (Electron)
 
 ## Development
 1. Install electron dependencies

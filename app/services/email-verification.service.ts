@@ -101,7 +101,7 @@ export function buildVerificationEmailHtml(params: {
                 Please do not reply to this email.
               </p>
               <p style="margin: 8px 0 0; font-size: 11px; color: #d1d5db; text-align: center;">
-                © ${year} Accoraze. All rights reserved.
+                © ${year} DokanDar. All rights reserved.
               </p>
             </td>
           </tr>
@@ -126,7 +126,7 @@ export function buildForgotPasswordEmailHtml(params: {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Reset Your Accoraze Password</title>
+  <title>Reset Your DokanDar Password</title>
 </head>
 <body style="margin: 0; padding: 0; background-color: #f4f4f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #f4f4f5;">
@@ -136,7 +136,7 @@ export function buildForgotPasswordEmailHtml(params: {
           <!-- Header -->
           <tr>
             <td style="background-color: #1a1a2e; padding: 32px 32px 28px; text-align: center;">
-              <span style="display: inline-block; font-size: 22px; font-weight: 700; color: #C4973A; letter-spacing: 0.5px;">ACCORAZE</span>
+              <span style="display: inline-block; font-size: 22px; font-weight: 700; color: #C4973A; letter-spacing: 0.5px;">DOKANDAR</span>
               <h1 style="margin: 16px 0 0; font-size: 22px; font-weight: 700; color: #ffffff; text-align: center;">Reset Your Password</h1>
             </td>
           </tr>
@@ -145,7 +145,7 @@ export function buildForgotPasswordEmailHtml(params: {
             <td style="padding: 36px 32px 24px;">
               <p style="margin: 0 0 8px; font-size: 15px; color: #1a1a1a; font-weight: 600;">Hi ${recipientName},</p>
               <p style="margin: 0 0 20px; font-size: 14px; color: #4b5563; line-height: 1.6;">
-                We received a request to reset the password for your Accoraze account.
+                We received a request to reset the password for your DokanDar account.
                 Click the button below to set a new password.
               </p>
 
@@ -177,7 +177,7 @@ export function buildForgotPasswordEmailHtml(params: {
             <td style="padding: 0 32px 24px;">
               <div style="background-color: #fef3c7; border: 1px solid #fcd34d; border-radius: 8px; padding: 14px 16px;">
                 <p style="margin: 0; font-size: 12px; color: #92400e; line-height: 1.5; font-weight: 500;">
-                  <strong>Security reminder:</strong> Accoraze staff will never ask for your password or ask you to download anything via email.
+                  <strong>Security reminder:</strong> DokanDar staff will never ask for your password or ask you to download anything via email.
                 </p>
               </div>
             </td>
@@ -186,11 +186,11 @@ export function buildForgotPasswordEmailHtml(params: {
           <tr>
             <td style="background-color: #f9fafb; padding: 20px 32px; border-top: 1px solid #f3f4f6;">
               <p style="margin: 0; font-size: 12px; color: #9ca3af; text-align: center; line-height: 1.6;">
-                This is an automated message from <strong style="color: #C4973A;">Accoraze</strong>.<br>
+                This is an automated message from <strong style="color: #C4973A;">DokanDar</strong>.<br>
                 Please do not reply to this email.
               </p>
               <p style="margin: 8px 0 0; font-size: 11px; color: #d1d5db; text-align: center;">
-                © ${year} Accoraze. All rights reserved.
+                © ${year} DokanDar. All rights reserved.
               </p>
             </td>
           </tr>
@@ -222,7 +222,7 @@ export async function sendVerificationEmail(
 
   const result = await sendPlatformEmail({
     to: email,
-    subject: "Verify Your Accoraze Account",
+    subject: "Verify Your DokanDar Account",
     html,
   });
 
@@ -247,7 +247,7 @@ export async function sendForgotPasswordEmail(
 
   const result = await sendPlatformEmail({
     to: email,
-    subject: "Reset Your Accoraze Password",
+    subject: "Reset Your DokanDar Password",
     html,
   });
 

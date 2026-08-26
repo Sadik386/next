@@ -68,7 +68,7 @@ const featureFlags = [
   {
     key: "whiteLabel",
     name: "White Label",
-    description: "Custom branding without Accoraze attribution",
+    description: "Custom branding without DokanDar attribution",
     defaultValue: false,
   },
   {
@@ -577,7 +577,7 @@ async function main() {
 
   console.log("Seeding complete!");
   console.log(`Default admin email: ${DEFAULT_ADMIN_EMAIL}`);
-  console.log("Default local dev password: Accoraze@123");
+  console.log("Default local dev password: DokanDar@123");
 }
 
 main()

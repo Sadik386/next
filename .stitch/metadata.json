@@ -1,0 +1,115 @@
+{
+  "name": "projects/6223076811103528131",
+  "projectId": "6223076811103528131",
+  "title": "DokanDar POS & Inventory Management System",
+  "visibility": "PRIVATE",
+  "createTime": "2026-08-23T20:47:35.208921Z",
+  "updateTime": "2026-08-23T20:50:59.000000Z",
+  "projectType": "PROJECT_DESIGN",
+  "origin": "STITCH",
+  "deviceType": "DESKTOP",
+  "designTheme": {
+    "colorMode": "LIGHT",
+    "font": "OUTFIT",
+    "roundness": "ROUND_EIGHT",
+    "customColor": "#4f46e5",
+    "headlineFont": "OUTFIT",
+    "bodyFont": "INTER",
+    "labelFont": "INTER"
+  },
+  "screens": {
+    "dashboard": {
+      "id": "0a63cfb552c3448ba422e4c8091bde48",
+      "sourceScreen": "projects/6223076811103528131/screens/0a63cfb552c3448ba422e4c8091bde48",
+      "title": "DokanDar Executive Commerce Dashboard",
+      "width": 2560,
+      "height": 2776,
+      "x": 0,
+      "y": 0
+    },
+    "pos": {
+      "id": "155b582c8f7641f5b6bf22a37b49d346",
+      "sourceScreen": "projects/6223076811103528131/screens/155b582c8f7641f5b6bf22a37b49d346",
+      "title": "DokanDar POS Register",
+      "width": 2560,
+      "height": 2048,
+      "x": 2600,
+      "y": 0
+    },
+    "inventory": {
+      "id": "44bfddfd51ac4df08ca564c898559c80",
+      "sourceScreen": "projects/6223076811103528131/screens/44bfddfd51ac4df08ca564c898559c80",
+      "title": "DokanDar Inventory & Stock Management",
+      "width": 2560,
+      "height": 2048,
+      "x": 5200,
+      "y": 0
+    },
+    "orders": {
+      "id": "e81c35490ffc4205a7428cbbbc8acc84",
+      "sourceScreen": "projects/6223076811103528131/screens/e81c35490ffc4205a7428cbbbc8acc84",
+      "title": "DokanDar Order Management & Invoices",
+      "width": 2560,
+      "height": 2048,
+      "x": 7800,
+      "y": 0
+    },
+    "products": {
+      "id": "3198f1b2681a40d180e4d11005b0a4df",
+      "sourceScreen": "projects/6223076811103528131/screens/3198f1b2681a40d180e4d11005b0a4df",
+      "title": "DokanDar Product Catalog & Barcodes",
+      "width": 2560,
+      "height": 2176,
+      "x": 10400,
+      "y": 0
+    },
+    "customers": {
+      "id": "e0fdb3b364b4451a99bb3bf501d40739",
+      "sourceScreen": "projects/6223076811103528131/screens/e0fdb3b364b4451a99bb3bf501d40739",
+      "title": "DokanDar Customer CRM & Supplier Ledger",
+      "width": 2560,
+      "height": 2048,
+      "x": 13000,
+      "y": 0
+    },
+    "reports": {
+      "id": "79b931a9722942058c0ba6c6380d59dd",
+      "sourceScreen": "projects/6223076811103528131/screens/79b931a9722942058c0ba6c6380d59dd",
+      "title": "DokanDar Financial Reports & Profit Analytics",
+      "width": 2560,
+      "height": 2048,
+      "x": 15600,
+      "y": 0
+    },
+    "intelligence": {
+      "id": "408cf11b01c6417190183451f9939b75",
+      "sourceScreen": "projects/6223076811103528131/screens/408cf11b01c6417190183451f9939b75",
+      "title": "DokanDar AI Intelligence & Business Settings",
+      "width": 2560,
+      "height": 2896,
+      "x": 18200,
+      "y": 0
+    },
+    "login": {
+      "id": "e2b4867fce734a09b238b209bc633a4b",
+      "sourceScreen": "projects/6223076811103528131/screens/e2b4867fce734a09b238b209bc633a4b",
+      "title": "DokanDar Authentication Portal",
+      "width": 2560,
+      "height": 2048,
+      "x": 20800,
+      "y": 0
+    },
+    "platform-admin": {
+      "id": "2fbffaefb5544d539678728915a2cc2e",
+      "sourceScreen": "projects/6223076811103528131/screens/2fbffaefb5544d539678728915a2cc2e",
+      "title": "DokanDar Super-Admin & Governance Platform",
+      "width": 2560,
+      "height": 2158,
+      "x": 23400,
+      "y": 0
+    }
+  },
+  "metadata": {
+    "userRole": "OWNER"
+  }
+}

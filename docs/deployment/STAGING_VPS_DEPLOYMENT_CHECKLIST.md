@@ -1,4 +1,4 @@
-# ACCORAZE V1 STAGING VPS DEPLOYMENT EXECUTION CHECKLIST
+# DOKANDAR V1 STAGING VPS DEPLOYMENT EXECUTION CHECKLIST
 
 ---
 
@@ -6,11 +6,11 @@
 
 | Item | Detail |
 |------|--------|
-| Project | Accoraze V1 |
+| Project | DokanDar V1 |
 | Deployment Target | Fresh VPS (Ubuntu 22.04 LTS) |
 | Stack | Next.js (standalone) + PM2 + Nginx + MySQL |
 | Database | MySQL (hosted on VPS) |
-| Uploads | Local (`/var/www/accoraze/uploads`) with backup |
+| Uploads | Local (`/var/www/dokandar/uploads`) with backup |
 | SSL | Let's Encrypt (Certbot) |
 | Migration Strategy | `prisma migrate deploy` (NOT migrate dev) |
 
@@ -57,8 +57,8 @@ sudo usermod -aG sudo deploy
 sudo su - deploy
 
 # Create project directory
-sudo mkdir -p /var/www/accoraze
-sudo chown deploy:deploy /var/www/accoraze
+sudo mkdir -p /var/www/dokandar
+sudo chown deploy:deploy /var/www/dokandar
 ```
 
 ---
@@ -83,7 +83,7 @@ sudo npm install -g pm2
 sudo apt install -y nginx
 
 # Install MySQL Server
-sudo apt install -y mysql-server
+sudo apt install -y mysPOSql-server
 
 # Start and enable MySQL
 sudo systemctl start mysql
@@ -114,15 +114,15 @@ sudo systemctl status nginx
 sudo mysql -u root -p
 
 # Inside MySQL shell, run:
-CREATE DATABASE accoraze CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER 'accoraze_user'@'localhost' IDENTIFIED BY 'STRONG_PASSWORD';
-GRANT ALL PRIVILEGES ON accoraze.* TO 'accoraze_user'@'localhost';
+CREATE DATABASE dokandar CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'dokandar_user'@'localhost' IDENTIFIED BY 'STRONG_PASSWORD';
+GRANT ALL PRIVILEGES ON dokandar.* TO 'dokandar_user'@'localhost';
 FLUSH PRIVILEGES;
 EXIT;
 
 # Verify database and user
-mysql -u accoraze_user -p -e "SHOW DATABASES;"
-# Should list accoraze
+mysql -u dokandar_user -p -e "SHOW DATABASES;"
+# Should list dokandar
 ```
 
 **Note:** Record your database credentials. Replace `STRONG_PASSWORD` with a real strong password.
@@ -136,10 +136,10 @@ mysql -u accoraze_user -p -e "SHOW DATABASES;"
 **Run on VPS**
 
 ```bash
-cd /var/www/accoraze
+cd /var/www/dokandar
 
 # Clone repository (replace with your actual repo URL)
-git clone https://github.com/your-org/accoraze.git .
+git clone https://github.com/your-org/dokandar.git .
 
 # Check files exist
 ls -la
@@ -154,16 +154,16 @@ ls -la
 
 ```bash
 # From your local machine
-cd accoraze
-tar -czvf accoraze-app.tar.gz . --exclude='node_modules' --exclude='.next' --exclude='.git'
+cd dokandar
+tar -czvf dokandar-app.tar.gz . --exclude='node_modules' --exclude='.next' --exclude='.git'
 # Upload via scp or a shared method
 ```
 
 **Run on VPS** (after upload)
 
 ```bash
-cd /var/www/accoraze
-tar -xzvf accoraze-app.tar.gz
+cd /var/www/dokandar
+tar -xzvf dokandar-app.tar.gz
 ```
 
 ---
@@ -173,7 +173,7 @@ tar -xzvf accoraze-app.tar.gz
 ### Run on VPS
 
 ```bash
-cd /var/www/accoraze
+cd /var/www/dokandar
 
 # Create .env file
 nano .env
@@ -187,14 +187,14 @@ NODE_ENV=production
 NEXT_TELEMETRY_DISABLED=1
 
 # Database (MySQL on localhost)
-DATABASE_URL="mysql://accoraze_user:STRONG_PASSWORD@localhost:3306/accoraze?schema=public&ssl=false"
+DATABASE_URL="mysql://dokandar_user:STRONG_PASSWORD@localhost:3306/dokandar?schema=public&ssl=false"
 
 # Next Auth (generate secret: openssl rand -base64 32)
 NEXTAUTH_URL=http://yourdomain.com
 NEXTAUTH_SECRET=YOUR_32_CHAR_SECRET_HERE
 
 # File Uploads (local storage)
-UPLOAD_DIR=/var/www/accoraze/uploads
+UPLOAD_DIR=/var/www/dokandar/uploads
 
 # Optional: Email settings
 # SMTP_HOST=smtp.example.com
@@ -211,8 +211,8 @@ UPLOAD_DIR=/var/www/accoraze/uploads
 chmod 600 .env
 
 # Create uploads directory
-mkdir -p /var/www/accoraze/uploads
-chmod 755 /var/www/accoraze/uploads
+mkdir -p /var/www/dokandar/uploads
+chmod 755 /var/www/dokandar/uploads
 ```
 
 ---
@@ -222,7 +222,7 @@ chmod 755 /var/www/accoraze/uploads
 ### Run on VPS
 
 ```bash
-cd /var/www/accoraze
+cd /var/www/dokandar
 
 # Install dependencies
 npm install
@@ -238,7 +238,7 @@ ls node_modules | wc -l  # Should show hundreds of packages
 ### Run on VPS
 
 ```bash
-cd /var/www/accoraze
+cd /var/www/dokandar
 
 # Generate Prisma Client
 npx prisma generate
@@ -262,7 +262,7 @@ npx prisma migrate deploy
 ### Run on VPS
 
 ```bash
-cd /var/www/accoraze
+cd /var/www/dokandar
 
 # Build the application
 npm run build
@@ -284,13 +284,13 @@ ls .next/static         # Should have static assets
 ### Run on VPS
 
 ```bash
-cd /var/www/accoraze
+cd /var/www/dokandar
 
 # Create ecosystem.config.js if not present
 cat > ecosystem.config.js << 'EOF'
 module.exports = {
   apps: [{
-    name: 'accoraze',
+    name: 'dokandar',
     script: '.next/standalone/server.js',
     instances: 1,
     exec_mode: 'cluster',
@@ -299,16 +299,16 @@ module.exports = {
       NODE_ENV: 'production',
       PORT: 3000
     },
-    error_file: '/var/log/accoraze/err.log',
-    out_file: '/var/log/accoraze/out.log',
+    error_file: '/var/log/dokandar/err.log',
+    out_file: '/var/log/dokandar/out.log',
     log_date_format: 'YYYY-MM-DD HH:mm:ss Z'
   }]
 };
 EOF
 
 # Create log directory
-sudo mkdir -p /var/log/accoraze
-sudo chown deploy:deploy /var/log/accoraze
+sudo mkdir -p /var/log/dokandar
+sudo chown deploy:deploy /var/log/dokandar
 
 # Start PM2
 pm2 start ecosystem.config.js
@@ -323,7 +323,7 @@ pm2 startup
 
 # Verify application is running
 pm2 status
-# Should show: accoraze | online | 1/1
+# Should show: dokandar | online | 1/1
 ```
 
 **Test that app responds:**
@@ -345,7 +345,7 @@ pm2 logs --lines 50
 
 ```bash
 # Create Nginx config
-sudo nano /etc/nginx/sites-available/accoraze
+sudo nano /etc/nginx/sites-available/dokandar
 ```
 
 **Paste the following:**
@@ -380,7 +380,7 @@ server {
 
     # Uploaded files (if stored locally)
     location /uploads {
-        alias /var/www/accoraze/uploads;
+        alias /var/www/dokandar/uploads;
         add_header Cache-Control "public, max-age=31536000";
     }
 
@@ -395,7 +395,7 @@ server {
 
 ```bash
 # Enable the site
-sudo ln -s /etc/nginx/sites-available/accoraze /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/dokandar /etc/nginx/sites-enabled/
 
 # Remove default site (optional)
 sudo rm /etc/nginx/sites-enabled/default
@@ -446,18 +446,18 @@ sudo certbot renew --dry-run
 
 ```bash
 # Verify uploads directory
-ls -la /var/www/accoraze/uploads
+ls -la /var/www/dokandar/uploads
 
 # Set correct permissions
-chmod -R 755 /var/www/accoraze/uploads
-chown -R deploy:deploy /var/www/accoraze/uploads
+chmod -R 755 /var/www/dokandar/uploads
+chown -R deploy:deploy /var/www/dokandar/uploads
 
 # Test file write access
-sudo -u deploy touch /var/www/accoraze/uploads/.write-test
-sudo -u deploy rm /var/www/accoraze/uploads/.write-test
+sudo -u deploy touch /var/www/dokandar/uploads/.write-test
+sudo -u deploy rm /var/www/dokandar/uploads/.write-test
 
 # If using external storage (optional - skip if local is acceptable):
-# Configure in .env: UPLOAD_DIR=/var/www/accoraze/uploads
+# Configure in .env: UPLOAD_DIR=/var/www/dokandar/uploads
 # or cloud storage if needed
 ```
 
@@ -476,24 +476,24 @@ nano /home/deploy/backup.sh
 
 ```bash
 #!/bin/bash
-# Accoraze Backup Script
+# DokanDar Backup Script
 # Run daily via cron
 
 DATE=$(date +%Y%m%d_%H%M%S)
 BACKUP_DIR=/home/deploy/backups
-WEB_ROOT=/var/www/accoraze
+WEB_ROOT=/var/www/dokandar
 RETENTION_DAYS=7
 
 mkdir -p $BACKUP_DIR
 
 # Database backup
-mysqldump -u accoraze_user -p'STRONG_PASSWORD' accoraze > $BACKUP_DIR/db_$DATE.sql
+mysqldump -u dokandar_user -p'STRONG_PASSWORD' dokandar > $BACKUP_DIR/db_$DATE.sql
 
 # Compress database backup
 gzip $BACKUP_DIR/db_$DATE.sql
 
 # Uploads directory backup (incremental)
-tar -czvf $BACKUP_DIR/uploads_$DATE.tar.gz -C /var/www accoraze/uploads 2>/dev/null
+tar -czvf $BACKUP_DIR/uploads_$DATE.tar.gz -C /var/www dokandar/uploads 2>/dev/null
 
 # Remove old backups (keep last 7 days)
 find $BACKUP_DIR -type f -mtime +$RETENTION_DAYS -delete
@@ -587,7 +587,7 @@ sleep 180
 
 # Check services auto-restarted
 ssh deploy@yourdomain.com "pm2 list"
-# Should show accoraze | online
+# Should show dokandar | online
 
 ssh deploy@yourdomain.com "sudo systemctl status nginx"
 # Should show active (running)
@@ -611,10 +611,10 @@ curl -I https://yourdomain.com/api/health
 pm2 list
 
 # Stop current app
-pm2 stop accoraze
+pm2 stop dokandar
 
 # Restore previous version (from git)
-cd /var/www/accoraze
+cd /var/www/dokandar
 git log --oneline -5
 # Identify the last good commit hash
 
@@ -622,7 +622,7 @@ git checkout [good-commit-hash]
 npm install
 npx prisma generate
 npm run build
-pm2 restart accoraze
+pm2 restart dokandar
 
 # If PM2 saved state is corrupt:
 pm2 delete all
@@ -658,7 +658,7 @@ ls -la /var/run/mysqld/
 sudo systemctl restart mysql
 
 # Test connection
-mysql -u accoraze_user -p -e "SELECT 1;"
+mysql -u dokandar_user -p -e "SELECT 1;"
 ```
 
 ### Error: `prisma migrate deploy` fails with "already in transaction"
@@ -666,10 +666,10 @@ mysql -u accoraze_user -p -e "SELECT 1;"
 **Fix:**
 ```bash
 # Check if migration lock table exists
-mysql -u accoraze_user -p -e "USE accoraze; SHOW TABLES;"
+mysql -u dokandar_user -p -e "USE dokandar; SHOW TABLES;"
 
 # If stuck, clear migration lock
-mysql -u accoraze_user -p -e "USE accoraze; DELETE FROM _prisma_migrations;"
+mysql -u dokandar_user -p -e "USE dokandar; DELETE FROM _prisma_migrations;"
 ```
 
 ### Error: PM2 app starts but returns 502
@@ -682,7 +682,7 @@ curl -I http://localhost:3000
 
 # Verify Nginx proxy_pass matches actual port
 # Update ecosystem.config.js PORT if needed
-pm2 restart accoraze
+pm2 restart dokandar
 ```
 
 ### Error: Build fails on VPS (Out of memory)
@@ -743,7 +743,7 @@ env: {
 
 # Or use dotenv PM2 module
 pm2 install pm2-dotenv
-pm2 restart accoraze
+pm2 restart dokandar
 ```
 
 ---
@@ -754,7 +754,7 @@ pm2 restart accoraze
 |---|----------|------|
 | 1 | VPS reachable via SSH | [ ] |
 | 2 | MySQL running and accepting connections | [ ] |
-| 3 | Database `accoraze` exists with correct user | [ ] |
+| 3 | Database `dokandar` exists with correct user | [ ] |
 | 4 | `npx prisma migrate deploy` completes successfully | [ ] |
 | 5 | `npm run build` completes without errors | [ ] |
 | 6 | PM2 process runs and stays online | [ ] |

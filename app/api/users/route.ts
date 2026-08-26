@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
       const tokenResult = await createEmailVerificationToken(result.user.id, email, user.businessId);
       if (tokenResult.success && tokenResult.token) {
         const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-        await sendVerificationEmail(email, name, business?.name || "Accoraze", tokenResult.token, baseUrl);
+        await sendVerificationEmail(email, name, business?.name || "DokanDar", tokenResult.token, baseUrl);
       }
 
       return NextResponse.json({ user: result.user }, { status: 201 });

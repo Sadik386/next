@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>DokanDar POS - Product Catalog &amp; Barcodes</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Outfit:wght@400;600;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "tertiary-fixed-dim": "#4edea3",
+                      "surface-container-lowest": "#ffffff",
+                      "surface-container-high": "#e6e8ea",
+                      "surface-bright": "#f7f9fb",
+                      "tertiary-container": "#006e4b",
+                      "background": "#f7f9fb",
+                      "on-tertiary": "#ffffff",
+                      "on-tertiary-container": "#67f4b7",
+                      "surface-container": "#eceef0",
+                      "surface-dim": "#d8dadc",
+                      "primary-fixed": "#e2dfff",
+                      "error-container": "#ffdad6",
+                      "secondary-fixed-dim": "#89ceff",
+                      "inverse-primary": "#c3c0ff",
+                      "tertiary-fixed": "#6ffbbe",
+                      "surface-container-low": "#f2f4f6",
+                      "surface-variant": "#e0e3e5",
+                      "on-secondary-container": "#004666",
+                      "on-error": "#ffffff",
+                      "secondary": "#006591",
+                      "primary": "#3525cd",
+                      "surface-container-highest": "#e0e3e5",
+                      "secondary-container": "#39b8fd",
+                      "inverse-on-surface": "#eff1f3",
+                      "outline-variant": "#c7c4d8",
+                      "primary-fixed-dim": "#c3c0ff",
+                      "on-tertiary-fixed-variant": "#005236",
+                      "on-primary": "#ffffff",
+                      "tertiary": "#005338",
+                      "on-tertiary-fixed": "#002113",
+                      "error": "#ba1a1a",
+                      "on-secondary-fixed": "#001e2f",
+                      "on-background": "#191c1e",
+                      "primary-container": "#4f46e5",
+                      "on-secondary-fixed-variant": "#004c6e",
+                      "secondary-fixed": "#c9e6ff",
+                      "on-secondary": "#ffffff",
+                      "on-error-container": "#93000a",
+                      "on-primary-container": "#dad7ff",
+                      "on-surface-variant": "#464555",
+                      "inverse-surface": "#2d3133",
+                      "surface-tint": "#4d44e3",
+                      "on-surface": "#191c1e",
+                      "on-primary-fixed": "#0f0069",
+                      "surface": "#f7f9fb",
+                      "outline": "#777587",
+                      "on-primary-fixed-variant": "#3323cc"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "container-margin": "24px",
+                      "xl": "2rem",
+                      "xs": "0.25rem",
+                      "gutter": "20px",
+                      "md": "1rem",
+                      "2xl": "3rem",
+                      "sm": "0.5rem",
+                      "lg": "1.5rem",
+                      "base": "4px"
+              },
+              "fontFamily": {
+                      "kpi-value": ["Outfit"],
+                      "body-sm": ["Inter"],
+                      "headline-lg": ["Outfit"],
+                      "headline-lg-mobile": ["Outfit"],
+                      "body-md": ["Inter"],
+                      "headline-sm": ["Outfit"],
+                      "label-md": ["Inter"],
+                      "body-lg": ["Inter"],
+                      "headline-md": ["Outfit"],
+                      "display-lg": ["Outfit"],
+                      "label-sm": ["Inter"]
+              },
+              "fontSize": {
+                      "kpi-value": ["36px", {"lineHeight": "44px", "fontWeight": "700"}],
+                      "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                      "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                      "headline-lg-mobile": ["28px", {"lineHeight": "36px", "fontWeight": "600"}],
+                      "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                      "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                      "label-md": ["14px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                      "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                      "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                      "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                      "label-sm": ["12px", {"lineHeight": "16px", "fontWeight": "500"}]
+              }
+            }
+          }
+        }
+      </script>
+<style>
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(8px);
+            border: 1px solid #e2e8f0;
+            box-shadow: 0px 4px 20px -2px rgba(0, 0, 0, 0.05);
+        }
+        .soft-shadow {
+            box-shadow: 0px 4px 20px -2px rgba(0, 0, 0, 0.05);
+        }
+        .tonal-chip-success { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+        .tonal-chip-danger { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+        .tonal-chip-warning { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
+      </style>
+</head>
+<body class="bg-background text-on-background font-body-md antialiased min-h-screen">
+<!-- SideNavBar -->
+<nav class="w-64 h-screen fixed left-0 top-0 bg-background dark:bg-background border-r border-outline-variant dark:border-outline flex flex-col h-full py-lg overflow-y-auto z-50">
+<div class="px-4 mb-8">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-primary-container text-on-primary-container flex items-center justify-center font-bold">A</div>
+<div>
+<h1 class="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed-dim">DokanDar POS</h1>
+<p class="font-label-sm text-label-sm text-outline">Enterprise Plan</p>
+</div>
+</div>
+</div>
+<div class="flex-1 px-2 space-y-1">
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors font-label-md text-label-md rounded-lg" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+                Dashboard
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors font-label-md text-label-md rounded-lg" href="#">
+<span class="material-symbols-outlined">point_of_sale</span>
+                POS Register
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors font-label-md text-label-md rounded-lg" href="#">
+<span class="material-symbols-outlined">inventory_2</span>
+                Inventory
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 bg-primary-fixed text-on-primary-fixed-variant border-l-4 border-primary font-label-md text-label-md transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">inventory</span>
+                Products
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors font-label-md text-label-md rounded-lg" href="#">
+<span class="material-symbols-outlined">shopping_cart</span>
+                Orders
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors font-label-md text-label-md rounded-lg" href="#">
+<span class="material-symbols-outlined">bar_chart</span>
+                Sales
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors font-label-md text-label-md rounded-lg" href="#">
+<span class="material-symbols-outlined">groups</span>
+                Customers
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors font-label-md text-label-md rounded-lg" href="#">
+<span class="material-symbols-outlined">local_shipping</span>
+                Suppliers
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors font-label-md text-label-md rounded-lg" href="#">
+<span class="material-symbols-outlined">payments</span>
+                Expenses
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors font-label-md text-label-md rounded-lg" href="#">
+<span class="material-symbols-outlined">analytics</span>
+                Reports
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors font-label-md text-label-md rounded-lg" href="#">
+<span class="material-symbols-outlined text-secondary-container">psychology</span>
+                AI Intelligence
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors font-label-md text-label-md rounded-lg" href="#">
+<span class="material-symbols-outlined">settings</span>
+                Settings
+            </a>
+</div>
+<div class="px-4 mt-auto space-y-4">
+<button class="w-full py-2 px-4 bg-surface-container border border-outline-variant rounded-lg font-label-md text-label-md text-primary flex items-center justify-center gap-2 hover:bg-surface-variant transition-colors">
+                 Upgrade Storage
+             </button>
+<div class="border-t border-outline-variant pt-4 space-y-1">
+<a class="flex items-center gap-3 px-2 py-2 text-on-surface-variant hover:bg-surface-container-high transition-colors font-label-sm text-label-sm rounded-lg" href="#">
+<span class="material-symbols-outlined text-[18px]">help</span>
+                    Help Center
+                </a>
+<a class="flex items-center gap-3 px-2 py-2 text-on-surface-variant hover:bg-surface-container-high transition-colors font-label-sm text-label-sm rounded-lg" href="#">
+<span class="material-symbols-outlined text-[18px]">logout</span>
+                    Log Out
+                </a>
+</div>
+</div>
+</nav>
+<!-- TopNavBar -->
+<header class="h-16 w-full sticky top-0 z-40 bg-surface-container-lowest border-b border-outline-variant flex justify-between items-center px-lg ml-64 shadow-sm" style="width: calc(100% - 256px);">
+<div class="flex items-center gap-6">
+<span class="font-headline-sm text-headline-sm font-black text-primary">DokanDar</span>
+<div class="hidden md:flex gap-4 ml-4">
+<a class="font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-low rounded-lg px-3 py-1.5 transition-colors" href="#">Global View</a>
+<a class="font-label-md text-label-md text-primary font-bold border-b-2 border-primary pb-1 px-3 py-1.5" href="#">Terminal 1</a>
+<a class="font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-low rounded-lg px-3 py-1.5 transition-colors" href="#">Warehouse A</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="font-label-md text-label-md px-4 py-2 bg-surface-container-lowest border border-outline-variant text-primary rounded-lg hover:bg-surface-container-low transition-colors">
+                Quick Filter
+            </button>
+<button class="font-label-md text-label-md px-4 py-2 bg-primary text-on-primary rounded-lg hover:bg-primary-fixed-variant transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">add</span> New Sale
+            </button>
+<div class="flex items-center gap-2 border-l border-outline-variant pl-4 ml-2">
+<button class="p-2 text-outline hover:bg-surface-container-low rounded-lg transition-colors"><span class="material-symbols-outlined">notifications</span></button>
+<button class="p-2 text-outline hover:bg-surface-container-low rounded-lg transition-colors"><span class="material-symbols-outlined">apps</span></button>
+<button class="p-2 text-outline hover:bg-surface-container-low rounded-lg transition-colors"><span class="material-symbols-outlined">account_circle</span></button>
+</div>
+</div>
+</header>
+<!-- Main Content -->
+<main class="ml-64 p-container-margin min-h-screen">
+<!-- Header Section -->
+<div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-md gap-4">
+<div>
+<h2 class="font-headline-lg text-headline-lg text-on-background">Product Catalog &amp; Barcodes</h2>
+<p class="font-body-md text-body-md text-on-surface-variant mt-1">Manage inventory, variations, and generate printable labels.</p>
+</div>
+<div class="flex flex-wrap items-center gap-3">
+<button class="font-label-md text-label-md px-4 py-2 bg-surface-container-lowest border border-outline-variant text-primary rounded-lg hover:bg-surface-container-low transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">category</span> Manage Categories
+                </button>
+<button class="font-label-md text-label-md px-4 py-2 bg-surface-container-lowest border border-outline-variant text-primary rounded-lg hover:bg-surface-container-low transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">print</span> Print Barcode Labels (PDF)
+                </button>
+<button class="font-label-md text-label-md px-4 py-2 bg-surface-container-lowest border border-outline-variant text-primary rounded-lg hover:bg-surface-container-low transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">upload_file</span> Bulk Import CSV
+                </button>
+<button class="font-label-md text-label-md px-4 py-2 bg-primary text-on-primary rounded-lg hover:bg-primary-fixed-variant transition-colors flex items-center gap-2 shadow-sm">
+<span class="material-symbols-outlined text-[18px]">add</span> Add New Product
+                </button>
+</div>
+</div>
+<!-- KPI Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-gutter mb-xl">
+<div class="glass-panel rounded-xl p-lg flex flex-col justify-between h-32 relative overflow-hidden group">
+<div class="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-4xl text-primary">inventory_2</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Total Products</span>
+<span class="font-kpi-value text-kpi-value text-on-background">1,482</span>
+</div>
+<div class="glass-panel rounded-xl p-lg flex flex-col justify-between h-32 relative overflow-hidden group">
+<div class="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-4xl text-secondary-container">category</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Active Categories</span>
+<span class="font-kpi-value text-kpi-value text-on-background">34</span>
+</div>
+<div class="glass-panel rounded-xl p-lg flex flex-col justify-between h-32 relative overflow-hidden group">
+<div class="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-4xl text-tertiary-fixed-dim">trending_up</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Avg Profit Margin</span>
+<span class="font-kpi-value text-kpi-value text-on-background">42.5<span class="text-xl text-outline ml-1">%</span></span>
+</div>
+<div class="glass-panel rounded-xl p-lg flex flex-col justify-between h-32 relative overflow-hidden group">
+<div class="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-4xl text-primary">qr_code_scanner</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Labels Printed</span>
+<span class="font-kpi-value text-kpi-value text-on-background">8,920</span>
+</div>
+</div>
+<!-- Filter Bar -->
+<div class="glass-panel rounded-xl p-4 mb-md flex flex-col lg:flex-row justify-between items-center gap-4">
+<div class="relative w-full lg:w-96">
+<span class="material-symbols-outlined absolute left-3 top-1/2 transform -translate-y-1/2 text-outline">search</span>
+<input class="w-full pl-10 pr-4 py-2 bg-surface-container-lowest border border-outline-variant rounded-lg font-body-sm text-body-sm focus:border-primary focus:ring-2 focus:ring-primary-fixed-dim outline-none transition-all" placeholder="Search Name, Barcode, SKU..." type="text"/>
+</div>
+<div class="flex items-center gap-2 overflow-x-auto w-full lg:w-auto pb-2 lg:pb-0 hide-scrollbar">
+<button class="px-4 py-1.5 rounded-full font-label-sm text-label-sm bg-primary-fixed text-on-primary-fixed-variant border border-primary-fixed whitespace-nowrap">All Items</button>
+<button class="px-4 py-1.5 rounded-full font-label-sm text-label-sm bg-surface-container-lowest text-on-surface-variant border border-outline-variant hover:bg-surface-container-low transition-colors whitespace-nowrap">Beverages</button>
+<button class="px-4 py-1.5 rounded-full font-label-sm text-label-sm bg-surface-container-lowest text-on-surface-variant border border-outline-variant hover:bg-surface-container-low transition-colors whitespace-nowrap">Electronics</button>
+<button class="px-4 py-1.5 rounded-full font-label-sm text-label-sm bg-surface-container-lowest text-on-surface-variant border border-outline-variant hover:bg-surface-container-low transition-colors whitespace-nowrap">Groceries</button>
+<button class="px-4 py-1.5 rounded-full font-label-sm text-label-sm bg-surface-container-lowest text-on-surface-variant border border-outline-variant hover:bg-surface-container-low transition-colors whitespace-nowrap">Apparel</button>
+<button class="px-4 py-1.5 rounded-full font-label-sm text-label-sm bg-surface-container-lowest text-on-surface-variant border border-outline-variant hover:bg-surface-container-low transition-colors whitespace-nowrap">Snacks</button>
+</div>
+<div class="flex items-center border border-outline-variant rounded-lg bg-surface-container-lowest p-1 shrink-0">
+<button class="p-1 rounded bg-surface-variant text-on-surface transition-colors"><span class="material-symbols-outlined text-[20px]">grid_view</span></button>
+<button class="p-1 rounded text-outline hover:text-on-surface transition-colors"><span class="material-symbols-outlined text-[20px]">view_list</span></button>
+</div>
+</div>
+<!-- Product Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-gutter pb-xl">
+<!-- Product Card 1 -->
+<div class="glass-panel rounded-xl overflow-hidden group flex flex-col">
+<div class="h-48 bg-surface-container-lowest relative border-b border-outline-variant flex items-center justify-center overflow-hidden">
+<img class="object-cover w-full h-full transform group-hover:scale-105 transition-transform duration-500" data-alt="A pristine, high-resolution product shot of a modern smartphone resting on a minimalist white pedestal. Soft, diffuse lighting creates a clean, corporate aesthetic. The background is a crisp, bright white light-mode environment with subtle cool gray shadows, emphasizing the sleek, premium design of the device." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB-sKC3A8jF5X8vYlpAQF3UO-zMERMTieaPQVOKAjQ5powET6ny5hU2C-by9LvZsBqCZ_rp3EV6r2LF9_zooqAnMEJgOln1hfUtNtkkddFjMNe3GbOL472i_Kfp5Pcppkuz43O0xqTl8L0nSk9Zb1crV-iHnXcUtkkjTu33Q7wKZ6adE7bMke3SfdI2ArHHNwpUa0J3nVlzsKdd6ZEclcs2YJKeLzxrOz1eumiXM11OxKfpgJ2lDjXHoi1JhfaNVVpIXBphGBQ0Ivo"/>
+<div class="absolute top-3 left-3">
+<span class="px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider bg-white/90 text-on-surface shadow-sm backdrop-blur-sm border border-outline-variant">Apple</span>
+</div>
+<div class="absolute top-3 right-3">
+<button class="w-8 h-8 rounded-full bg-white/90 text-outline hover:text-primary shadow-sm backdrop-blur-sm border border-outline-variant flex items-center justify-center transition-colors">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</div>
+</div>
+<div class="p-4 flex flex-col flex-1">
+<div class="flex justify-between items-start mb-2">
+<h3 class="font-headline-sm text-headline-sm text-on-background line-clamp-1" title="iPhone 15 Pro">iPhone 15 Pro</h3>
+<span class="px-2 py-0.5 rounded-full font-label-sm text-[10px] tonal-chip-success border border-emerald-200">In Stock</span>
+</div>
+<div class="flex items-center gap-2 mb-3 bg-surface-bright px-2 py-1.5 rounded-md border border-outline-variant/50">
+<span class="material-symbols-outlined text-[16px] text-outline">qr_code_2</span>
+<span class="font-body-sm text-[12px] text-on-surface-variant font-mono">SKU: APP-IP15P-256</span>
+</div>
+<div class="flex justify-between items-end mt-auto pt-3 border-t border-outline-variant/30">
+<div>
+<div class="font-body-sm text-[11px] text-outline mb-0.5">Price / Cost</div>
+<div class="flex items-baseline gap-1">
+<span class="font-headline-md text-[18px] text-on-background font-bold">$999.00</span>
+<span class="font-body-sm text-[12px] text-outline line-through">$850.00</span>
+</div>
+</div>
+<span class="font-body-sm text-[11px] text-on-surface-variant bg-surface-container-low px-2 py-1 rounded">4 Variants: Colors</span>
+</div>
+</div>
+<div class="grid grid-cols-2 border-t border-outline-variant bg-surface-container-lowest">
+<button class="py-2.5 font-label-sm text-label-sm text-on-surface-variant hover:text-primary hover:bg-primary-fixed/20 transition-colors flex items-center justify-center gap-1.5 border-r border-outline-variant">
+<span class="material-symbols-outlined text-[16px]">edit</span> Edit
+                    </button>
+<button class="py-2.5 font-label-sm text-label-sm text-on-surface-variant hover:text-primary hover:bg-primary-fixed/20 transition-colors flex items-center justify-center gap-1.5">
+<span class="material-symbols-outlined text-[16px]">print</span> Print Label
+                    </button>
+</div>
+</div>
+<!-- Product Card 2 -->
+<div class="glass-panel rounded-xl overflow-hidden group flex flex-col">
+<div class="h-48 bg-surface-container-lowest relative border-b border-outline-variant flex items-center justify-center overflow-hidden">
+<img class="object-cover w-full h-full transform group-hover:scale-105 transition-transform duration-500" data-alt="A sleek, ergonomic wireless computer mouse displayed on a pristine white surface. High-key, soft diffuse lighting highlights its metallic accents and matte finish, creating a modern, high-tech vibe. The light-mode setting uses crisp whites and subtle neutral tones, projecting a highly professional and premium corporate design language." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC659x_i-pj1s2KWspQ0bS_dks5XcUDNeHaiSrpM3d1ROzsOJ6tKhttmtnBjLM9bCjErYPZA3Wn-8LitGGdDQZxxP4gsW3NRf4JMEgiZgaD_S2lFVvv8J0CycqcTlCwK9Arv3hVSpYJLjEheZhvnk5yPbHKcG-h0XwOhv9Vb-nvM0PtfJiY-ww82gED6dgvWPXvUyGUjkHFABTSBlcBkKWTtjTkc6M74UpWLay4nOyOS9XSNr9N11H8hwrxdOKibh52oXXybNLiMgk"/>
+<div class="absolute top-3 left-3">
+<span class="px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider bg-white/90 text-on-surface shadow-sm backdrop-blur-sm border border-outline-variant">Logitech</span>
+</div>
+<div class="absolute top-3 right-3">
+<button class="w-8 h-8 rounded-full bg-white/90 text-outline hover:text-primary shadow-sm backdrop-blur-sm border border-outline-variant flex items-center justify-center transition-colors">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</div>
+</div>
+<div class="p-4 flex flex-col flex-1">
+<div class="flex justify-between items-start mb-2">
+<h3 class="font-headline-sm text-headline-sm text-on-background line-clamp-1" title="MX Master 3S">MX Master 3S</h3>
+<span class="px-2 py-0.5 rounded-full font-label-sm text-[10px] tonal-chip-warning border border-amber-200">Low Stock</span>
+</div>
+<div class="flex items-center gap-2 mb-3 bg-surface-bright px-2 py-1.5 rounded-md border border-outline-variant/50">
+<span class="material-symbols-outlined text-[16px] text-outline">barcode</span>
+<span class="font-body-sm text-[12px] text-on-surface-variant font-mono">EAN: 097855174523</span>
+</div>
+<div class="flex justify-between items-end mt-auto pt-3 border-t border-outline-variant/30">
+<div>
+<div class="font-body-sm text-[11px] text-outline mb-0.5">Price / Cost</div>
+<div class="flex items-baseline gap-1">
+<span class="font-headline-md text-[18px] text-on-background font-bold">$99.99</span>
+<span class="font-body-sm text-[12px] text-outline">$65.00</span>
+</div>
+</div>
+<span class="font-body-sm text-[11px] text-on-surface-variant bg-surface-container-low px-2 py-1 rounded">No Variants</span>
+</div>
+</div>
+<div class="grid grid-cols-2 border-t border-outline-variant bg-surface-container-lowest">
+<button class="py-2.5 font-label-sm text-label-sm text-on-surface-variant hover:text-primary hover:bg-primary-fixed/20 transition-colors flex items-center justify-center gap-1.5 border-r border-outline-variant">
+<span class="material-symbols-outlined text-[16px]">edit</span> Edit
+                    </button>
+<button class="py-2.5 font-label-sm text-label-sm text-on-surface-variant hover:text-primary hover:bg-primary-fixed/20 transition-colors flex items-center justify-center gap-1.5" onclick="document.getElementById('barcode-modal').classList.remove('hidden')">
+<span class="material-symbols-outlined text-[16px]">print</span> Print Label
+                    </button>
+</div>
+</div>
+<!-- Product Card 3 (Out of Stock) -->
+<div class="glass-panel rounded-xl overflow-hidden group flex flex-col opacity-75 hover:opacity-100 transition-opacity">
+<div class="h-48 bg-surface-container-lowest relative border-b border-outline-variant flex items-center justify-center overflow-hidden">
+<div class="absolute inset-0 bg-surface-variant/20 z-10 backdrop-blur-[1px]"></div>
+<img class="object-cover w-full h-full transform group-hover:scale-105 transition-transform duration-500 grayscale" data-alt="A premium over-ear wireless headphone resting on a minimal display stand. The environment is a crisp, bright light-mode studio setting with vast white space. Soft ambient lighting creates subtle depth and premium reflections on the metallic and leather textures, conveying a sense of high-end audio equipment within a pristine corporate catalog." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCuRKiAtXbi6yYf9ysv2p9pE5Ko1OyeqNUkJdkG5FtD2Ec6DweUXAjB28snJHkXeey2YtkRsR_4A1bC4H0PwTHi_0U3VcCPNhEg9Db_NNFMDQux0wP7dkxKJCt2gPJj0XyG2TlQYwv4bTOaTOARiXSw7EIiW_ioouFdtb2--QuOoKZiFH5waHXrgzifQvzeerQyQtEBUAG1HpFzXuwBConn7brRmxLURPr-dzKQ8hHXbEfx_NfCXINDz7ny8BmuS3Co1tkVoDOtu2w"/>
+<div class="absolute top-3 left-3 z-20">
+<span class="px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider bg-white/90 text-on-surface shadow-sm backdrop-blur-sm border border-outline-variant">AudioMax</span>
+</div>
+<div class="absolute top-3 right-3 z-20">
+<button class="w-8 h-8 rounded-full bg-white/90 text-outline hover:text-primary shadow-sm backdrop-blur-sm border border-outline-variant flex items-center justify-center transition-colors">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</div>
+</div>
+<div class="p-4 flex flex-col flex-1">
+<div class="flex justify-between items-start mb-2">
+<h3 class="font-headline-sm text-headline-sm text-on-background line-clamp-1" title="AeroMax Wireless Headphones">AeroMax Wireless</h3>
+<span class="px-2 py-0.5 rounded-full font-label-sm text-[10px] tonal-chip-danger border border-red-200">Out of Stock</span>
+</div>
+<div class="flex items-center gap-2 mb-3 bg-surface-bright px-2 py-1.5 rounded-md border border-outline-variant/50">
+<span class="material-symbols-outlined text-[16px] text-outline">barcode</span>
+<span class="font-body-sm text-[12px] text-on-surface-variant font-mono">SKU: AMX-WH-BLK</span>
+</div>
+<div class="flex justify-between items-end mt-auto pt-3 border-t border-outline-variant/30">
+<div>
+<div class="font-body-sm text-[11px] text-outline mb-0.5">Price / Cost</div>
+<div class="flex items-baseline gap-1">
+<span class="font-headline-md text-[18px] text-on-background font-bold">$249.00</span>
+<span class="font-body-sm text-[12px] text-outline">$120.00</span>
+</div>
+</div>
+<span class="font-body-sm text-[11px] text-on-surface-variant bg-surface-container-low px-2 py-1 rounded">2 Variants: Blk, Wht</span>
+</div>
+</div>
+<div class="grid grid-cols-2 border-t border-outline-variant bg-surface-container-lowest">
+<button class="py-2.5 font-label-sm text-label-sm text-on-surface-variant hover:text-primary hover:bg-primary-fixed/20 transition-colors flex items-center justify-center gap-1.5 border-r border-outline-variant">
+<span class="material-symbols-outlined text-[16px]">edit</span> Edit
+                    </button>
+<button class="py-2.5 font-label-sm text-label-sm text-on-surface-variant hover:text-primary hover:bg-primary-fixed/20 transition-colors flex items-center justify-center gap-1.5" onclick="document.getElementById('barcode-modal').classList.remove('hidden')">
+<span class="material-symbols-outlined text-[16px]">print</span> Print Label
+                    </button>
+</div>
+</div>
+<!-- Product Card 4 -->
+<div class="glass-panel rounded-xl overflow-hidden group flex flex-col">
+<div class="h-48 bg-surface-container-lowest relative border-b border-outline-variant flex items-center justify-center overflow-hidden">
+<img class="object-cover w-full h-full transform group-hover:scale-105 transition-transform duration-500" data-alt="A stack of premium, blank white t-shirts folded neatly on a light gray surface. The lighting is bright, soft, and diffuse, creating a modern retail e-commerce aesthetic. Crisp white space dominates the background, giving the scene a highly structured, clean, light-mode catalog appearance suitable for an inventory management dashboard." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB20s_Rl9Ax1VtOXRvn8qYSaXYGWgETkxt1Z9lwm28sLp83PVOxy9SQ7_llJICyjBHF7abgFe1KgaIEHNVakJ2OKbuNzUR3SmP1G_5ZFWWtiUvmhLY9v-k9qKWNFsttxhQoZIpyCzvPQnLRHuMK0ZqBqzaziKYz3fycJSSFVHkPmdD9_-B_UOAjY6dfGkaWQBhudhvmgIdCIkmyKAn3LYE4JnZhy6m7eHe-IZcTcDHL1k2slZPzihvYcvKWo_yVTJvZaGpceDQ0Kiw"/>
+<div class="absolute top-3 left-3">
+<span class="px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider bg-white/90 text-on-surface shadow-sm backdrop-blur-sm border border-outline-variant">Basics</span>
+</div>
+<div class="absolute top-3 right-3">
+<button class="w-8 h-8 rounded-full bg-white/90 text-outline hover:text-primary shadow-sm backdrop-blur-sm border border-outline-variant flex items-center justify-center transition-colors">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</div>
+</div>
+<div class="p-4 flex flex-col flex-1">
+<div class="flex justify-between items-start mb-2">
+<h3 class="font-headline-sm text-headline-sm text-on-background line-clamp-1" title="Essential Cotton T-Shirt">Essential Cotton T-Shirt</h3>
+<span class="px-2 py-0.5 rounded-full font-label-sm text-[10px] tonal-chip-success border border-emerald-200">In Stock</span>
+</div>
+<div class="flex items-center gap-2 mb-3 bg-surface-bright px-2 py-1.5 rounded-md border border-outline-variant/50">
+<span class="material-symbols-outlined text-[16px] text-outline">qr_code_2</span>
+<span class="font-body-sm text-[12px] text-on-surface-variant font-mono">SKU: BSC-TEE-WHT</span>
+</div>
+<div class="flex justify-between items-end mt-auto pt-3 border-t border-outline-variant/30">
+<div>
+<div class="font-body-sm text-[11px] text-outline mb-0.5">Price / Cost</div>
+<div class="flex items-baseline gap-1">
+<span class="font-headline-md text-[18px] text-on-background font-bold">$18.50</span>
+<span class="font-body-sm text-[12px] text-outline">$6.20</span>
+</div>
+</div>
+<span class="font-body-sm text-[11px] text-on-surface-variant bg-surface-container-low px-2 py-1 rounded">6 Variants: S-XXL</span>
+</div>
+</div>
+<div class="grid grid-cols-2 border-t border-outline-variant bg-surface-container-lowest">
+<button class="py-2.5 font-label-sm text-label-sm text-on-surface-variant hover:text-primary hover:bg-primary-fixed/20 transition-colors flex items-center justify-center gap-1.5 border-r border-outline-variant">
+<span class="material-symbols-outlined text-[16px]">edit</span> Edit
+                    </button>
+<button class="py-2.5 font-label-sm text-label-sm text-on-surface-variant hover:text-primary hover:bg-primary-fixed/20 transition-colors flex items-center justify-center gap-1.5">
+<span class="material-symbols-outlined text-[16px]">print</span> Print Label
+                    </button>
+</div>
+</div>
+</div>
+</main>
+<!-- Barcode Print Sidebar Drawer -->
+<div class="fixed inset-0 z-50 hidden" id="barcode-modal">
+<!-- Backdrop -->
+<div class="absolute inset-0 bg-on-background/20 backdrop-blur-sm" onclick="document.getElementById('barcode-modal').classList.add('hidden')"></div>
+<!-- Drawer Panel -->
+<div class="absolute right-0 top-0 h-full w-full md:w-[480px] bg-surface-container-lowest shadow-2xl border-l border-outline-variant flex flex-col transform transition-transform duration-300 ease-in-out">
+<!-- Header -->
+<div class="flex items-center justify-between p-lg border-b border-outline-variant bg-surface-bright">
+<div>
+<h2 class="font-headline-md text-headline-md text-on-background">Print Labels</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">AeroMax Wireless Headphones</p>
+</div>
+<button class="p-2 rounded-full hover:bg-surface-container-high transition-colors" onclick="document.getElementById('barcode-modal').classList.add('hidden')">
+<span class="material-symbols-outlined">close</span>
+</button>
+</div>
+<!-- Body -->
+<div class="flex-1 overflow-y-auto p-lg space-y-xl">
+<!-- Label Preview -->
+<div>
+<h3 class="font-label-md text-label-md text-on-surface mb-3 uppercase tracking-wider">Preview</h3>
+<div class="bg-surface-bright border border-outline-variant rounded-xl p-6 flex flex-col items-center justify-center min-h-[240px]">
+<div class="bg-white border border-outline-variant p-4 w-[280px] h-[140px] flex flex-col justify-between shadow-sm">
+<div class="flex justify-between items-start">
+<div>
+<div class="font-bold text-[14px] text-black">AeroMax Wireless</div>
+<div class="text-[10px] text-gray-600">Black / Standard</div>
+</div>
+<div class="font-bold text-[16px] text-black">$249.00</div>
+</div>
+<div class="flex justify-center items-center mt-2 flex-col">
+<!-- Fake Barcode visualization using divs -->
+<div class="flex h-12 items-end w-full px-2 justify-center gap-[1px]">
+<div class="w-1 h-full bg-black"></div><div class="w-0.5 h-full bg-black"></div><div class="w-1.5 h-full bg-black"></div><div class="w-0.5 h-full bg-black"></div><div class="w-2 h-full bg-black"></div><div class="w-0.5 h-full bg-black"></div><div class="w-1 h-full bg-black"></div><div class="w-1 h-full bg-black"></div><div class="w-0.5 h-full bg-black"></div><div class="w-1.5 h-full bg-black"></div><div class="w-2 h-full bg-black"></div><div class="w-0.5 h-full bg-black"></div><div class="w-1 h-full bg-black"></div><div class="w-1.5 h-full bg-black"></div><div class="w-0.5 h-full bg-black"></div><div class="w-1 h-full bg-black"></div><div class="w-2 h-full bg-black"></div><div class="w-0.5 h-full bg-black"></div><div class="w-1 h-full bg-black"></div><div class="w-1 h-full bg-black"></div><div class="w-1.5 h-full bg-black"></div><div class="w-0.5 h-full bg-black"></div><div class="w-1 h-full bg-black"></div>
+</div>
+<div class="text-[10px] font-mono mt-1 text-black tracking-widest">AMX-WH-BLK</div>
+</div>
+</div>
+<div class="mt-4 flex gap-4">
+<span class="font-body-sm text-[12px] text-on-surface-variant flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">barcode</span> Code-128</span>
+<span class="font-body-sm text-[12px] text-primary hover:underline cursor-pointer">Switch to QR Code</span>
+</div>
+</div>
+</div>
+<!-- Settings -->
+<div class="space-y-4">
+<h3 class="font-label-md text-label-md text-on-surface mb-2 uppercase tracking-wider">Settings</h3>
+<div>
+<label class="block font-label-sm text-label-sm text-on-surface-variant mb-1">Paper / Template Size</label>
+<select class="w-full bg-surface-container-lowest border border-outline-variant rounded-lg font-body-sm px-3 py-2 focus:border-primary focus:ring-2 focus:ring-primary-fixed-dim outline-none transition-all appearance-none">
+<option>A4 Paper (24 labels/sheet, 70x36mm)</option>
+<option>A4 Paper (40 labels/sheet, 48x25mm)</option>
+<option selected="">Continuous Roll (58x40mm)</option>
+<option>Continuous Roll (80x40mm)</option>
+</select>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div>
+<label class="block font-label-sm text-label-sm text-on-surface-variant mb-1">Quantity</label>
+<div class="flex items-center border border-outline-variant rounded-lg overflow-hidden focus-within:border-primary focus-within:ring-2 focus-within:ring-primary-fixed-dim transition-all">
+<button class="px-3 py-2 bg-surface-bright text-outline hover:bg-surface-container-low border-r border-outline-variant">-</button>
+<input class="w-full text-center bg-surface-container-lowest border-none font-body-sm py-2 focus:ring-0 appearance-none" type="number" value="12"/>
+<button class="px-3 py-2 bg-surface-bright text-outline hover:bg-surface-container-low border-l border-outline-variant">+</button>
+</div>
+</div>
+<div>
+<label class="block font-label-sm text-label-sm text-on-surface-variant mb-1">Price to Display</label>
+<select class="w-full bg-surface-container-lowest border border-outline-variant rounded-lg font-body-sm px-3 py-2 focus:border-primary focus:ring-2 focus:ring-primary-fixed-dim outline-none transition-all appearance-none">
+<option>Retail Price ($249.00)</option>
+<option>Wholesale Price</option>
+<option>No Price</option>
+</select>
+</div>
+</div>
+<div class="flex items-center gap-2 mt-4 bg-surface-bright p-3 rounded-lg border border-outline-variant/50">
+<input checked="" class="rounded border-outline-variant text-primary focus:ring-primary w-4 h-4" id="show-name" type="checkbox"/>
+<label class="font-body-sm text-body-sm text-on-surface" for="show-name">Include Product Name</label>
+</div>
+</div>
+</div>
+<!-- Footer Actions -->
+<div class="p-lg border-t border-outline-variant bg-surface-container-lowest flex justify-end gap-3">
+<button class="font-label-md text-label-md px-5 py-2 bg-surface-container-lowest border border-outline-variant text-on-surface-variant rounded-lg hover:bg-surface-container-low transition-colors" onclick="document.getElementById('barcode-modal').classList.add('hidden')">
+                    Cancel
+                </button>
+<button class="font-label-md text-label-md px-6 py-2 bg-primary text-on-primary rounded-lg hover:bg-primary-fixed-variant transition-colors flex items-center gap-2 shadow-sm">
+<span class="material-symbols-outlined text-[18px]">print</span> Print 12 Labels
+                </button>
+</div>
+</div>
+</div>
+</body></html>
