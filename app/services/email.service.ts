@@ -196,12 +196,12 @@ export async function sendTestEmail(toEmail: string, businessId?: number): Promi
         <div style="background-color: #f8f9fa; padding: 20px 20px 16px; text-align: center; font-size: 11px; color: #9ca3af; border-radius: 0 0 8px 8px; border: 1px solid #e5e7eb; border-top: none;">
           ${settings.emailFooterText ? `<p style="margin: 0 0 8px; color: #6b7280; line-height: 1.5;">${settings.emailFooterText}</p>` : ""}
           ${settings.companyAddressFooter ? `<p style="margin: 0 0 8px; color: #6b7280; line-height: 1.5;">${settings.companyAddressFooter}</p>` : ""}
-          <p style="margin: 0; color: #d1d5db; font-size: 10px;">Powered by DokanDar</p>
+          <p style="margin: 0; color: #d1d5db; font-size: 10px;">Powered by NextGen Cloud POS</p>
         </div>
       </div>
     `;
 
-    const textContent = `Test Email\n\nThis is a test email to verify your SMTP configuration is working correctly.\n\nIf you received this email, your email settings are configured properly.\n\n${settings.emailFooterText ? settings.emailFooterText + "\n" : ""}${settings.companyAddressFooter ? settings.companyAddressFooter + "\n" : ""}Powered by DokanDar`;
+    const textContent = `Test Email\n\nThis is a test email to verify your SMTP configuration is working correctly.\n\nIf you received this email, your email settings are configured properly.\n\n${settings.emailFooterText ? settings.emailFooterText + "\n" : ""}${settings.companyAddressFooter ? settings.companyAddressFooter + "\n" : ""}Powered by NextGen Cloud POS`;
 
     const mailOptions: nodemailer.SendMailOptions = {
       from: `"${settings.smtpFromName || headerDisplayName}" <${settings.smtpFromEmail}>`,

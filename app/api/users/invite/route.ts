@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
           email,
           result.user.name,
           user.name || "A user",
-          business?.name || "DokanDar",
+          business?.name || "NextGen Cloud POS",
           result.user.role.label,
           tokenResult.token,
           baseUrl

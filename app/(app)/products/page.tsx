@@ -6,13 +6,8 @@ import {
   Plus,
   Search,
   Barcode,
-  Edit2,
-  Trash2,
   Printer,
-  Download,
-  Percent,
   X,
-  CheckCircle2,
 } from "lucide-react";
 import { MOCK_PRODUCTS, MOCK_CATEGORIES, Product } from "@/data/mockData";
 
@@ -45,8 +40,8 @@ export default function ProductsPage() {
     e.preventDefault();
     const newProduct: Product = {
       id: `prod-${Date.now()}`,
-      sku: `SKU-${Math.floor(1000 + Math.random() * 9000)}`,
-      barcode: `890123${Math.floor(1000000 + Math.random() * 9000000)}`,
+      sku: `SKU-${Math.floor(10000 + Math.random() * 90000)}`,
+      barcode: `890123${Math.floor(100000 + Math.random() * 900000)}`,
       name: newProductName,
       category: newProductCategory,
       price: Number(newProductPrice),
@@ -54,7 +49,7 @@ export default function ProductsPage() {
       stock: Number(newProductStock),
       minStock: 10,
       unit: "pcs",
-      warehouse: "Main Warehouse A",
+      warehouse: "Central Warehouse",
       status: Number(newProductStock) > 10 ? "In Stock" : "Low Stock",
     };
 
@@ -64,122 +59,104 @@ export default function ProductsPage() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Top Header Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="font-heading font-bold text-xl text-slate-900">
-            Product Catalog &amp; Barcode Management
-          </h2>
-          <p className="text-xs text-slate-500">
-            Maintain master SKU registry, retail markups, barcode standards, and supplier mapping.
-          </p>
+    <div className="space-y-5">
+      {/* Product Catalog Action Header */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white border border-zinc-200 rounded-lg p-3">
+        <div className="flex items-center gap-2 flex-1 max-w-md">
+          <div className="relative w-full">
+            <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Search by SKU, barcode, or product name..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-zinc-50 border border-zinc-200 rounded pl-8 pr-3 py-1.5 text-xs font-mono text-zinc-900 focus:outline-none focus:ring-1 focus:ring-blue-600 focus:border-blue-600"
+            />
+          </div>
+
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            className="bg-zinc-50 border border-zinc-200 rounded px-2.5 py-1.5 text-xs text-zinc-700 focus:outline-none font-medium"
+          >
+            {MOCK_CATEGORIES.map((c) => (
+              <option key={c} value={c}>
+                {c === "All Categories" ? "All categories" : c}
+              </option>
+            ))}
+          </select>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => setShowAddModal(true)}
-            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-sm shadow-indigo-600/30 flex items-center gap-1.5 transition-all"
+            className="px-3.5 py-1.5 bg-blue-700 hover:bg-blue-800 text-white rounded text-xs font-semibold shadow-2xs transition-colors tactile-btn flex items-center gap-1.5"
           >
-            <Plus className="w-4 h-4" />
-            <span>Add New SKU</span>
+            <Plus className="w-3.5 h-3.5" />
+            <span>Add product</span>
           </button>
         </div>
       </div>
 
-      {/* Main Catalog Card */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-        {/* Filters */}
-        <div className="p-5 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-2 overflow-x-auto pb-1">
-            {MOCK_CATEGORIES.map((cat) => (
-              <button
-                key={cat}
-                type="button"
-                onClick={() => setCategoryFilter(cat)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
-                  categoryFilter === cat
-                    ? "bg-indigo-600 text-white shadow-xs"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
-
-          <div className="relative min-w-[240px]">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by SKU, title or barcode..."
-              className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-            />
-          </div>
-        </div>
-
-        {/* Table */}
+      {/* High-Density Catalog Table */}
+      <div className="bg-white border border-zinc-200 rounded-lg shadow-2xs overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50/80 text-slate-500 uppercase tracking-wider font-semibold border-b border-slate-200">
-              <tr>
-                <th className="px-6 py-3">Product Name &amp; SKU</th>
-                <th className="px-6 py-3">Barcode</th>
-                <th className="px-6 py-3">Category</th>
-                <th className="px-6 py-3 text-right">Cost Price</th>
-                <th className="px-6 py-3 text-right">Retail Price</th>
-                <th className="px-6 py-3 text-right">Gross Margin</th>
-                <th className="px-6 py-3 text-center">Available Stock</th>
-                <th className="px-6 py-3 text-right">Actions</th>
+          <table className="w-full text-left text-xs font-mono">
+            <thead>
+              <tr className="bg-zinc-50/80 border-b border-zinc-200 text-xs text-zinc-500">
+                <th className="py-2.5 px-4 font-semibold">SKU</th>
+                <th className="py-2.5 px-4 font-semibold">Product name</th>
+                <th className="py-2.5 px-4 font-semibold">Category</th>
+                <th className="py-2.5 px-4 font-semibold text-right">Unit cost</th>
+                <th className="py-2.5 px-4 font-semibold text-right">Retail price</th>
+                <th className="py-2.5 px-4 font-semibold text-right">Gross margin</th>
+                <th className="py-2.5 px-4 font-semibold text-right">Stock balance</th>
+                <th className="py-2.5 px-4 font-semibold text-center">Status</th>
+                <th className="py-2.5 px-4 font-semibold text-right">Barcode</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-zinc-100">
               {filteredProducts.map((p) => {
-                const margin = (((p.price - p.cost) / p.price) * 100).toFixed(1);
-
+                const margin = ((p.price - p.cost) / p.price) * 100;
                 return (
-                  <tr key={p.id} className="hover:bg-slate-50/60 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="font-heading font-bold text-slate-900">{p.name}</div>
-                      <div className="font-mono text-[11px] text-slate-400">{p.sku}</div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedBarcodeProduct(p)}
-                        className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-slate-100 hover:bg-slate-200 font-mono text-[11px] text-slate-700 transition-colors"
-                      >
-                        <Barcode className="w-3.5 h-3.5 text-slate-500" />
-                        <span>{p.barcode}</span>
-                      </button>
-                    </td>
-                    <td className="px-6 py-4 text-slate-600 font-medium">{p.category}</td>
-                    <td className="px-6 py-4 text-right font-mono text-slate-500">
-                      ${p.cost.toFixed(2)}
-                    </td>
-                    <td className="px-6 py-4 text-right font-mono font-bold text-slate-900">
+                  <tr key={p.id} className="hover:bg-zinc-50/60 transition-colors">
+                    <td className="py-3 px-4 font-bold text-zinc-900">{p.sku}</td>
+                    <td className="py-3 px-4 font-sans font-medium text-zinc-800">{p.name}</td>
+                    <td className="py-3 px-4 text-zinc-600">{p.category}</td>
+                    <td className="py-3 px-4 text-right text-zinc-600">${p.cost.toFixed(2)}</td>
+                    <td className="py-3 px-4 text-right font-bold text-zinc-900">
                       ${p.price.toFixed(2)}
                     </td>
-                    <td className="px-6 py-4 text-right">
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold text-[11px]">
-                        <Percent className="w-3 h-3" />
-                        <span>{margin}%</span>
+                    <td className="py-3 px-4 text-right">
+                      <span className="font-semibold text-emerald-700">
+                        {margin.toFixed(1)}%
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-center font-heading font-bold text-slate-900">
-                      {p.stock} {p.unit}
+                    <td className="py-3 px-4 text-right font-bold text-zinc-900">
+                      {p.stock} <span className="font-normal text-zinc-500 text-xs">{p.unit}</span>
                     </td>
-                    <td className="px-6 py-4 text-right space-x-1">
+                    <td className="py-3 px-4 text-center">
+                      <span
+                        className={`px-2 py-0.5 rounded text-xs font-medium ${
+                          p.status === "In Stock"
+                            ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                            : p.status === "Low Stock"
+                            ? "bg-amber-50 text-amber-800 border border-amber-200"
+                            : "bg-red-50 text-red-800 border border-red-200"
+                        }`}
+                      >
+                        {p.status}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-right">
                       <button
                         type="button"
                         onClick={() => setSelectedBarcodeProduct(p)}
-                        className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors"
-                        title="Print Barcode Label"
+                        className="px-2.5 py-1 bg-white border border-zinc-200 hover:bg-zinc-50 text-zinc-700 rounded text-xs font-medium transition-colors tactile-btn inline-flex items-center gap-1.5"
                       >
-                        <Printer className="w-3.5 h-3.5" />
+                        <Barcode className="w-3 h-3 text-zinc-500" />
+                        <span>Print label</span>
                       </button>
                     </td>
                   </tr>
@@ -190,158 +167,187 @@ export default function ProductsPage() {
         </div>
       </div>
 
-      {/* Add New SKU Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full p-6 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="font-heading font-bold text-base text-slate-900">
-                Register New SKU
-              </h3>
-              <button
-                type="button"
-                onClick={() => setShowAddModal(false)}
-                className="text-slate-400 hover:text-slate-700"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleAddProduct} className="space-y-3 text-xs">
-              <div>
-                <label className="block text-slate-700 font-semibold mb-1">Product Title</label>
-                <input
-                  type="text"
-                  value={newProductName}
-                  onChange={(e) => setNewProductName(e.target.value)}
-                  placeholder="e.g. Ultra HD 4K Webcam Pro"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-700 font-semibold mb-1">Category</label>
-                <select
-                  value={newProductCategory}
-                  onChange={(e) => setNewProductCategory(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none"
-                >
-                  <option value="Electronics">Electronics</option>
-                  <option value="Groceries & Beverage">Groceries &amp; Beverage</option>
-                  <option value="Accessories">Accessories</option>
-                  <option value="Apparel">Apparel</option>
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-700 font-semibold mb-1">Cost Price ($)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={newProductCost}
-                    onChange={(e) => setNewProductCost(parseFloat(e.target.value) || 0)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg font-mono focus:outline-none"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-700 font-semibold mb-1">Retail Price ($)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={newProductPrice}
-                    onChange={(e) => setNewProductPrice(parseFloat(e.target.value) || 0)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg font-mono focus:outline-none"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-slate-700 font-semibold mb-1">Initial Opening Stock (Units)</label>
-                <input
-                  type="number"
-                  value={newProductStock}
-                  onChange={(e) => setNewProductStock(parseInt(e.target.value) || 0)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg font-mono focus:outline-none"
-                  required
-                />
-              </div>
-
-              <div className="flex gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowAddModal(false)}
-                  className="flex-1 py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-semibold transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-2 px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold transition-colors"
-                >
-                  Save SKU
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
       {/* Barcode Label Modal */}
       {selectedBarcodeProduct && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-sm w-full p-6 space-y-4 text-center">
-            <div className="flex justify-between items-center pb-2 border-b border-slate-100">
-              <span className="font-heading font-bold text-xs text-slate-900">Thermal Barcode Tag</span>
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white border border-zinc-200 rounded-lg max-w-sm w-full p-5 space-y-4 shadow-xl">
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-100">
+              <span className="font-heading font-bold text-sm text-zinc-950">
+                Barcode label print
+              </span>
               <button
                 type="button"
                 onClick={() => setSelectedBarcodeProduct(null)}
-                className="text-slate-400 hover:text-slate-700"
+                className="text-zinc-400 hover:text-zinc-600"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col items-center justify-center space-y-2">
-              <div className="font-heading font-bold text-xs text-slate-900 truncate max-w-[220px]">
+            <div className="p-4 bg-zinc-50 border border-zinc-200 rounded text-center space-y-2">
+              <div className="font-heading font-bold text-xs text-zinc-900 truncate">
                 {selectedBarcodeProduct.name}
               </div>
-              <div className="text-base font-extrabold font-mono text-indigo-700">
+              <div className="font-mono text-sm font-bold text-blue-700">
                 ${selectedBarcodeProduct.price.toFixed(2)}
               </div>
-
-              {/* Barcode graphic visualization */}
-              <div className="py-2 px-4 bg-white border border-slate-300 rounded-lg flex flex-col items-center">
-                <div className="flex items-center gap-[2px] h-12">
-                  {[3, 1, 2, 4, 1, 3, 2, 1, 4, 2, 1, 3, 1, 4, 2, 3, 1, 2, 4, 1, 3].map((w, i) => (
-                    <div
-                      key={i}
-                      style={{ width: `${w * 2}px` }}
-                      className="h-full bg-slate-900"
-                    />
-                  ))}
+              <div className="py-3 px-2 bg-white border border-zinc-200 rounded inline-block">
+                {/* SVG Barcode Representation */}
+                <div className="flex items-center justify-center gap-[2px] h-12 px-4">
+                  {[3, 1, 2, 4, 1, 3, 2, 1, 4, 2, 1, 3, 2, 4, 1, 2, 3, 1, 2, 4, 2, 1, 3, 1].map(
+                    (w, idx) => (
+                      <div
+                        key={idx}
+                        className={`bg-zinc-900 h-full ${
+                          idx % 2 === 0 ? "opacity-100" : "opacity-0"
+                        }`}
+                        style={{ width: `${w * 1.5}px` }}
+                      />
+                    )
+                  )}
                 </div>
-                <span className="font-mono text-[10px] tracking-widest text-slate-600 mt-1">
+                <div className="font-mono text-xs tracking-widest text-zinc-600 mt-1">
                   {selectedBarcodeProduct.barcode}
-                </span>
+                </div>
               </div>
-              <div className="font-mono text-[10px] text-slate-400">
+              <div className="text-xs font-mono text-zinc-500">
                 SKU: {selectedBarcodeProduct.sku}
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={() => window.print()}
-              className="w-full py-2 px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition-colors"
-            >
-              <Printer className="w-3.5 h-3.5" />
-              <span>Print Label Sticker</span>
-            </button>
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-100">
+              <button
+                type="button"
+                onClick={() => setSelectedBarcodeProduct(null)}
+                className="px-3 py-1.5 bg-white border border-zinc-200 text-zinc-700 rounded text-xs tactile-btn"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="px-4 py-1.5 bg-blue-700 hover:bg-blue-800 text-white rounded text-xs font-semibold shadow-2xs tactile-btn flex items-center gap-1.5 font-mono"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>Print label</span>
+              </button>
+            </div>
           </div>
+        </div>
+      )}
+
+      {/* Add Product Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <form
+            onSubmit={handleAddProduct}
+            className="bg-white border border-zinc-200 rounded-lg max-w-md w-full p-5 space-y-4 shadow-xl"
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-100">
+              <h4 className="font-heading font-bold text-sm text-zinc-950">
+                Add new product
+              </h4>
+              <button
+                type="button"
+                onClick={() => setShowAddModal(false)}
+                className="text-zinc-400 hover:text-zinc-600"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="block text-xs font-medium text-zinc-700 mb-1">
+                  Product name
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Specialty Roasted Colombian Beans"
+                  value={newProductName}
+                  onChange={(e) => setNewProductName(e.target.value)}
+                  className="w-full bg-zinc-50 border border-zinc-200 rounded px-3 py-1.5 text-xs text-zinc-900 focus:outline-none focus:ring-1 focus:ring-blue-600"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-zinc-700 mb-1">
+                    Category
+                  </label>
+                  <select
+                    value={newProductCategory}
+                    onChange={(e) => setNewProductCategory(e.target.value)}
+                    className="w-full bg-zinc-50 border border-zinc-200 rounded px-3 py-1.5 text-xs text-zinc-800 focus:outline-none"
+                  >
+                    {MOCK_CATEGORIES.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-zinc-700 mb-1">
+                    Initial stock units
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={newProductStock}
+                    onChange={(e) => setNewProductStock(Number(e.target.value))}
+                    className="w-full bg-zinc-50 border border-zinc-200 rounded px-3 py-1.5 font-mono text-xs text-zinc-900 focus:outline-none focus:ring-1 focus:ring-blue-600"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-zinc-700 mb-1">
+                    Unit cost ($)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={newProductCost}
+                    onChange={(e) => setNewProductCost(Number(e.target.value))}
+                    className="w-full bg-zinc-50 border border-zinc-200 rounded px-3 py-1.5 font-mono text-xs text-zinc-900 focus:outline-none focus:ring-1 focus:ring-blue-600"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-zinc-700 mb-1">
+                    Retail price ($)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={newProductPrice}
+                    onChange={(e) => setNewProductPrice(Number(e.target.value))}
+                    className="w-full bg-zinc-50 border border-zinc-200 rounded px-3 py-1.5 font-mono text-xs text-zinc-900 focus:outline-none focus:ring-1 focus:ring-blue-600"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-2 flex items-center justify-end gap-2 border-t border-zinc-100">
+              <button
+                type="button"
+                onClick={() => setShowAddModal(false)}
+                className="px-3 py-1.5 bg-white border border-zinc-200 text-zinc-700 rounded text-xs tactile-btn"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-1.5 bg-blue-700 hover:bg-blue-800 text-white rounded text-xs font-semibold shadow-2xs tactile-btn"
+              >
+                Save product
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </div>

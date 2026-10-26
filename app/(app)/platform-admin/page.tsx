@@ -3,22 +3,21 @@
 import React, { useState } from "react";
 import {
   ShieldCheck,
-  Building,
-  Activity,
-  HardDrive,
+  Building2,
   Users,
   Search,
-  CheckCircle2,
-  AlertCircle,
-  Database,
-  Lock,
   Plus,
+  X,
 } from "lucide-react";
 import { MOCK_TENANTS, Tenant } from "@/data/mockData";
 
 export default function PlatformAdminPage() {
   const [tenants, setTenants] = useState<Tenant[]>(MOCK_TENANTS);
   const [searchQuery, setSearchQuery] = useState("");
+  const [showProvisionModal, setShowProvisionModal] = useState(false);
+  const [newBusinessName, setNewBusinessName] = useState("");
+  const [newOwnerEmail, setNewOwnerEmail] = useState("");
+  const [newPlan, setNewPlan] = useState<"Starter" | "Growth" | "Enterprise">("Growth");
 
   const filteredTenants = tenants.filter(
     (t) =>
@@ -28,142 +27,152 @@ export default function PlatformAdminPage() {
 
   const totalGmv = tenants.reduce((acc, t) => acc + t.monthlyGmv, 0);
 
+  const handleProvisionTenant = (e: React.FormEvent) => {
+    e.preventDefault();
+    const newTenant: Tenant = {
+      id: `ten-${Date.now()}`,
+      name: newBusinessName,
+      ownerEmail: newOwnerEmail,
+      plan: newPlan,
+      branches: 1,
+      joinedDate: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+      status: "Active",
+      monthlyGmv: 0,
+      dbHealth: "Optimal",
+    };
+
+    setTenants([newTenant, ...tenants]);
+    setShowProvisionModal(false);
+    setNewBusinessName("");
+    setNewOwnerEmail("");
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Top Platform Overview */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white border border-zinc-200 rounded-lg p-4">
         <div>
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold mb-1">
-            <ShieldCheck className="w-3.5 h-3.5" />
-            <span>Multi-Tenant Enterprise Governance</span>
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-blue-700"></span>
+            <span className="text-xs font-mono text-zinc-500">
+              Multi-store directory
+            </span>
           </div>
-          <h2 className="font-heading font-bold text-xl text-slate-900">
-            Super-Admin &amp; Platform Architecture
+          <h2 className="font-heading font-bold text-base text-zinc-950 mt-1">
+            Tenant business directory
           </h2>
         </div>
 
         <button
           type="button"
-          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-sm shadow-indigo-600/30 flex items-center gap-1.5 transition-all self-start sm:self-auto"
+          onClick={() => setShowProvisionModal(true)}
+          className="px-3.5 py-1.5 bg-blue-700 hover:bg-blue-800 text-white rounded text-xs font-semibold shadow-2xs transition-colors tactile-btn flex items-center gap-1.5 self-start sm:self-auto"
         >
-          <Plus className="w-4 h-4" />
-          <span>Provision Tenant Instance</span>
+          <Plus className="w-3.5 h-3.5" />
+          <span>Add business</span>
         </button>
       </div>
 
-      {/* 4 Super-Admin Infrastructure Telemetry Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs">
-          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-            Active Tenant Organizations
+      {/* 3 Core Metrics */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-white rounded-lg p-4 border border-zinc-200 shadow-2xs">
+          <div className="text-xs font-medium text-zinc-600 mb-1.5">
+            Registered businesses
           </div>
-          <div className="font-heading font-extrabold text-2xl text-slate-900 mb-1">
-            {tenants.length} Tenants
+          <div className="font-mono font-bold text-2xl text-zinc-950 mb-1">
+            {tenants.length} <span className="text-sm font-normal text-zinc-500">organizations</span>
           </div>
-          <div className="text-xs text-indigo-600 font-semibold">12 Connected Terminals</div>
+          <div className="text-xs text-zinc-500">
+            Isolated tenant databases
+          </div>
         </div>
 
-        <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs">
-          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-            Network GMV Processed
+        <div className="bg-white rounded-lg p-4 border border-zinc-200 shadow-2xs">
+          <div className="text-xs font-medium text-zinc-600 mb-1.5">
+            Network GMV invoiced
           </div>
-          <div className="font-heading font-extrabold text-2xl text-slate-900 mb-1">
+          <div className="font-mono font-bold text-2xl text-zinc-950 mb-1">
             ${totalGmv.toLocaleString("en-US", { minimumFractionDigits: 2 })}
           </div>
-          <div className="text-xs text-emerald-600 font-semibold">Real-time aggregate</div>
+          <div className="text-xs text-emerald-800">
+            Across all tenant registers
+          </div>
         </div>
 
-        <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs">
-          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-            Database Cluster Health
+        <div className="bg-white rounded-lg p-4 border border-zinc-200 shadow-2xs">
+          <div className="text-xs font-medium text-zinc-600 mb-1.5">
+            Active register terminals
           </div>
-          <div className="font-heading font-extrabold text-2xl text-emerald-600 mb-1">
-            99.99% Uptime
+          <div className="font-mono font-bold text-2xl text-blue-700 mb-1">
+            {tenants.reduce((acc, t) => acc + t.branches, 0)} <span className="text-sm font-normal text-zinc-500">units</span>
           </div>
-          <div className="text-xs text-slate-500">Sub-12ms latency across shards</div>
-        </div>
-
-        <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs">
-          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-            Security &amp; Audit Status
+          <div className="text-xs text-zinc-500">
+            Connected in-store checkouts
           </div>
-          <div className="font-heading font-extrabold text-2xl text-indigo-600 mb-1">
-            Compliant
-          </div>
-          <div className="text-xs text-slate-500">SOC2 Type II &amp; GDPR Mapped</div>
         </div>
       </div>
 
-      {/* Tenant Organizations Table */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-        <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h3 className="font-heading font-bold text-base text-slate-900">
-              Provisioned Commerce Tenants
-            </h3>
-            <p className="text-xs text-slate-500">
-              Multi-tenant isolation, branch quotas, and plan tier limits
-            </p>
-          </div>
-
-          <div className="relative min-w-[240px]">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+      {/* Tenant Directory Table */}
+      <div className="bg-white border border-zinc-200 rounded-lg shadow-2xs overflow-hidden">
+        <div className="p-3 border-b border-zinc-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="relative max-w-sm w-full">
+            <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search tenant or owner email..."
-              className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+              placeholder="Search business name or owner email..."
+              className="w-full pl-8 pr-3 py-1.5 text-xs bg-zinc-50 border border-zinc-200 rounded font-mono text-zinc-900 focus:outline-none focus:ring-1 focus:ring-blue-600"
             />
+          </div>
+          <div className="text-xs font-mono text-zinc-500">
+            Showing {filteredTenants.length} of {tenants.length} businesses
           </div>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50/80 text-slate-500 uppercase tracking-wider font-semibold border-b border-slate-200">
-              <tr>
-                <th className="px-6 py-3">Tenant Name</th>
-                <th className="px-6 py-3">Owner Contact</th>
-                <th className="px-6 py-3">Tier Plan</th>
-                <th className="px-6 py-3 text-center">Branches</th>
-                <th className="px-6 py-3 text-right">Monthly GMV</th>
-                <th className="px-6 py-3">Cluster Status</th>
-                <th className="px-6 py-3 text-right">Governance Actions</th>
+          <table className="w-full text-left text-xs font-mono">
+            <thead>
+              <tr className="bg-zinc-50/80 border-b border-zinc-200 text-xs text-zinc-500">
+                <th className="py-2.5 px-4 font-semibold">Business name</th>
+                <th className="py-2.5 px-4 font-semibold">Owner email</th>
+                <th className="py-2.5 px-4 font-semibold">Subscription tier</th>
+                <th className="py-2.5 px-4 font-semibold text-center">Branches</th>
+                <th className="py-2.5 px-4 font-semibold text-right">Monthly GMV</th>
+                <th className="py-2.5 px-4 font-semibold text-center">Status</th>
+                <th className="py-2.5 px-4 font-semibold text-right">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-zinc-100">
               {filteredTenants.map((t) => (
-                <tr key={t.id} className="hover:bg-slate-50/60 transition-colors">
-                  <td className="px-6 py-4">
-                    <div className="font-heading font-bold text-slate-900">{t.name}</div>
-                    <div className="text-[11px] text-slate-400">Created: {t.joinedDate}</div>
+                <tr key={t.id} className="hover:bg-zinc-50/60 transition-colors">
+                  <td className="py-3 px-4 font-sans font-bold text-zinc-900">
+                    <div>{t.name}</div>
+                    <div className="text-xs font-mono text-zinc-500 font-normal">
+                      Joined {t.joinedDate}
+                    </div>
                   </td>
-                  <td className="px-6 py-4 text-slate-700 font-mono text-[11px]">
-                    {t.ownerEmail}
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 font-semibold text-[11px]">
+                  <td className="py-3 px-4 text-zinc-600">{t.ownerEmail}</td>
+                  <td className="py-3 px-4">
+                    <span className="px-2 py-0.5 rounded text-xs font-medium bg-zinc-100 text-zinc-700 border border-zinc-200">
                       {t.plan}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-center font-mono font-bold text-slate-800">
-                    {t.branches} Outlets
+                  <td className="py-3 px-4 text-center font-bold text-zinc-900">{t.branches}</td>
+                  <td className="py-3 px-4 text-right font-bold text-zinc-950">
+                    ${t.monthlyGmv.toFixed(2)}
                   </td>
-                  <td className="px-6 py-4 text-right font-heading font-bold text-slate-900">
-                    ${t.monthlyGmv.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold text-[11px]">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                      <span>{t.dbHealth}</span>
+                  <td className="py-3 px-4 text-center">
+                    <span className="px-2 py-0.5 rounded text-xs font-medium bg-emerald-50 text-emerald-800 border border-emerald-200">
+                      {t.status}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-right">
+                  <td className="py-3 px-4 text-right">
                     <button
                       type="button"
-                      className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors"
+                      className="px-2.5 py-1 bg-white border border-zinc-200 hover:bg-zinc-50 text-blue-700 rounded text-xs font-semibold transition-colors tactile-btn"
                     >
-                      Audit &amp; Shards
+                      Audit
                     </button>
                   </td>
                 </tr>
@@ -173,54 +182,89 @@ export default function PlatformAdminPage() {
         </div>
       </div>
 
-      {/* Security Audit Event Stream */}
-      <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs space-y-4">
-        <h3 className="font-heading font-bold text-base text-slate-900 border-b border-slate-100 pb-3">
-          Real-Time Platform Security &amp; Access Log
-        </h3>
-        <div className="space-y-2 text-xs font-mono">
-          {[
-            {
-              time: "2026-08-24 14:32:10 UTC",
-              actor: "marcus.brody@dokandar.com",
-              action: "AUTH_TERMINAL_SESSION_GRANTED",
-              ip: "192.168.1.104 (POS #01)",
-              status: "SUCCESS",
-            },
-            {
-              time: "2026-08-24 13:45:00 UTC",
-              actor: "system.autonomous.sync",
-              action: "INVENTORY_REORDER_TRIGGERED",
-              ip: "10.0.4.12 (Daemon)",
-              status: "SUCCESS",
-            },
-            {
-              time: "2026-08-24 11:12:44 UTC",
-              actor: "admin@nordicoutfitters.se",
-              action: "API_SECRET_ROTATION",
-              ip: "83.250.12.89 (Stockholm)",
-              status: "SUCCESS",
-            },
-          ].map((log, i) => (
-            <div
-              key={i}
-              className="p-2.5 bg-slate-50 rounded-lg border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px]"
-            >
-              <div className="flex items-center gap-2">
-                <span className="text-slate-400">{log.time}</span>
-                <span className="font-bold text-slate-800">{log.actor}</span>
+      {/* Provision Tenant Modal */}
+      {showProvisionModal && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <form
+            onSubmit={handleProvisionTenant}
+            className="bg-white border border-zinc-200 rounded-lg max-w-md w-full p-5 space-y-4 shadow-xl"
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-100">
+              <h4 className="font-heading font-bold text-sm text-zinc-950">
+                Add business organization
+              </h4>
+              <button
+                type="button"
+                onClick={() => setShowProvisionModal(false)}
+                className="text-zinc-400 hover:text-zinc-600"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="block text-xs font-medium text-zinc-700 mb-1">
+                  Business name
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Apex Coffee Roasters"
+                  value={newBusinessName}
+                  onChange={(e) => setNewBusinessName(e.target.value)}
+                  className="w-full bg-zinc-50 border border-zinc-200 rounded px-3 py-1.5 text-xs text-zinc-900 focus:outline-none focus:ring-1 focus:ring-blue-600"
+                />
               </div>
-              <div className="flex items-center gap-3">
-                <span className="text-indigo-700 font-semibold">{log.action}</span>
-                <span className="text-slate-500">{log.ip}</span>
-                <span className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold">
-                  {log.status}
-                </span>
+
+              <div>
+                <label className="block text-xs font-medium text-zinc-700 mb-1">
+                  Owner email address
+                </label>
+                <input
+                  type="email"
+                  required
+                  placeholder="admin@apexcoffee.com"
+                  value={newOwnerEmail}
+                  onChange={(e) => setNewOwnerEmail(e.target.value)}
+                  className="w-full bg-zinc-50 border border-zinc-200 rounded px-3 py-1.5 text-xs text-zinc-900 focus:outline-none focus:ring-1 focus:ring-blue-600"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-zinc-700 mb-1">
+                  Subscription tier
+                </label>
+                <select
+                  value={newPlan}
+                  onChange={(e) => setNewPlan(e.target.value as any)}
+                  className="w-full bg-zinc-50 border border-zinc-200 rounded px-3 py-1.5 text-xs text-zinc-800 focus:outline-none font-medium"
+                >
+                  <option value="Starter">Starter (1 Terminal)</option>
+                  <option value="Growth">Growth (Up to 5 Outlets)</option>
+                  <option value="Enterprise">Enterprise (Unlimited Outlets)</option>
+                </select>
               </div>
             </div>
-          ))}
+
+            <div className="pt-2 flex items-center justify-end gap-2 border-t border-zinc-100">
+              <button
+                type="button"
+                onClick={() => setShowProvisionModal(false)}
+                className="px-3 py-1.5 bg-white border border-zinc-200 text-zinc-700 rounded text-xs tactile-btn"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-1.5 bg-blue-700 hover:bg-blue-800 text-white rounded text-xs font-semibold shadow-2xs tactile-btn"
+              >
+                Create organization
+              </button>
+            </div>
+          </form>
         </div>
-      </div>
+      )}
     </div>
   );
 }

@@ -88,11 +88,11 @@ export function buildInviteEmailHtml(params: {
           <tr>
             <td style="background-color: #f9fafb; padding: 20px 32px; border-top: 1px solid #f3f4f6;">
               <p style="margin: 0; font-size: 12px; color: #9ca3af; text-align: center; line-height: 1.6;">
-                This is an automated message from <strong style="color: #C4973A;">DokanDar</strong>.<br>
+                This is an automated message from <strong style="color: #C4973A;">NextGen Cloud POS</strong>.<br>
                 Please do not reply to this email.
               </p>
               <p style="margin: 8px 0 0; font-size: 11px; color: #d1d5db; text-align: center;">
-                © ${year} DokanDar. All rights reserved.
+                © ${year} NextGen Cloud POS. All rights reserved.
               </p>
             </td>
           </tr>
@@ -127,7 +127,7 @@ export async function sendInviteEmail(
 
   const result = await sendPlatformEmail({
     to: email,
-    subject: `You've been invited to ${businessName} on DokanDar`,
+    subject: `You've been invited to ${businessName} on NextGen Cloud POS`,
     html,
   });
 

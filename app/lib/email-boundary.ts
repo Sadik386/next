@@ -22,7 +22,8 @@ type SmtpErrorLike = {
   responseCode?: unknown;
 };
 
-const DEV_INSECURE_TLS_ENV = "DOKANDAR_ALLOW_INSECURE_SMTP_TLS";
+const DEV_INSECURE_TLS_ENV = "NEXTGEN_ALLOW_INSECURE_SMTP_TLS";
+const LEGACY_DEV_INSECURE_TLS_ENV = "DOKANDAR_ALLOW_INSECURE_SMTP_TLS";
 
 export function getSmtpTransportSecurity(
   portValue: number | null | undefined,
@@ -35,7 +36,8 @@ export function getSmtpTransportSecurity(
   const secure = port === 465 || (port !== 587 && requestedSsl);
   const requireTLS = !secure && (port === 587 || mode === "tls" || mode === "starttls");
   const allowDevInsecureTls =
-    process.env.NODE_ENV !== "production" && process.env[DEV_INSECURE_TLS_ENV] === "true";
+    process.env.NODE_ENV !== "production" &&
+    (process.env[DEV_INSECURE_TLS_ENV] === "true" || process.env[LEGACY_DEV_INSECURE_TLS_ENV] === "true");
 
   return {
     secure,

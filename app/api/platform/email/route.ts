@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
         user,
         password: password || "",
         fromEmail,
-        fromName: fromName || "DokanDar Platform",
+        fromName: fromName || "NextGen Cloud POS Platform",
         replyTo,
       });
 

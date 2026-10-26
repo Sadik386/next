@@ -9,12 +9,7 @@ import {
   Phone,
   Mail,
   DollarSign,
-  Star,
-  Clock,
-  ChevronRight,
-  CreditCard,
   X,
-  CheckCircle2,
 } from "lucide-react";
 import { MOCK_CUSTOMERS, MOCK_SUPPLIERS, Customer, Supplier } from "@/data/mockData";
 
@@ -22,7 +17,7 @@ export default function CustomersPage() {
   const [activeTab, setActiveTab] = useState<"customers" | "suppliers">("customers");
   const [searchQuery, setSearchQuery] = useState("");
   const [customers, setCustomers] = useState<Customer[]>(MOCK_CUSTOMERS);
-  const [suppliers, setSuppliers] = useState<Supplier[]>(MOCK_SUPPLIERS);
+  const [suppliers] = useState<Supplier[]>(MOCK_SUPPLIERS);
 
   // Modals
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
@@ -59,10 +54,11 @@ export default function CustomersPage() {
       totalOrders: 0,
       totalSpent: 0,
       outstandingBalance: 0,
-      creditLimit: newCustType === "Wholesale" ? 10000 : 1000,
-      lastVisit: "Just now",
+      creditLimit: newCustType === "Wholesale" ? 15000 : 2500,
+      lastVisit: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
       status: "Active",
     };
+
     setCustomers([newCust, ...customers]);
     setShowAddCustomer(false);
     setNewCustName("");
@@ -70,135 +66,151 @@ export default function CustomersPage() {
     setNewCustEmail("");
   };
 
+  const totalReceivables = customers.reduce((acc, c) => acc + c.outstandingBalance, 0);
+  const totalPayables = suppliers.reduce((acc, s) => acc + s.pendingBills, 0);
+
   return (
-    <div className="space-y-6">
-      {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="font-heading font-bold text-xl text-slate-900">
-            Customer CRM &amp; Supplier Ledger
-          </h2>
-          <p className="text-xs text-slate-500">
-            Manage VIP customer loyalty points, wholesale credit balances, and vendor procurement accounts.
-          </p>
+    <div className="space-y-5">
+      {/* Financial Receivables & Payables Metrics */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-white rounded-lg p-4 border border-zinc-200 shadow-2xs">
+          <div className="text-xs font-medium text-zinc-600 mb-1.5">
+            Accounts receivable
+          </div>
+          <div className="font-mono font-bold text-2xl text-amber-700 mb-1">
+            ${totalReceivables.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+          </div>
+          <div className="text-xs text-zinc-500">
+            Unsettled customer credit balances
+          </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setShowAddCustomer(true)}
-          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-sm shadow-indigo-600/30 flex items-center gap-1.5 transition-all self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Add New Account</span>
-        </button>
+        <div className="bg-white rounded-lg p-4 border border-zinc-200 shadow-2xs">
+          <div className="text-xs font-medium text-zinc-600 mb-1.5">
+            Accounts payable
+          </div>
+          <div className="font-mono font-bold text-2xl text-red-700 mb-1">
+            ${totalPayables.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+          </div>
+          <div className="text-xs text-zinc-500">
+            Outstanding vendor invoices due
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg p-4 border border-zinc-200 shadow-2xs">
+          <div className="text-xs font-medium text-zinc-600 mb-1.5">
+            Active directory
+          </div>
+          <div className="font-mono font-bold text-2xl text-zinc-950 mb-1">
+            {customers.length + suppliers.length} <span className="text-sm font-normal text-zinc-500">accounts</span>
+          </div>
+          <div className="text-xs text-zinc-500">
+            {customers.length} buyers, {suppliers.length} vendor suppliers
+          </div>
+        </div>
       </div>
 
-      {/* Main Container Card */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-        {/* Tab & Search Bar */}
-        <div className="p-5 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setActiveTab("customers")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all ${
-                activeTab === "customers"
-                  ? "bg-indigo-600 text-white shadow-xs"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-              }`}
-            >
-              <Users className="w-3.5 h-3.5" />
-              <span>Customer Registry ({customers.length})</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab("suppliers")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all ${
-                activeTab === "suppliers"
-                  ? "bg-indigo-600 text-white shadow-xs"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-              }`}
-            >
-              <Building2 className="w-3.5 h-3.5" />
-              <span>Supplier Accounts ({suppliers.length})</span>
-            </button>
-          </div>
-
-          <div className="relative min-w-[260px]">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by name, email or company..."
-              className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-            />
-          </div>
+      {/* Control Strip & Tab Switcher */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white border border-zinc-200 rounded-lg p-3">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setActiveTab("customers")}
+            className={`px-3 py-1.5 rounded text-xs transition-colors tactile-btn ${
+              activeTab === "customers"
+                ? "bg-blue-700 text-white font-semibold"
+                : "bg-white text-zinc-600 border border-zinc-200 hover:bg-zinc-50"
+            }`}
+          >
+            Customer accounts
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("suppliers")}
+            className={`px-3 py-1.5 rounded text-xs transition-colors tactile-btn ${
+              activeTab === "suppliers"
+                ? "bg-blue-700 text-white font-semibold"
+                : "bg-white text-zinc-600 border border-zinc-200 hover:bg-zinc-50"
+            }`}
+          >
+            Vendor suppliers
+          </button>
         </div>
 
-        {/* Tab 1: Customer Registry */}
-        {activeTab === "customers" && (
+        <div className="flex items-center gap-2 flex-1 max-w-md">
+          <div className="relative w-full">
+            <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Search by name, phone, or email..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-zinc-50 border border-zinc-200 rounded pl-8 pr-3 py-1.5 text-xs font-mono text-zinc-900 focus:outline-none focus:ring-1 focus:ring-blue-600 focus:border-blue-600"
+            />
+          </div>
+
+          {activeTab === "customers" && (
+            <button
+              type="button"
+              onClick={() => setShowAddCustomer(true)}
+              className="px-3.5 py-1.5 bg-blue-700 hover:bg-blue-800 text-white rounded text-xs font-semibold shadow-2xs transition-colors tactile-btn flex items-center gap-1.5 whitespace-nowrap"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add customer</span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Main Table */}
+      {activeTab === "customers" ? (
+        <div className="bg-white border border-zinc-200 rounded-lg shadow-2xs overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50/80 text-slate-500 uppercase tracking-wider font-semibold border-b border-slate-200">
-                <tr>
-                  <th className="px-6 py-3">Customer Profile</th>
-                  <th className="px-6 py-3">Account Tier</th>
-                  <th className="px-6 py-3">Contact</th>
-                  <th className="px-6 py-3 text-center">Orders</th>
-                  <th className="px-6 py-3 text-right">Lifetime Spend</th>
-                  <th className="px-6 py-3 text-right">Outstanding Balance</th>
-                  <th className="px-6 py-3 text-right">Credit Limit</th>
-                  <th className="px-6 py-3 text-right">Actions</th>
+            <table className="w-full text-left text-xs font-mono">
+              <thead>
+                <tr className="bg-zinc-50/80 border-b border-zinc-200 text-xs text-zinc-500">
+                  <th className="py-2.5 px-4 font-semibold">Customer name</th>
+                  <th className="py-2.5 px-4 font-semibold">Account tier</th>
+                  <th className="py-2.5 px-4 font-semibold">Contact info</th>
+                  <th className="py-2.5 px-4 font-semibold text-right">Orders</th>
+                  <th className="py-2.5 px-4 font-semibold text-right">Lifetime spend</th>
+                  <th className="py-2.5 px-4 font-semibold text-right">Credit balance</th>
+                  <th className="py-2.5 px-4 font-semibold text-right">Credit limit</th>
+                  <th className="py-2.5 px-4 font-semibold text-right">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filteredCustomers.map((cust) => (
-                  <tr key={cust.id} className="hover:bg-slate-50/60 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="font-heading font-bold text-slate-900">{cust.name}</div>
-                      <div className="text-[11px] text-slate-400">Last visited {cust.lastVisit}</div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${
-                          cust.type === "VIP"
-                            ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
-                            : cust.type === "Wholesale"
-                            ? "bg-purple-50 text-purple-700 border border-purple-200"
-                            : "bg-slate-100 text-slate-700"
-                        }`}
-                      >
-                        {cust.type}
+              <tbody className="divide-y divide-zinc-100">
+                {filteredCustomers.map((c) => (
+                  <tr key={c.id} className="hover:bg-zinc-50/60 transition-colors">
+                    <td className="py-3 px-4 font-sans font-bold text-zinc-900">{c.name}</td>
+                    <td className="py-3 px-4">
+                      <span className="px-2 py-0.5 rounded text-xs font-medium bg-zinc-100 text-zinc-700 border border-zinc-200">
+                        {c.type}
                       </span>
                     </td>
-                    <td className="px-6 py-4 space-y-0.5">
-                      <div className="text-slate-700 font-medium">{cust.phone}</div>
-                      <div className="text-[11px] text-slate-400">{cust.email}</div>
+                    <td className="py-3 px-4 text-zinc-600">
+                      <div>{c.phone}</div>
+                      <div className="text-xs text-zinc-400">{c.email}</div>
                     </td>
-                    <td className="px-6 py-4 text-center font-mono font-semibold text-slate-700">
-                      {cust.totalOrders}
+                    <td className="py-3 px-4 text-right font-bold text-zinc-900">{c.totalOrders}</td>
+                    <td className="py-3 px-4 text-right font-bold text-zinc-950">
+                      ${c.totalSpent.toFixed(2)}
                     </td>
-                    <td className="px-6 py-4 text-right font-heading font-bold text-slate-900">
-                      ${cust.totalSpent.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                    <td
+                      className={`py-3 px-4 text-right font-bold ${
+                        c.outstandingBalance > 0 ? "text-amber-700" : "text-emerald-700"
+                      }`}
+                    >
+                      ${c.outstandingBalance.toFixed(2)}
                     </td>
-                    <td className="px-6 py-4 text-right font-mono font-bold">
-                      {cust.outstandingBalance > 0 ? (
-                        <span className="text-rose-600">
-                          ${cust.outstandingBalance.toFixed(2)}
-                        </span>
-                      ) : (
-                        <span className="text-emerald-600">$0.00</span>
-                      )}
+                    <td className="py-3 px-4 text-right text-zinc-500">
+                      ${c.creditLimit.toFixed(2)}
                     </td>
-                    <td className="px-6 py-4 text-right font-mono text-slate-500">
-                      ${cust.creditLimit.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                    </td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="py-3 px-4 text-right">
                       <button
                         type="button"
-                        onClick={() => setSelectedCustomer(cust)}
-                        className="px-2.5 py-1 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg text-xs font-semibold transition-colors"
+                        onClick={() => setSelectedCustomer(c)}
+                        className="px-2.5 py-1 bg-white border border-zinc-200 hover:bg-zinc-50 text-blue-700 rounded text-xs font-semibold transition-colors tactile-btn"
                       >
                         Ledger
                       </button>
@@ -208,213 +220,211 @@ export default function CustomersPage() {
               </tbody>
             </table>
           </div>
-        )}
-
-        {/* Tab 2: Supplier Accounts */}
-        {activeTab === "suppliers" && (
+        </div>
+      ) : (
+        /* Suppliers Table */
+        <div className="bg-white border border-zinc-200 rounded-lg shadow-2xs overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50/80 text-slate-500 uppercase tracking-wider font-semibold border-b border-slate-200">
-                <tr>
-                  <th className="px-6 py-3">Supplier / Company</th>
-                  <th className="px-6 py-3">Category Supplied</th>
-                  <th className="px-6 py-3">Contact</th>
-                  <th className="px-6 py-3 text-center">Avg Lead Time</th>
-                  <th className="px-6 py-3 text-center">Score</th>
-                  <th className="px-6 py-3 text-right">Payable Balance</th>
-                  <th className="px-6 py-3 text-right">Actions</th>
+            <table className="w-full text-left text-xs font-mono">
+              <thead>
+                <tr className="bg-zinc-50/80 border-b border-zinc-200 text-xs text-zinc-500">
+                  <th className="py-2.5 px-4 font-semibold">Vendor company</th>
+                  <th className="py-2.5 px-4 font-semibold">Representative</th>
+                  <th className="py-2.5 px-4 font-semibold">Category</th>
+                  <th className="py-2.5 px-4 font-semibold">Contact email</th>
+                  <th className="py-2.5 px-4 font-semibold text-right">Lead time</th>
+                  <th className="py-2.5 px-4 font-semibold text-right">Pending payables</th>
+                  <th className="py-2.5 px-4 font-semibold text-center">Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filteredSuppliers.map((sup) => (
-                  <tr key={sup.id} className="hover:bg-slate-50/60 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="font-heading font-bold text-slate-900">{sup.company}</div>
-                      <div className="text-[11px] text-slate-400">Rep: {sup.name}</div>
+              <tbody className="divide-y divide-zinc-100">
+                {filteredSuppliers.map((s) => (
+                  <tr key={s.id} className="hover:bg-zinc-50/60 transition-colors">
+                    <td className="py-3 px-4 font-sans font-bold text-zinc-900">{s.company}</td>
+                    <td className="py-3 px-4 font-sans text-zinc-700">{s.name}</td>
+                    <td className="py-3 px-4 text-zinc-600">{s.category}</td>
+                    <td className="py-3 px-4 text-zinc-600">{s.email}</td>
+                    <td className="py-3 px-4 text-right text-zinc-900 font-bold">{s.leadTimeDays} days</td>
+                    <td className="py-3 px-4 text-right font-bold text-red-700">
+                      ${s.pendingBills.toFixed(2)}
                     </td>
-                    <td className="px-6 py-4">
-                      <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-medium text-[11px]">
-                        {sup.category}
+                    <td className="py-3 px-4 text-center">
+                      <span className="px-2 py-0.5 rounded text-xs font-medium bg-emerald-50 text-emerald-800 border border-emerald-200">
+                        {s.status}
                       </span>
-                    </td>
-                    <td className="px-6 py-4 space-y-0.5">
-                      <div className="text-slate-700 font-medium">{sup.phone}</div>
-                      <div className="text-[11px] text-slate-400">{sup.email}</div>
-                    </td>
-                    <td className="px-6 py-4 text-center font-mono font-medium text-slate-700">
-                      {sup.leadTimeDays} Days
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <span className="inline-flex items-center gap-1 text-amber-600 font-bold">
-                        <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-                        <span>{sup.rating}</span>
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right font-mono font-bold text-rose-600">
-                      ${sup.pendingBills.toFixed(2)}
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <button
-                        type="button"
-                        className="px-2.5 py-1 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg text-xs font-semibold transition-colors"
-                      >
-                        Create PO
-                      </button>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* Customer Ledger Modal */}
+      {/* Customer Account Details Modal */}
       {selectedCustomer && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full p-6 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white border border-zinc-200 rounded-lg max-w-md w-full p-5 space-y-4 shadow-xl">
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-100">
               <div>
-                <h3 className="font-heading font-bold text-base text-slate-900">
+                <h4 className="font-heading font-bold text-sm text-zinc-950">
                   {selectedCustomer.name}
-                </h3>
-                <span className="text-[11px] font-semibold text-indigo-600">
-                  {selectedCustomer.type} Tier Account
-                </span>
+                </h4>
+                <div className="text-xs font-mono text-zinc-500">
+                  Account #{selectedCustomer.id}, Tier: {selectedCustomer.type}
+                </div>
               </div>
               <button
                 type="button"
                 onClick={() => setSelectedCustomer(null)}
-                className="text-slate-400 hover:text-slate-700"
+                className="text-zinc-400 hover:text-zinc-600"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="p-4 bg-slate-50 rounded-xl space-y-2 text-xs">
-              <div className="flex justify-between">
-                <span className="text-slate-500">Total Spent to Date:</span>
-                <span className="font-bold text-slate-900">${selectedCustomer.totalSpent.toFixed(2)}</span>
+            <div className="space-y-3 text-xs font-mono">
+              <div className="p-3 bg-zinc-50 border border-zinc-200 rounded space-y-1.5">
+                <div className="flex justify-between">
+                  <span className="text-zinc-500">Total invoiced:</span>
+                  <span className="font-bold text-zinc-900">${selectedCustomer.totalSpent.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-zinc-500">Current balance due:</span>
+                  <span className="font-bold text-amber-700">
+                    ${selectedCustomer.outstandingBalance.toFixed(2)}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-zinc-500">Approved credit limit:</span>
+                  <span className="text-zinc-900">${selectedCustomer.creditLimit.toFixed(2)}</span>
+                </div>
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Outstanding Receivable Balance:</span>
-                <span className="font-bold text-rose-600">${selectedCustomer.outstandingBalance.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Available Credit Margin:</span>
-                <span className="font-bold text-emerald-600">
-                  ${(selectedCustomer.creditLimit - selectedCustomer.outstandingBalance).toFixed(2)}
-                </span>
+
+              <div className="space-y-1 text-xs font-sans">
+                <div className="text-zinc-500 font-medium">Contact information:</div>
+                <div className="text-zinc-800 font-mono">{selectedCustomer.phone}</div>
+                <div className="text-zinc-800">{selectedCustomer.email}</div>
               </div>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-100">
               <button
                 type="button"
                 onClick={() => setSelectedCustomer(null)}
-                className="flex-1 py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors"
+                className="px-3 py-1.5 bg-white border border-zinc-200 text-zinc-700 rounded text-xs tactile-btn"
               >
                 Close
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  alert(`Payment receipt recorded for ${selectedCustomer.name}`);
-                  setSelectedCustomer(null);
-                }}
-                className="flex-1 py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition-colors"
+                onClick={() => setSelectedCustomer(null)}
+                className="px-4 py-1.5 bg-blue-700 hover:bg-blue-800 text-white rounded text-xs font-semibold shadow-2xs tactile-btn"
               >
-                Record Payment
+                Record payment
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Add New Customer Modal */}
+      {/* Add Customer Modal */}
       {showAddCustomer && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full p-6 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="font-heading font-bold text-base text-slate-900">
-                Register Customer Account
-              </h3>
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <form
+            onSubmit={handleCreateCustomer}
+            className="bg-white border border-zinc-200 rounded-lg max-w-md w-full p-5 space-y-4 shadow-xl"
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-100">
+              <h4 className="font-heading font-bold text-sm text-zinc-950">
+                Register customer account
+              </h4>
               <button
                 type="button"
                 onClick={() => setShowAddCustomer(false)}
-                className="text-slate-400 hover:text-slate-700"
+                className="text-zinc-400 hover:text-zinc-600"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleCreateCustomer} className="space-y-3 text-xs">
+            <div className="space-y-3 text-xs">
               <div>
-                <label className="block text-slate-700 font-semibold mb-1">Full Name / Business Title</label>
+                <label className="block text-xs font-medium text-zinc-700 mb-1">
+                  Customer or business name
+                </label>
                 <input
                   type="text"
+                  required
+                  placeholder="e.g. Liam Henderson"
                   value={newCustName}
                   onChange={(e) => setNewCustName(e.target.value)}
-                  placeholder="e.g. Apex Distribution Ltd"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                  required
+                  className="w-full bg-zinc-50 border border-zinc-200 rounded px-3 py-1.5 text-xs text-zinc-900 focus:outline-none focus:ring-1 focus:ring-blue-600"
                 />
               </div>
 
-              <div>
-                <label className="block text-slate-700 font-semibold mb-1">Phone Number</label>
-                <input
-                  type="text"
-                  value={newCustPhone}
-                  onChange={(e) => setNewCustPhone(e.target.value)}
-                  placeholder="+1 (555) 000-0000"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none"
-                  required
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-zinc-700 mb-1">
+                    Phone number
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="+1 (555) 0192"
+                    value={newCustPhone}
+                    onChange={(e) => setNewCustPhone(e.target.value)}
+                    className="w-full bg-zinc-50 border border-zinc-200 rounded px-3 py-1.5 font-mono text-xs text-zinc-900 focus:outline-none focus:ring-1 focus:ring-blue-600"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-zinc-700 mb-1">
+                    Account tier
+                  </label>
+                  <select
+                    value={newCustType}
+                    onChange={(e) => setNewCustType(e.target.value as any)}
+                    className="w-full bg-zinc-50 border border-zinc-200 rounded px-3 py-1.5 text-xs text-zinc-800 focus:outline-none"
+                  >
+                    <option value="Retail">Retail</option>
+                    <option value="Wholesale">Wholesale</option>
+                    <option value="VIP">VIP</option>
+                  </select>
+                </div>
               </div>
 
               <div>
-                <label className="block text-slate-700 font-semibold mb-1">Email Address</label>
+                <label className="block text-xs font-medium text-zinc-700 mb-1">
+                  Email address
+                </label>
                 <input
                   type="email"
+                  required
+                  placeholder="liam.henderson@example.com"
                   value={newCustEmail}
                   onChange={(e) => setNewCustEmail(e.target.value)}
-                  placeholder="accounts@apex.com"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none"
-                  required
+                  className="w-full bg-zinc-50 border border-zinc-200 rounded px-3 py-1.5 text-xs text-zinc-900 focus:outline-none focus:ring-1 focus:ring-blue-600"
                 />
               </div>
+            </div>
 
-              <div>
-                <label className="block text-slate-700 font-semibold mb-1">Account Tier</label>
-                <select
-                  value={newCustType}
-                  onChange={(e) => setNewCustType(e.target.value as any)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none"
-                >
-                  <option value="Retail">Retail</option>
-                  <option value="Wholesale">Wholesale</option>
-                  <option value="VIP">VIP</option>
-                </select>
-              </div>
-
-              <div className="flex gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowAddCustomer(false)}
-                  className="flex-1 py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-semibold transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-2 px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold transition-colors"
-                >
-                  Create Account
-                </button>
-              </div>
-            </form>
-          </div>
+            <div className="pt-2 flex items-center justify-end gap-2 border-t border-zinc-100">
+              <button
+                type="button"
+                onClick={() => setShowAddCustomer(false)}
+                className="px-3 py-1.5 bg-white border border-zinc-200 text-zinc-700 rounded text-xs tactile-btn"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-1.5 bg-blue-700 hover:bg-blue-800 text-white rounded text-xs font-semibold shadow-2xs tactile-btn"
+              >
+                Save account
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </div>

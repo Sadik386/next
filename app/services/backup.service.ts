@@ -3,7 +3,7 @@ import { getCurrentBusinessId } from "@/lib/business";
 import { Prisma } from "@prisma/client";
 
 const BACKUP_VERSION = "1.0.0";
-const APP_NAME = "DokanDar";
+const APP_NAME = "NextGen Cloud POS";
 
 interface BackupData {
   settings: Record<string, unknown>[];

@@ -51,3 +51,6 @@ prisma/migration_archive/
  
 tsconfig.tsbuildinfo
 *.tsbuildinfo
+
+# local browser traces and screenshots
+.playwright-mcp/

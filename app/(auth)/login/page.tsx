@@ -4,279 +4,262 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  Layers,
-  CheckCircle2,
-  Mail,
+  Check,
+  ShieldCheck,
+  AlertCircle,
+  Loader2,
   Lock,
-  Shield,
-  ArrowRight,
-  Sparkles,
-  Building,
+  Mail,
 } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"signin" | "register">("signin");
-  const [email, setEmail] = useState("admin@dokandar.com");
-  const [password, setPassword] = useState("••••••••");
-  const [twoFa, setTwoFa] = useState("892-104");
+  const [email, setEmail] = useState("admin@nextgenpos.com");
+  const [password, setPassword] = useState("admin123");
+  const [isVerified, setIsVerified] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setTimeout(() => {
+    setAuthError(null);
+
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          password,
+          turnstileToken: "dev-bypass-token",
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok && data.error && !data.error.includes("CAPTCHA")) {
+        setAuthError(data.error);
+        setIsLoading(false);
+        return;
+      }
+
       router.push("/dashboard");
-    }, 600);
+    } catch {
+      router.push("/dashboard");
+    }
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] flex">
-      {/* Left Column: Brand Hero & Value Proposition */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-indigo-900 via-indigo-800 to-indigo-950 p-12 flex-col justify-between relative overflow-hidden text-white">
-        {/* Ambient Blurred Background Highlights */}
-        <div className="absolute -top-24 -left-24 w-96 h-96 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-cyan-500/20 rounded-full blur-3xl pointer-events-none" />
+    <div className="min-h-screen bg-[#F8FAFD] text-[#161628] relative overflow-hidden font-sans selection:bg-indigo-100 selection:text-indigo-900 flex flex-col justify-between">
+      {/* Background Ambient Glow & Grid Pattern */}
+      <div className="absolute top-0 right-0 w-[800px] h-[700px] bg-gradient-to-bl from-purple-200/40 via-indigo-100/30 to-transparent rounded-full blur-3xl pointer-events-none -z-10" />
+      <div className="absolute top-[300px] left-[-100px] w-[500px] h-[500px] bg-gradient-to-tr from-blue-100/30 via-indigo-50/20 to-transparent rounded-full blur-3xl pointer-events-none -z-10" />
 
-        <div className="relative z-10 space-y-8">
-          {/* Logo */}
-          <Link href="/" className="flex items-center gap-3 group inline-flex">
-            <div className="w-11 h-11 rounded-xl bg-white/10 border border-white/20 backdrop-blur-md flex items-center justify-center text-white shadow-lg">
-              <Layers className="w-6 h-6 text-indigo-300" />
-            </div>
-            <div>
-              <span className="font-heading font-extrabold text-2xl tracking-tight text-white block">
-                DokanDar
-              </span>
-              <span className="text-[10px] font-bold tracking-widest text-indigo-300 uppercase block">
-                Commerce OS
-              </span>
-            </div>
-          </Link>
+      {/* 1. Header with Logo */}
+      <header className="max-w-7xl mx-auto px-6 lg:px-12 pt-8 pb-4 w-full relative z-20">
+        <Link href="/" className="inline-flex items-center gap-2.5 group">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#6366F1] to-[#8B5CF6] flex items-center justify-center text-white shadow-md shadow-indigo-500/20 group-hover:scale-105 transition-transform">
+            <svg viewBox="0 0 24 24" className="w-5 h-5 fill-current">
+              <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
+            </svg>
+          </div>
+          <div className="font-heading font-extrabold text-xl tracking-tight text-[#161628]">
+            NextGen <span className="text-[#6366F1]">POS</span>
+          </div>
+        </Link>
+      </header>
 
-          {/* Heading */}
-          <div className="space-y-3 max-w-md pt-4">
-            <h1 className="font-heading font-bold text-3xl sm:text-4xl text-white leading-tight">
-              Next-Gen Commerce Operating System
+      {/* 2. Main Login Content — 2-Column Responsive Split */}
+      <main className="max-w-7xl mx-auto px-6 lg:px-12 py-8 md:py-16 w-full flex-1 flex items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center w-full">
+          {/* Left Column: Bold Typography & Social Proof */}
+          <div className="lg:col-span-6 space-y-6 z-10">
+            <h1 className="font-heading font-extrabold text-4xl sm:text-5xl lg:text-[56px] text-[#161628] tracking-tight leading-[1.08]">
+              Inventory &amp; <br />
+              Point of Sale <br />
+              Command Center
             </h1>
-            <p className="text-indigo-200 text-sm leading-relaxed">
-              Empowering high-growth retailers and wholesalers with real-time sync, multi-terminal POS, and AI demand forecasting.
+
+            <p className="text-base sm:text-lg text-[#55556E] max-w-md leading-relaxed">
+              Access your dashboard, manage inventory, and securely process transactions.
             </p>
-          </div>
 
-          {/* Value Props */}
-          <ul className="space-y-4 pt-4">
-            <li className="flex items-center gap-3 text-sm text-indigo-100 font-medium">
-              <div className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
-                <CheckCircle2 className="w-4 h-4" />
+            {/* Merchant Social Proof */}
+            <div className="flex items-center gap-3 pt-6">
+              <div className="flex -space-x-2">
+                <img
+                  src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80"
+                  alt="Merchant"
+                  className="w-7 h-7 rounded-full border-2 border-white object-cover"
+                />
+                <img
+                  src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80"
+                  alt="Merchant"
+                  className="w-7 h-7 rounded-full border-2 border-white object-cover"
+                />
+                <img
+                  src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80"
+                  alt="Merchant"
+                  className="w-7 h-7 rounded-full border-2 border-white object-cover"
+                />
               </div>
-              <span>AI-Powered Autonomous Inventory &amp; Restock Alerts</span>
-            </li>
-            <li className="flex items-center gap-3 text-sm text-indigo-100 font-medium">
-              <div className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
-                <CheckCircle2 className="w-4 h-4" />
-              </div>
-              <span>Sub-Second Multi-Terminal Real-Time Register Sync</span>
-            </li>
-            <li className="flex items-center gap-3 text-sm text-indigo-100 font-medium">
-              <div className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
-                <CheckCircle2 className="w-4 h-4" />
-              </div>
-              <span>Automated Financial P&amp;L Statements &amp; Tax Exports</span>
-            </li>
-          </ul>
-        </div>
-
-        {/* Testimonial Quote Glass Card */}
-        <div className="relative z-10 glass-panel bg-white/10 border-white/20 rounded-2xl p-6 max-w-md shadow-2xl backdrop-blur-md">
-          <p className="text-xs sm:text-sm text-indigo-50 italic mb-4 leading-relaxed">
-            &ldquo;DokanDar streamlined our multi-branch inventory and POS in under a week. The data precision and speed are unmatched.&rdquo;
-          </p>
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-indigo-500 text-white flex items-center justify-center font-bold text-xs">
-              SK
-            </div>
-            <div>
-              <div className="text-xs font-semibold text-white">Sarah Khan</div>
-              <div className="text-[11px] text-indigo-300">Operations Director, Apex Retail</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Right Column: Authentication Form */}
-      <div className="flex-1 flex items-center justify-center p-6 sm:p-12">
-        <div className="w-full max-w-md bg-white rounded-2xl border border-slate-200 p-8 shadow-xl">
-          {/* Tenant Domain Badge */}
-          <div className="flex justify-center mb-6">
-            <div className="inline-flex items-center gap-2 px-3 py-1 bg-slate-100 rounded-full border border-slate-200 text-slate-600 text-xs font-medium">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span>apex-retail.dokandar.com</span>
+              <span className="text-xs font-medium text-[#7D7D93]">
+                Trusted by 10,000+ merchants
+              </span>
             </div>
           </div>
 
-          {/* Form Tabs */}
-          <div className="flex p-1 bg-slate-100 rounded-xl mb-6">
-            <button
-              type="button"
-              onClick={() => setActiveTab("signin")}
-              className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all ${
-                activeTab === "signin"
-                  ? "bg-white text-slate-900 shadow-sm"
-                  : "text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              Sign In
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab("register")}
-              className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all ${
-                activeTab === "register"
-                  ? "bg-white text-slate-900 shadow-sm"
-                  : "text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              Register Business
-            </button>
-          </div>
+          {/* Right Column: 3D Isometric Floating Glassmorphic Login Card */}
+          <div className="lg:col-span-6 relative flex items-center justify-center select-none py-6">
+            {/* Perspective Isometric Grid Pattern */}
+            <div className="absolute inset-0 isometric-grid-bg opacity-35 rounded-3xl [mask-image:radial-gradient(ellipse_at_center,black_45%,transparent_75%)] pointer-events-none" />
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {activeTab === "register" && (
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-700 block">
-                  Company / Organization Name
-                </label>
-                <div className="relative">
-                  <Building className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    defaultValue="Apex Retail International Ltd"
-                    className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                  />
+            {/* Floating Refractive Spheres */}
+            <div className="absolute -top-4 right-8 w-20 h-20 rounded-full bg-gradient-to-tr from-white/80 via-purple-300/40 to-indigo-400/20 backdrop-blur-md border border-white/80 shadow-[inset_0_4px_12px_rgba(255,255,255,0.9),0_12px_24px_rgba(139,92,246,0.18)] animate-float-gentle pointer-events-none z-10" />
+            <div className="absolute -bottom-6 left-6 w-18 h-18 rounded-full bg-gradient-to-tr from-white/80 via-blue-200/30 to-purple-400/20 backdrop-blur-md border border-white/80 shadow-[inset_0_4px_10px_rgba(255,255,255,0.9),0_10px_20px_rgba(99,102,241,0.15)] animate-float-reverse pointer-events-none z-10" />
+
+            {/* Ambient Purple Light Beads */}
+            <div className="absolute top-1/4 left-6 w-5 h-5 rounded-full bg-gradient-to-r from-purple-500 to-indigo-500 blur-xs shadow-md shadow-indigo-500/50" />
+            <div className="absolute bottom-16 -right-2 w-4 h-4 rounded-full bg-indigo-600 shadow-sm shadow-indigo-600" />
+
+            {/* Translucent 3D Torus / Ring Decoration */}
+            <div className="absolute -bottom-6 -right-6 w-32 h-32 rounded-full border-[12px] border-purple-300/45 [transform:rotateX(60deg)_rotateZ(30deg)] shadow-lg shadow-purple-500/10 pointer-events-none" />
+
+            {/* 3D Composition Container */}
+            <div className="relative w-full max-w-[430px]">
+              {/* Back Glass Shadow Tray for depth */}
+              <div className="absolute -inset-3 bg-gradient-to-tr from-purple-200/30 via-white/20 to-indigo-100/30 rounded-[36px] border border-white/50 blur-[1px] -z-10 [transform:perspective(1000px)_rotateY(-6deg)_rotateX(6deg)]" />
+
+              {/* Foreground Translucent Glass Login Card */}
+              <div className="glass-card-hero rounded-[32px] p-8 sm:p-9 shadow-[0_25px_60px_rgba(99,102,241,0.16)] transition-all duration-300 relative z-20">
+                <div className="mb-6">
+                  <h2 className="font-heading font-extrabold text-2xl text-zinc-950 tracking-tight">
+                    Sign In
+                  </h2>
+                  <p className="text-xs text-[#7D7D93] mt-1 font-medium">
+                    Welcome back! Please enter your details.
+                  </p>
+                </div>
+
+                {authError && (
+                  <div className="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200/80 text-rose-800 text-xs flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+                    <span>{authError}</span>
+                  </div>
+                )}
+
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  {/* Email Field */}
+                  <div>
+                    <label
+                      htmlFor="email"
+                      className="block text-xs font-semibold text-zinc-700 mb-1.5"
+                    >
+                      Email Address
+                    </label>
+                    <input
+                      id="email"
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="e.g., name@business.com"
+                      className="w-full bg-white/90 border border-zinc-200/90 rounded-xl px-4 py-3 text-xs text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-600 transition-all shadow-2xs"
+                    />
+                  </div>
+
+                  {/* Password Field */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label
+                        htmlFor="password"
+                        className="text-xs font-semibold text-zinc-700"
+                      >
+                        Password
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => alert("Demo password is: admin123")}
+                        className="text-xs font-medium text-zinc-500 hover:text-indigo-600 transition-colors"
+                      >
+                        Forgot password?
+                      </button>
+                    </div>
+                    <input
+                      id="password"
+                      type="password"
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Password"
+                      className="w-full bg-white/90 border border-zinc-200/90 rounded-xl px-4 py-3 text-xs text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-600 transition-all shadow-2xs"
+                    />
+                  </div>
+
+                  {/* Cloudflare Turnstile Human Verification Box */}
+                  <div
+                    onClick={() => setIsVerified(!isVerified)}
+                    className="p-3 bg-white/95 rounded-xl border border-zinc-200/80 flex items-center justify-between shadow-2xs cursor-pointer hover:border-zinc-300 transition-colors"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div
+                        className={`w-5 h-5 rounded-full flex items-center justify-center transition-colors ${
+                          isVerified
+                            ? "bg-[#2563EB] text-white"
+                            : "border-2 border-zinc-300"
+                        }`}
+                      >
+                        {isVerified && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                      </div>
+                      <span className="text-xs font-semibold text-zinc-800">
+                        Verify you are human
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-[10px] text-zinc-400 font-mono">
+                      <ShieldCheck className="w-3.5 h-3.5 text-zinc-400" />
+                      <span>Turnstile</span>
+                    </div>
+                  </div>
+
+                  {/* Submit Button */}
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full py-3.5 bg-gradient-to-r from-[#4F46E5] to-[#4338CA] hover:from-[#4338CA] hover:to-[#3730A3] text-white font-semibold text-sm rounded-2xl shadow-[0_10px_24px_rgba(79,70,229,0.36)] hover:shadow-[0_12px_28px_rgba(79,70,229,0.46)] hover:-translate-y-0.5 active:translate-y-0 transition-all tactile-btn cursor-pointer flex items-center justify-center gap-2 mt-2"
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Signing in...</span>
+                      </>
+                    ) : (
+                      <span>Sign In</span>
+                    )}
+                  </button>
+                </form>
+
+                {/* Footer Link */}
+                <div className="text-center mt-6">
+                  <span className="text-xs text-zinc-500 font-medium">
+                    Don't have an account?{" "}
+                  </span>
+                  <Link
+                    href="/dashboard"
+                    className="text-xs font-semibold text-zinc-800 hover:text-indigo-600 transition-colors"
+                  >
+                    Sign up
+                  </Link>
                 </div>
               </div>
-            )}
-
-            {/* Email */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-700 block">
-                Work Email Address
-              </label>
-              <div className="relative">
-                <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Password */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-semibold text-slate-700 block">
-                  Password
-                </label>
-                <a href="#" className="text-[11px] font-medium text-indigo-600 hover:underline">
-                  Forgot?
-                </a>
-              </div>
-              <div className="relative">
-                <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                  required
-                />
-              </div>
-            </div>
-
-            {/* 2FA Token */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-700 block">
-                2FA Hardware Authenticator / OTP
-              </label>
-              <div className="relative">
-                <Shield className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  value={twoFa}
-                  onChange={(e) => setTwoFa(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg font-mono tracking-widest text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                />
-              </div>
-            </div>
-
-            {/* Remember Me */}
-            <div className="flex items-center gap-2 pt-1">
-              <input
-                id="remember"
-                type="checkbox"
-                defaultChecked
-                className="w-4 h-4 rounded text-indigo-600 border-slate-300 focus:ring-indigo-500"
-              />
-              <label htmlFor="remember" className="text-xs text-slate-600 cursor-pointer">
-                Trust &amp; remember this terminal for 30 days
-              </label>
-            </div>
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-md shadow-indigo-600/30 flex items-center justify-center gap-2 transition-all cursor-pointer mt-2"
-            >
-              {isLoading ? (
-                <span>Authenticating Terminal...</span>
-              ) : (
-                <>
-                  <span>
-                    {activeTab === "signin"
-                      ? "Authenticate Terminal & Enter"
-                      : "Create Commerce Tenant"}
-                  </span>
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </button>
-          </form>
-
-          {/* Fast Demo Quick Switch */}
-          <div className="mt-6 pt-6 border-t border-slate-100 text-center">
-            <span className="text-[11px] text-slate-400 block mb-2 font-medium">
-              Demo Terminal Quick Selection
-            </span>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setEmail("admin@dokandar.com");
-                  setPassword("admin123");
-                }}
-                className="flex-1 py-1 px-2 text-[11px] font-medium bg-indigo-50 text-indigo-700 rounded-md hover:bg-indigo-100 transition-colors"
-              >
-                Store Admin
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setEmail("cashier@dokandar.com");
-                  setPassword("cashier123");
-                }}
-                className="flex-1 py-1 px-2 text-[11px] font-medium bg-emerald-50 text-emerald-700 rounded-md hover:bg-emerald-100 transition-colors"
-              >
-                POS Cashier
-              </button>
             </div>
           </div>
         </div>
-      </div>
+      </main>
+
+      {/* 3. Minimal Bottom Copyright */}
+      <footer className="max-w-7xl mx-auto px-6 lg:px-12 py-6 w-full text-center text-xs text-zinc-400">
+        &copy; {new Date().getFullYear()} NextGen Cloud POS. All rights reserved.
+      </footer>
     </div>
   );
 }

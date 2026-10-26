@@ -8,14 +8,14 @@ export default function AppLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-screen bg-[#f8fafc]">
-      {/* Sidebar Navigation */}
+    <div className="flex min-h-[100dvh] bg-[#F4F6FA]">
+      {/* Persistent Primary Navigation */}
       <AppSidebar />
 
-      {/* Main Content Area */}
+      {/* Main Content Workbench */}
       <div className="flex-1 flex flex-col min-w-0">
         <AppHeader />
-        <main className="flex-1 p-6 md:p-8 overflow-y-auto">
+        <main className="flex-1 p-5 md:p-8 overflow-y-auto">
           {children}
         </main>
       </div>

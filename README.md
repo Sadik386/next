@@ -1,89 +1,95 @@
-# Acuity Commerce — ইনভেন্টরি এবং পয়েন্ট অফ   সেল (POS) প্ল্যাটফর্ম
+# Dokandar — Inventory & Point of Sale (POS) Platform
 
-**Next.js 15**, **TypeScript**, **Prisma ORM**, **MySQL** এবং প্রিমিয়াম **Indigo/Violet ডিজাইন সিস্টেম** দিয়ে তৈরি একটি আধুনিক, দ্রুতগতির ও ফুল-স্ট্যাক ইনভেন্টরি ম্যানেজমেন্ট এবং পয়েন্ট অফ সেল (POS) কমান্ড সেন্টার।
-
----
-
-## ✨ ফিচার ও মডিউলসমূহ
-
-### 🛒 পয়েন্ট অফ সেল (POS) টার্মিনাল
-- **দ্রুত চেকআউট ইন্টারফেস**: ক্যাটাগরি ফিল্টার এবং তাৎক্ষণিক সার্চ সুবিধা সহ টাচ-ফ্রেন্ডলি প্রোডাক্ট গ্রিড।
-- **মাল্টি-মোড বারকোড স্ক্যানিং**: হার্ডওয়্যার বারকোড স্ক্যানার, ওয়েবক্যাম স্ক্যানার এবং পেয়ার করা মোবাইল ফোনের মাধ্যমে স্ক্যানিং সুবিধা।
-- **কার্ট এবং অর্ডার কন্ট্রোল**: আইটেম কোয়ান্টিটি পরিবর্তন, ডিসকাউন্ট যুক্ত করা, নোট যোগ করা এবং অর্ডার হোল্ড/হোল্ড রিসিভ করার সুবিধা।
-- **প্রিন্ট ও ডিজিটাল রসিদ**: ওয়ান-ক্লিক থার্মাল রসিদ প্রিন্টিং এবং অটোমেটেড PDF জেনারেশন (`jsPDF`)।
-- **নমনীয় পেমেন্ট পদ্ধতি**: ক্যাশ, মোবাইল ব্যাংকিং (বিকাশ, নগদ, রকেট, উপায়), ব্যাংক ট্রান্সফার এবং কার্ড পেমেন্ট।
-
-### 📦 ইনভেন্টরি এবং প্রোডাক্ট ক্যাটালগ
-- **প্রোডাক্ট এবং ভ্যারিয়েন্ট ট্র্যাকিং**: একক প্রোডাক্ট এবং মাল্টি-ভ্যারিয়েন্ট SKU (সাইজ, কালার, ওজন ইত্যাদি) ট্র্যাকিং।
-- **স্টক ম্যানেজমেন্ট**: লো-স্টক এলার্ট, রিয়েল-টাইম স্টক আপডেট এবং ওয়ারহাউজ লোকেশন ট্র্যাকিং।
-- **বারকোড ও QR কোড**: প্রোডাক্ট SKU এবং অর্ডারের জন্য স্বয়ংক্রিয় বারকোড এবং QR কোড জেনারেশন (`jsbarcode`, `qrcode`)।
-- **বাল্ক ইমপোর্ট ও এক্সপোর্ট**: CSV ফাইলের মাধ্যমে প্রোডাক্ট ইমপোর্ট এবং ডেটাসেট এক্সপোর্ট সুবিধা (`papaparse`)।
-
-### 📊 অর্ডার এবং সেলস ম্যানেজমেন্ট
-- **অর্ডার পাইপলাইন**: লাইফসাইকেল ট্র্যাকিং (`Pending`, `Confirmed`, `Delivered`, `Cancelled`)।
-- **পেমেন্ট স্ট্যাটাস**: বকেয়া পেমেন্ট (Unpaid), আংশিক পেমেন্ট (Partial) এবং পরিশোধিত পেমেন্ট (Paid) ট্র্যাকিং।
-- **কাস্টমার ডিরেক্টরি**: কাস্টমার হিস্ট্রি, অ্যাড্রেস ম্যানেজমেন্ট এবং কন্টাক্ট রেকর্ড সমৃদ্ধ CRM ডেটাবেস।
-
-### 💸 ফাইন্যান্সিয়াল ও খরচ ট্র্যাকিং
-- **খরচের হিসাব (Expenses)**: নির্ভুল নিট প্রফিট গণনার জন্য ক্যাটাগরি-ভিত্তিক খরচের এন্ট্রি ও ট্র্যাকিং।
-- **ফাইন্যান্সিয়াল রিপোর্ট**: রেভিনিউ, গ্রস প্রফিট, নিট মার্জিন এবং ইন্টারেক্টিভ চার্ট সমৃদ্ধ খরচ বিশ্লেষণ (`recharts`)।
-
-### 🧠 ইন্টেলিজেন্স ও অ্যানালিটিক্স
-- **AI ইনভেন্টরি ইনসাইট**: শীর্ষ বিক্রিত পণ্য, পিক সেলস টাইম এবং স্টক রি-অর্ডারের জন্য স্বয়ংক্রিয় ইনসাইট।
-- **অ্যাক্টিভিটি ফিড**: ইনভেন্টরি পরিবর্তন, অর্ডার তৈরি এবং ইউজার অ্যাকশন ট্র্যাকিংয়ের বিস্তৃত লগ।
-
-### 🏢 মাল্টি-টেন্যান্ট ওয়ার্কস্পেস ও ইউজার রোল (RBAC)
-- **বিজনেস সুইচার**: একটি অ্যাকাউন্ট থেকেই একাধিক ব্যবসার স্থান পরিবর্তন ও পরিচালনার সুবিধা।
-- **ইউজার রোল কন্ট্রোল (RBAC)**: নির্দিষ্ট অ্যাক্সেস লেভেলসহ বিভিন্ন রোল (`Super Admin`, `Admin`, `Manager`, `Staff`, `Viewer`)।
-- **ডার্ক ও লাইট মোড**: আধুনিক গ্লাসফিজম ও কাস্টম ডিজাইন টোকেন সমৃদ্ধ থিম সুইচার।
+A modern, full-stack inventory management and point of sale (POS) command center built with **Next.js 15**, **TypeScript**, **Prisma ORM**, **MySQL**, and a premium **Indigo/Violet design system**. Also ships as a desktop app via **Tauri**.
 
 ---
 
-## 🛠️ টেকনোলজি স্ট্যাক
+## ✨ Features & Modules
 
-| লেয়ার | টেকনোলজি |
+### 🛒 Point of Sale (POS) Terminal
+- **Fast Checkout Interface**: Touch-friendly product grid with category filters and instant search.
+- **Multi-Mode Barcode Scanning**: Hardware barcode scanner, webcam scanner, and paired mobile phone scanning.
+- **Cart & Order Controls**: Adjust item quantities, apply discounts, add notes, and hold/recall orders.
+- **Print & Digital Receipts**: One-click thermal receipt printing and automated PDF generation (`jsPDF`).
+- **Flexible Payment Methods**: Cash, mobile banking (bKash, Nagad, Rocket, Upay), bank transfer, and card payments.
+
+### 📦 Inventory & Product Catalog
+- **Product & Variant Tracking**: Single-product and multi-variant SKU tracking (size, color, weight, etc.).
+- **Stock Management**: Low-stock alerts, real-time stock updates, and warehouse location tracking.
+- **Barcode & QR Codes**: Automatic barcode and QR code generation for product SKUs and orders (`jsbarcode`, `qrcode`).
+- **Bulk Import & Export**: Import products via CSV and export datasets (`papaparse`).
+
+### 📊 Orders & Sales Management
+- **Order Pipeline**: Full lifecycle tracking (`Pending` → `Confirmed` → `Delivered` / `Cancelled`).
+- **Payment Status**: Tracks unpaid, partially paid, and fully paid orders.
+- **Customer Directory**: CRM database with customer history, address management, and contact records.
+
+### 💸 Financial & Expense Tracking
+- **Expense Ledger**: Category-based expense entries for accurate net profit calculation.
+- **Financial Reports**: Revenue, gross profit, net margin, and interactive expense analysis charts (`recharts`).
+
+### 🧠 Intelligence & Analytics
+- **AI Inventory Insights**: Auto-generated insights for top-selling products, peak sales times, and reorder suggestions.
+- **Activity Feed**: Comprehensive logs for inventory changes, order creation, and user actions.
+
+### 🏢 Multi-Tenant Workspaces & RBAC
+- **Business Switcher**: Manage and switch between multiple businesses from a single account.
+- **Role-Based Access Control**: Granular roles — `Super Admin`, `Admin`, `Manager`, `Staff`, `Viewer`.
+- **Dark & Light Mode**: Theme switcher with glassmorphism effects and custom design tokens.
+
+### 🖥️ Desktop App (Tauri)
+- **Native Desktop Experience**: Runs as a standalone desktop application via Tauri.
+- **Offline-Ready Architecture**: Designed for environments with limited connectivity.
+
+---
+
+## 🛠️ Tech Stack
+
+| Layer | Technology |
 | :--- | :--- |
-| **ফ্রেমওয়ার্ক** | Next.js 15.5 (App Router, Server Actions, Dynamic API Routes) |
-| **ল্যাঙ্গুয়েজ** | TypeScript 5 |
-| **ডেটাবেস** | MySQL 8 সাথে Prisma ORM 5 |
-| **ইউআই ও স্টাইলিং** | Vanilla CSS Tokens + Tailwind CSS v4, Lucide React Icons |
-| **স্টেট ও কনটেক্সট** | React Context (`AuthContext`, `SidebarContext`, `SettingsContext`, `CurrencyProvider`) |
-| **PDF ও প্রিন্টিং** | `jsPDF`, `jspdf-autotable` |
-| **স্ক্যানিং ও কোড** | `@zxing/library`, `jsbarcode`, `qrcode` |
-| **অথেন্টিকেশন** | Custom JWT Auth (`jose`), `bcryptjs` পাসওয়ার্ড হ্যাশিং |
-| **সিকিউরিটি** | Cloudflare Turnstile CAPTCHA ভেরিফিকেশন |
+| **Framework** | Next.js 15.5 (App Router, Server Actions, Dynamic API Routes) |
+| **Language** | TypeScript 5 |
+| **Database** | MySQL 8 with Prisma ORM 5 |
+| **Desktop** | Tauri (Rust) |
+| **UI & Styling** | Vanilla CSS Tokens + Tailwind CSS v4, Lucide React Icons |
+| **State & Context** | React Context (`AuthContext`, `SidebarContext`, `SettingsContext`, `CurrencyProvider`) |
+| **PDF & Printing** | `jsPDF`, `jspdf-autotable` |
+| **Scanning & Codes** | `@zxing/library`, `jsbarcode`, `qrcode` |
+| **Authentication** | Custom JWT Auth (`jose`), `bcryptjs` password hashing |
+| **Security** | Cloudflare Turnstile CAPTCHA verification |
 
 ---
 
-## 🚀 সেটআপ ও ইনস্টলেশন নির্দেশিকা
+## 🚀 Getting Started
 
-### পূর্বশর্তসমূহ
+### Prerequisites
 
-- **Node.js**: v20.x বা তার পরবর্তী সংস্করণ
-- **প্যাকেজ ম্যানেজার**: `npm` (v10+)
-- **ডেটাবেস**: MySQL Server 8.0+
+- **Node.js** v20.x or later
+- **Package Manager**: `npm` (v10+)
+- **Database**: MySQL Server 8.0+
+- **Rust** (only if building the desktop app via Tauri)
 
-### ইনস্টলেশন ধাপসমূহ
+### Installation
 
-১. **রেপোজিটরি ক্লোন করুন**:
+1. **Clone the repository**:
    ```bash
-   git clone https://github.com/Sadik386/inverntory-management.git
-   cd inverntory-management
+   git clone https://github.com/Sadik386/dokandar.git
+   cd dokandar
    ```
 
-২. **ডিপেনডেন্সি ইনস্টল করুন**:
+2. **Install dependencies**:
    ```bash
    npm install
    ```
 
-৩. **এনভায়রনমেন্ট ভেরিয়েবল কনফিগার করুন**:
-   প্রজেক্টের রুট ডিরেক্টরিতে একটি `.env` ফাইল তৈরি করুন (অথবা `.env.production.example` অনুসরণ করুন):
+3. **Configure environment variables**:
+   Create a `.env` file in the project root (or follow `.env.production.example`):
    ```env
    # Database Connection
-   DATABASE_URL="mysql://root:password@localhost:3306/acuity_commerce"
+   DATABASE_URL="mysql://root:password@localhost:3306/dokandar"
 
    # Application Configuration
-   NEXT_PUBLIC_APP_NAME="Acuity Commerce"
+   NEXT_PUBLIC_APP_NAME="Dokandar"
    NEXT_PUBLIC_APP_URL="http://localhost:3001"
    APP_MODE="cloud"
    NODE_ENV="development"
@@ -92,75 +98,81 @@
    JWT_SECRET="your-64-character-super-secret-jwt-key-here"
    ENCRYPTION_KEY="your-32-byte-hex-encryption-key-here"
 
-   # Turnstile CAPTCHA (ঐচ্ছিক)
+   # Turnstile CAPTCHA (optional)
    NEXT_PUBLIC_TURNSTILE_SITE_KEY=""
    TURNSTILE_SECRET_KEY=""
    ```
 
-৪. **ডেটাবেস স্কিমা সেটআপ করুন**:
+4. **Set up the database**:
    ```bash
-   # MySQL ডেটাবেসে স্কিমা সিঙ্ক করুন
+   # Sync schema to MySQL
    npm run db:push
 
-   # Prisma Client জেনারেট করুন
+   # Generate Prisma Client
    npm run db:generate
 
-   # ইনিশিয়াল ডেটাবেস সিড করুন
+   # Seed the database
    npm run seed
    ```
 
-৫. **ডেভেলপমেন্ট সার্ভার চালু করুন**:
+5. **Start the development server**:
    ```bash
    npm run dev
    ```
-   আপনার ব্রাউজারে `http://localhost:3001` ঠিকানায় ওপেন করুন।
+   Open `http://localhost:3001` in your browser.
 
 ---
 
-## 📜 প্রজেক্ট স্ক্রিপ্টসমূহ
+## 📜 Scripts
 
-| কমান্ড | বিবরণ |
+| Command | Description |
 | :--- | :--- |
-| `npm run dev` | `http://localhost:3001` এ ডেভেলপমেন্ট সার্ভার চালু করে |
-| `npm run build` | প্রোডাকশন বান্ডেল বিল্ড করে |
-| `npm run start` | প্রোডাকশন সার্ভার চালু করে |
-| `npm run db:push` | Prisma স্কিমা সরাসরি ডেটাবেসে সিঙ্ক করে |
-| `npm run db:migrate` | ডেটাবেস মাইগ্রেশন অ্যাপ্লাই করে |
-| `npm run db:generate` | Prisma Client টাইপস আপডেট করে |
-| `npm run seed` | ডেভেলপমেন্ট ডেটাবেস সিড করে |
-| `npm run seed:prod` | প্রোডাকশন এনভায়রনমেন্টের জন্য প্রাথমিক ডেটা সিড করে |
+| `npm run dev` | Start the dev server on `http://localhost:3001` |
+| `npm run build` | Build the production bundle |
+| `npm run start` | Start the production server |
+| `npm run db:push` | Sync Prisma schema to the database |
+| `npm run db:migrate` | Apply database migrations |
+| `npm run db:generate` | Regenerate Prisma Client types |
+| `npm run db:studio` | Open Prisma Studio GUI |
+| `npm run seed` | Seed the development database |
+| `npm run seed:prod` | Seed initial data for production |
 
 ---
 
-## 📂 ফাইল ও ডিরেক্টরি স্ট্রাকচার
+## 📂 Project Structure
 
 ```
 ├── app/
-│   ├── (auth)/             # লগইন, রেজিস্টার এবং অথ প্ল্যাটফর্ম
-│   ├── (dashboard)/        # ড্যাশবোর্ড পেজসমূহ (POS, Products, Orders, Reports ইত্যাদি)
-│   ├── api/                # ব্যাকএন্ড REST API এন্ডপয়েন্টসমূহ
-│   ├── components/         # পুনঃব্যবহারযোগ্য UI ও লেআউট কম্পোনেন্ট
-│   │   ├── layout/         # Sidebar, Topbar, BusinessSwitcher
-│   │   ├── ui/             # StatusBadge, PageHeader, Popovers
-│   │   └── filters/        # DateFilter, SearchBars
-│   ├── contexts/           # Auth, Settings, Currency, Sidebar কনটেক্সট
-│   ├── globals.css         # ডিজাইন সিস্টেম টোকেন, অ্যানিমেশন এবং থিম
-│   └── styles/             # রেসপন্সিভ স্টাইলিং রুলস
-├── docs/                   # ডিপ্লয়মেন্ট এবং প্রজেক্ট ডকুমেন্টেশন
-├── prisma/                 # ডেটাবেস স্কিমা (`schema.prisma`) এবং সিড ফাইল
-├── public/                 # লোগো, ইমেজ এবং স্ট্যাটিক এসেট
+│   ├── (auth)/             # Login, register, and auth pages
+│   ├── (app)/              # Dashboard pages (POS, Products, Orders, Reports, etc.)
+│   ├── api/                # Backend REST API endpoints
+│   ├── components/         # Reusable UI & layout components
+│   │   ├── layout/         # AppSidebar, AppHeader
+│   │   └── ui/             # Shared UI primitives
+│   ├── constants/          # App-wide constants
+│   ├── data/               # Mock data & static datasets
+│   ├── lib/                # Utility functions & helpers
+│   ├── services/           # Business logic services
+│   ├── types/              # TypeScript type definitions
+│   └── globals.css         # Design system tokens, animations & themes
+├── prisma/                 # Database schema (schema.prisma) & seed files
+├── public/                 # Logos, images & static assets
+├── src-tauri/              # Tauri desktop app configuration & Rust source
+├── docs/                   # Deployment & project documentation
+├── scripts/                # Build & utility scripts
+├── site/                   # Static site / landing page
 └── package.json
 ```
 
 ---
 
-## 🔒 সিকিউরিটি ও ডিপ্লয়মেন্ট
+## 🔒 Security & Deployment
 
-- **VPS ডিপ্লয়মেন্ট নির্দেশিকা**: Nginx, PM2 এবং MySQL এর মাধ্যমে ভিপিএস-এ রান করতে [`docs/deployment/STAGING_VPS_DEPLOYMENT_CHECKLIST.md`](file:///home/sadik/sadik/inv/dokandar/docs/deployment/STAGING_VPS_DEPLOYMENT_CHECKLIST.md) দেখুন।
-- **ডেটা সুরক্ষা**: সংবেদনশীল তথ্য ও পাসওয়ার্ড AES-256-GCM এবং Salted `bcrypt` হ্যাশিংয়ের মাধ্যমে সুরক্ষিত।
+- **VPS Deployment**: Deploy with Nginx, PM2, and MySQL — see [`docs/`](file:///home/sadik/sadik/inv/accoraze/docs) for guides.
+- **Data Protection**: Sensitive data and passwords are secured with AES-256-GCM encryption and salted `bcrypt` hashing.
 
 ---
 
-## 📄 লাইসেন্স
+## 📄 License
 
-প্রাইভেট রেপোজিটরি। সর্বস্বত্ব সংরক্ষিত।
+Private repository. All rights reserved.

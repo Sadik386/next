@@ -506,8 +506,8 @@ export const MOCK_AI_RECOMMENDATIONS: AiRecommendation[] = [
 export const MOCK_TENANTS: Tenant[] = [
   {
     id: "tenant-01",
-    name: "DokanDar Flagship Retail Corp",
-    ownerEmail: "admin@dokandar.com",
+    name: "NextGen Flagship Retail Corp",
+    ownerEmail: "admin@nextgenpos.com",
     plan: "Enterprise",
     branches: 8,
     monthlyGmv: 248900.0,
